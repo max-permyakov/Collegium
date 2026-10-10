@@ -1,0 +1,78 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using CollegePortal.Domain.Entities;
+
+namespace CollegePortal.Infrastructure.Data;
+
+public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
+{
+    public CollegePortalDbContext(DbContextOptions<CollegePortalDbContext> options)
+        : base(options)
+    {
+    }
+
+    public DbSet<StudentProfile> StudentProfiles => Set<StudentProfile>();
+    public DbSet<StudyGroup> StudyGroups => Set<StudyGroup>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
+    public DbSet<Assignment> Assignments => Set<Assignment>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        builder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(e => e.DisplayName).HasMaxLength(200);
+            entity.Property(e => e.Role).HasMaxLength(50);
+        });
+
+        builder.Entity<StudentProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.UserId).IsUnique();
+            entity.HasIndex(e => e.ExternalStudentId).IsUnique();
+            entity.HasOne(e => e.User)
+                .WithOne(u => u.StudentProfile)
+                .HasForeignKey<StudentProfile>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.StudyGroup)
+                .WithMany(g => g.Students)
+                .HasForeignKey(e => e.StudyGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<StudyGroup>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.AcademicYear).HasMaxLength(20);
+        });
+
+        builder.Entity<Announcement>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).HasMaxLength(500);
+            entity.Property(e => e.Body).HasMaxLength(5000);
+            entity.HasOne(e => e.Author)
+                .WithMany()
+                .HasForeignKey(e => e.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Assignment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).HasMaxLength(500);
+            entity.Property(e => e.Description).HasMaxLength(5000);
+            entity.HasOne(e => e.StudyGroup)
+                .WithMany(g => g.Assignments)
+                .HasForeignKey(e => e.StudyGroupId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+}

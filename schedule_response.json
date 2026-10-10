@@ -1,0 +1,501 @@
+[
+  {
+    "date": "2026-10-10T00:00:00.0000000",
+    "lessons": [
+      {
+        "startTime": "08:45",
+        "endTime": "10:05",
+        "name": "Основы финансовой грамотности",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "53",
+            "id": 87
+          },
+          "teacher": {
+            "firstName": "Марина",
+            "lastName": "Воробьева",
+            "middleName": "Михайловна",
+            "id": 158
+          }
+        }
+      },
+      {
+        "startTime": "10:15",
+        "endTime": "11:35",
+        "name": "Основы алгоритмизации и программирования",
+        "timetable": {
+          "classroom": {
+            "buildingName": "2",
+            "buildingId": 4,
+            "name": "85",
+            "id": 101
+          },
+          "teacher": {
+            "firstName": "Руслана",
+            "lastName": "Вахитова",
+            "middleName": "Рaдиковна",
+            "id": 188
+          }
+        },
+        "gradebook": {
+          "id": 91514,
+          "themes": [
+            "ПР№4. Применение оператора выбора при разработке программ"
+          ],
+          "lessonType": "PracticalTraining",
+          "tasks": [
+            {
+              "id": 94898,
+              "type": "Home",
+              "topic": "Практическая работа №1 \"\"",
+              "isRequired": true,
+              "attachments": []
+            }
+          ]
+        }
+      },
+      {
+        "startTime": "11:45",
+        "endTime": "13:05",
+        "name": "Элементы высшей математики",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "48",
+            "id": 85
+          },
+          "teacher": {
+            "firstName": "Галина",
+            "lastName": "Емельянова",
+            "middleName": "Филипповна",
+            "id": 136
+          }
+        },
+        "gradebook": {
+          "id": 91590,
+          "themes": [
+            "Приложение двойных интегралов."
+          ],
+          "lessonType": "PracticalTraining",
+          "tasks": [
+            {
+              "id": 94976,
+              "type": "Home",
+              "topic": "-",
+              "condition": "",
+              "isRequired": false,
+              "attachments": []
+            }
+          ]
+        }
+      }
+    ],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-11T00:00:00.0000000",
+    "lessons": [],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-12T00:00:00.0000000",
+    "lessons": [
+      {
+        "startTime": "08:45",
+        "endTime": "10:05",
+        "name": "Основы проектирования баз данных",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "51",
+            "id": 114
+          },
+          "teacher": {
+            "firstName": "Людмила",
+            "lastName": "Квашина",
+            "middleName": "Николаевна",
+            "id": 58
+          }
+        }
+      },
+      {
+        "startTime": "10:25",
+        "endTime": "11:45",
+        "name": "Основы алгоритмизации и программирования",
+        "timetable": {
+          "classroom": {
+            "buildingName": "2",
+            "buildingId": 4,
+            "name": "85",
+            "id": 101
+          },
+          "teacher": {
+            "firstName": "Руслана",
+            "lastName": "Вахитова",
+            "middleName": "Рaдиковна",
+            "id": 188
+          }
+        }
+      },
+      {
+        "startTime": "12:05",
+        "endTime": "13:25",
+        "name": "Физическая культура",
+        "timetable": {
+          "classroom": {
+            "buildingName": "6",
+            "buildingId": 6,
+            "name": "4",
+            "id": 145
+          },
+          "teacher": {
+            "firstName": "Маргарита",
+            "lastName": "Шапошник",
+            "middleName": "Владимировна",
+            "id": 123
+          }
+        }
+      }
+    ],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-13T00:00:00.0000000",
+    "lessons": [
+      {
+        "startTime": "08:45",
+        "endTime": "10:05"
+      },
+      {
+        "startTime": "10:25",
+        "endTime": "11:45",
+        "name": "Разработка и администрирование информационной базы системы \"1С:Предприятие\"",
+        "timetable": {
+          "classroom": {
+            "buildingName": "2",
+            "buildingId": 4,
+            "name": "76",
+            "id": 133
+          },
+          "teacher": {
+            "firstName": "Ольга",
+            "lastName": "Щербакова",
+            "middleName": "Алексеевна",
+            "id": 128
+          }
+        }
+      },
+      {
+        "startTime": "12:05",
+        "endTime": "13:25",
+        "name": "Основы проектирования баз данных",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "51",
+            "id": 114
+          },
+          "teacher": {
+            "firstName": "Людмила",
+            "lastName": "Квашина",
+            "middleName": "Николаевна",
+            "id": 58
+          }
+        }
+      },
+      {
+        "startTime": "13:35",
+        "endTime": "14:55",
+        "name": "Элементы высшей математики",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "48",
+            "id": 85
+          },
+          "teacher": {
+            "firstName": "Галина",
+            "lastName": "Емельянова",
+            "middleName": "Филипповна",
+            "id": 136
+          }
+        }
+      }
+    ],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-14T00:00:00.0000000",
+    "lessons": [
+      {
+        "startTime": "08:45",
+        "endTime": "10:05"
+      },
+      {
+        "startTime": "10:25",
+        "endTime": "11:45",
+        "name": "Физическая культура",
+        "timetable": {
+          "classroom": {
+            "buildingName": "6",
+            "buildingId": 6,
+            "name": "4",
+            "id": 145
+          },
+          "teacher": {
+            "firstName": "Маргарита",
+            "lastName": "Шапошник",
+            "middleName": "Владимировна",
+            "id": 123
+          }
+        }
+      },
+      {
+        "startTime": "12:05",
+        "endTime": "13:25",
+        "name": "Разработка веб-приложений",
+        "timetable": {
+          "classroom": {
+            "buildingName": "2",
+            "buildingId": 4,
+            "name": "73",
+            "id": 118
+          },
+          "teacher": {
+            "firstName": "Анастасия",
+            "lastName": "Ведерникова",
+            "middleName": "Сергеевна",
+            "id": 25
+          }
+        }
+      },
+      {
+        "startTime": "13:35",
+        "endTime": "14:55",
+        "name": "Технология разработки и защиты баз данных",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "51",
+            "id": 114
+          },
+          "teacher": {
+            "firstName": "Людмила",
+            "lastName": "Квашина",
+            "middleName": "Николаевна",
+            "id": 58
+          }
+        }
+      }
+    ],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-15T00:00:00.0000000",
+    "lessons": [
+      {
+        "startTime": "08:45",
+        "endTime": "10:05",
+        "name": "Английский язык в профессиональной деятельности/ГР2",
+        "timetable": {
+          "classroom": {
+            "buildingName": "13",
+            "buildingId": 3,
+            "name": "109",
+            "id": 105
+          },
+          "teacher": {
+            "firstName": "Екатерина",
+            "lastName": "Костюченкова",
+            "middleName": "Михайловна",
+            "id": 140
+          }
+        }
+      },
+      {
+        "startTime": "10:25",
+        "endTime": "11:45",
+        "name": "Операционные системы и среды",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "122",
+            "id": 151
+          },
+          "teacher": {
+            "firstName": "Артем",
+            "lastName": "Ломанов",
+            "middleName": "Евгеньевич",
+            "id": 76
+          }
+        }
+      },
+      {
+        "startTime": "12:05",
+        "endTime": "13:25",
+        "name": "Безопасность жизнедеятельности",
+        "timetable": {
+          "classroom": {
+            "buildingName": "10",
+            "buildingId": 2,
+            "name": "12-Т",
+            "id": 110
+          },
+          "teacher": {
+            "firstName": "Валерий",
+            "lastName": "Задорожний",
+            "middleName": "Николаевич",
+            "id": 43
+          }
+        }
+      }
+    ],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-16T00:00:00.0000000",
+    "lessons": [
+      {
+        "startTime": "08:45",
+        "endTime": "10:05",
+        "name": "Элементы высшей математики",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "48",
+            "id": 85
+          },
+          "teacher": {
+            "firstName": "Галина",
+            "lastName": "Емельянова",
+            "middleName": "Филипповна",
+            "id": 136
+          }
+        }
+      },
+      {
+        "startTime": "10:25",
+        "endTime": "11:45",
+        "name": "Архитектура аппаратных средств",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "34",
+            "id": 113
+          },
+          "teacher": {
+            "firstName": "Ирина",
+            "lastName": "Шматова",
+            "middleName": "Дмитриевна",
+            "id": 164
+          }
+        }
+      },
+      {
+        "startTime": "12:05",
+        "endTime": "13:25",
+        "name": "Разработка и администрирование информационной базы системы \"1С:Предприятие\"",
+        "timetable": {
+          "classroom": {
+            "buildingName": "2",
+            "buildingId": 4,
+            "name": "76",
+            "id": 133
+          },
+          "teacher": {
+            "firstName": "Ольга",
+            "lastName": "Щербакова",
+            "middleName": "Алексеевна",
+            "id": 128
+          }
+        }
+      }
+    ],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-17T00:00:00.0000000",
+    "lessons": [
+      {
+        "startTime": "08:45",
+        "endTime": "10:05"
+      },
+      {
+        "startTime": "10:15",
+        "endTime": "11:35",
+        "name": "Основы алгоритмизации и программирования",
+        "timetable": {
+          "classroom": {
+            "buildingName": "2",
+            "buildingId": 4,
+            "name": "85",
+            "id": 101
+          },
+          "teacher": {
+            "firstName": "Руслана",
+            "lastName": "Вахитова",
+            "middleName": "Рaдиковна",
+            "id": 188
+          }
+        }
+      },
+      {
+        "startTime": "11:45",
+        "endTime": "13:05",
+        "name": "Основы финансовой грамотности",
+        "timetable": {
+          "classroom": {
+            "buildingName": "1",
+            "buildingId": 1,
+            "name": "53",
+            "id": 87
+          },
+          "teacher": {
+            "firstName": "Марина",
+            "lastName": "Воробьева",
+            "middleName": "Михайловна",
+            "id": 158
+          }
+        }
+      },
+      {
+        "startTime": "13:15",
+        "endTime": "14:35",
+        "name": "Разработка веб-приложений",
+        "timetable": {
+          "classroom": {
+            "buildingName": "2",
+            "buildingId": 4,
+            "name": "73",
+            "id": 118
+          },
+          "teacher": {
+            "firstName": "Анастасия",
+            "lastName": "Ведерникова",
+            "middleName": "Сергеевна",
+            "id": 25
+          }
+        }
+      }
+    ],
+    "isHoliday": false,
+    "isShort": false
+  }
+]

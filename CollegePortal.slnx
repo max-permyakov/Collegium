@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="CollegePortal.Api/CollegePortal.Api.csproj" />
+  <Project Path="CollegePortal.Application/CollegePortal.Application.csproj" />
+  <Project Path="CollegePortal.Domain/CollegePortal.Domain.csproj" />
+  <Project Path="CollegePortal.Infrastructure/CollegePortal.Infrastructure.csproj" />
+  <Project Path="CollegePortal.Tests/CollegePortal.Tests.csproj" />
+</Solution>
