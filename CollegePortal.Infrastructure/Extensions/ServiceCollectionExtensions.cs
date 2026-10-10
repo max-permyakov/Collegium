@@ -1,15 +1,19 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System.Net;
+using System.Text;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Application.Services;
 using CollegePortal.Infrastructure.Data;
 using CollegePortal.Infrastructure.ExternalApis.Diary;
 using CollegePortal.Infrastructure.ExternalApis.Schedule;
+using CollegePortal.Infrastructure.Services;
 
 namespace CollegePortal.Infrastructure.Extensions;
 
@@ -35,6 +39,36 @@ public static class ServiceCollectionExtensions
         })
         .AddEntityFrameworkStores<CollegePortalDbContext>()
         .AddDefaultTokenProviders();
+
+        var jwtKey = configuration["Jwt:Key"] ?? "super-secret-key-change-in-production-min-32-chars";
+        var jwtIssuer = configuration["Jwt:Issuer"] ?? "CollegePortal";
+        var jwtAudience = configuration["Jwt:Audience"] ?? "CollegePortalClient";
+
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwtIssuer,
+                ValidAudience = jwtAudience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                ClockSkew = TimeSpan.Zero
+            };
+        });
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+            options.AddPolicy("StudentOnly", policy => policy.RequireRole("Student"));
+        });
 
         services.Configure<DiaryApiOptions>(configuration.GetSection("ExternalApis:Diary"));
         services.Configure<ScheduleApiOptions>(configuration.GetSection("ExternalApis:Schedule"));
@@ -64,6 +98,8 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IScheduleProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
         services.AddScoped<IGradesProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
+
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }
