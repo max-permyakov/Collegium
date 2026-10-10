@@ -1,0 +1,19 @@
+{
+  "esiaBound": true,
+  "persons": [
+    {
+      "email": "muichirrro@gmail.ru",
+      "isEsiaBound": true,
+      "login": "пермяков158",
+      "phone": "89186852422",
+      "orgName": "ГБПОУ КК ККЭП",
+      "orgId": "c3320f7c-249d-43b7-a9a4-b9d5b865cb5d",
+      "birthday": "2009-08-10T00:00:00.0000000",
+      "firstName": "Максим",
+      "id": 3155,
+      "lastName": "Пермяков",
+      "middleName": "Георгиевич",
+      "trusted": false
+    }
+  ]
+}
