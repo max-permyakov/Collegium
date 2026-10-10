@@ -37,7 +37,7 @@ packages/
 *.db
 *.sqlite
 *.sqlite3
-
+*_response.json
 # Node.js
 node_modules/
 npm-debug.log*
@@ -50,6 +50,7 @@ lerna-debug.log*
 dist/
 build/
 *.local
+
 
 ## Environment files
 .env
