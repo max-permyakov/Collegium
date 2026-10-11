@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
+import { Lightbox } from '../../components/ui/Lightbox';
 import type { ClubListDto, CreateClubDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -29,6 +30,7 @@ export function ClubsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState<CreateClubDto>(emptyForm);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const { data: clubs, isLoading } = useQuery<ClubListDto[]>({
     queryKey: ['clubs'],
@@ -168,7 +170,13 @@ export function ClubsPage() {
             <Card key={club.id} variant="hover" className="flex flex-col">
               <CardContent className="p-4 flex flex-col gap-3 h-full">
                 <div className="flex items-start gap-3">
-                  <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="lg" className="rounded-2xl" />
+                  <Avatar
+                    src={club.avatarDataUrl || undefined}
+                    name={club.name}
+                    size="lg"
+                    className="rounded-2xl"
+                    onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
+                  />
                   <div className="flex-1 min-w-0">
                     <Link to={`/clubs/${club.id}`} className="font-semibold text-dark-text hover:text-primary-400 truncate block">
                       {club.name}
@@ -210,6 +218,8 @@ export function ClubsPage() {
           <Button onClick={() => { setShowCreate(true); setForm(emptyForm); }}>Создать группу</Button>
         </Card>
       )}
+
+      <Lightbox src={previewImage} alt="Фото группы" onClose={() => setPreviewImage(null)} />
     </div>
   );
 }

@@ -7,10 +7,11 @@ interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
   name?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   status?: 'online' | 'offline' | 'busy';
+  onImageClick?: () => void;
 }
 
 export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
-  ({ className = '', src, alt, name, size = 'md', status, ...props }, ref) => {
+  ({ className = '', src, alt, name, size = 'md', status, onImageClick, ...props }, ref) => {
     const sizeClasses = {
       xs: 'w-6 h-6 text-xs',
       sm: 'w-8 h-8 text-sm',
@@ -63,7 +64,10 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
           <img
             src={src}
             alt={alt || name || 'Avatar'}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${onImageClick ? 'cursor-zoom-in' : ''}`}
+            onClick={onImageClick}
+            role={onImageClick ? 'button' : undefined}
+            aria-label={onImageClick ? 'Увеличить изображение' : undefined}
           />
         ) : name ? (
           <span className={`${getColorFromName(name)} text-white font-medium w-full h-full flex items-center justify-center`}>
