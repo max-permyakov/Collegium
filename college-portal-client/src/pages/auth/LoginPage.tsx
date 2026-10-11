@@ -33,18 +33,25 @@ export function LoginPage() {
   };
 
   return (
-    <Card variant="hover" className="w-full">
-      <CardHeader className="text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary-500/20 flex items-center justify-center">
+    <div className="w-full">
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-primary-500/20 flex items-center justify-center">
           <svg className="w-10 h-10 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v4m-4 4h8" />
           </svg>
         </div>
-        <CardTitle>Вход через дневник</CardTitle>
-        <CardDescription>
-          Введите логин и пароль от электронного дневника
-        </CardDescription>
-      </CardHeader>
+        <h1 className="text-3xl font-bold text-dark-text">KKEP.ka</h1>
+        <p className="text-sm text-dark-textMuted mt-1">Портал студента колледжа</p>
+      </div>
+
+      <Card variant="hover" className="w-full">
+        <CardHeader className="text-center">
+          <CardTitle>Вход через дневник</CardTitle>
+          <CardDescription>
+            Введите логин и пароль от электронного дневника
+          </CardDescription>
+        </CardHeader>
 
       <CardContent>
         {error && (
@@ -87,6 +94,7 @@ export function LoginPage() {
           Пароль не сохраняется, используется только для входа в дневник
         </p>
       </CardFooter>
-    </Card>
+      </Card>
+    </div>
   );
 }

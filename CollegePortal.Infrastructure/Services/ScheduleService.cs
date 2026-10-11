@@ -98,6 +98,61 @@ public class ScheduleService : IScheduleService
         );
     }
 
+    public async Task<KkepikScheduleResponseDto?> GetKkepikScheduleAsync(Guid userId, DateTime? date = null, CancellationToken ct = default)
+    {
+        var studentProfile = await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .Include(sp => sp.StudyGroup)
+            .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+
+        if (studentProfile == null || string.IsNullOrWhiteSpace(studentProfile.StudyGroup?.Name))
+        {
+            _logger.LogWarning("Student profile or group not found for user {UserId}", userId);
+            return null;
+        }
+
+        var groupName = studentProfile.StudyGroup.Name;
+
+        var query = _dbContext.KkepikSchedules
+            .AsNoTracking()
+            .Where(s => s.GroupName == groupName);
+
+        if (date.HasValue)
+        {
+            query = query.Where(s => s.Date == date.Value.Date);
+        }
+        else
+        {
+            var today = DateTime.Today;
+            query = query.Where(s => s.Date >= today);
+        }
+
+        var snapshot = await query
+            .OrderBy(s => s.Date)
+            .FirstOrDefaultAsync(ct);
+
+        if (snapshot == null)
+            return null;
+
+        string[] lines;
+        try
+        {
+            lines = System.Text.Json.JsonSerializer.Deserialize<string[]>(snapshot.ScheduleLinesJson) ?? Array.Empty<string>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize kkepik schedule lines for {Group}", groupName);
+            lines = Array.Empty<string>();
+        }
+
+        return new KkepikScheduleResponseDto(
+            snapshot.Date,
+            groupName,
+            KkepikScheduleParser.Parse(lines),
+            snapshot.UpdatedAt
+        );
+    }
+
     private static ScheduleResponseDto MapToResponseDto(ScheduleDayDto day)
     {
         return new ScheduleResponseDto(day.Date, day.IsHoliday, day.IsShort, day.Lessons);

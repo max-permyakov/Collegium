@@ -111,6 +111,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAnnouncementService, AnnouncementService>();
         services.AddScoped<IAssignmentService, AssignmentService>();
 
+        services.AddHostedService<KkepikScheduleSyncService>();
+
         return services;
     }
 }

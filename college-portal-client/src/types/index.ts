@@ -209,3 +209,10 @@ export interface WeekScheduleResponse {
   endDate: string;
   days: ScheduleDay[];
 }
+
+export interface KkepikScheduleResponse {
+  date: string;
+  groupName: string;
+  lessons: Lesson[];
+  updatedAt?: string | null;
+}

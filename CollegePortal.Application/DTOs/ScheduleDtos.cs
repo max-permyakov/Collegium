@@ -17,3 +17,10 @@ public record GroupScheduleRequestDto(
     string GroupName,
     DateTime? Date
 );
+
+public record KkepikScheduleResponseDto(
+    DateTime Date,
+    string GroupName,
+    LessonDto[] Lessons,
+    DateTime? UpdatedAt
+);

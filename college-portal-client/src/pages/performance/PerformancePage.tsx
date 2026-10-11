@@ -78,7 +78,8 @@ export function PerformancePage() {
         <svg className="w-16 h-16 mx-auto text-dark-border mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <p className="text-dark-textMuted">Нет данных об успеваемости</p>
+        <p className="text-dark-textMuted">Недостаточно оценок для анализа успеваемости</p>
+        <p className="text-sm text-dark-textMuted mt-1">Данные появятся после первых выставленных оценок</p>
       </Card>
     );
   }

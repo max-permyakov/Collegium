@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User } from '../types';
+import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -108,6 +108,7 @@ export const scheduleApi = {
   getDay: (date: string) => api.get<ScheduleDay>(`/schedule/day`, { params: { date } }),
   getWeek: (startDate: string) => api.get<WeekScheduleResponse>(`/schedule/week`, { params: { startDate } }),
   getGroupWeek: (group: string, startDate: string) => api.get<WeekScheduleResponse>(`/schedule/group/week`, { params: { group, startDate } }),
+  getKkepik: (date?: string) => api.get<KkepikScheduleResponse>(`/schedule/kkepik`, { params: { date } }),
 };
 
 export const gradesApi = {

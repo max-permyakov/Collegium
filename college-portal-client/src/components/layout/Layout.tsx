@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import { RightSidebar } from './RightSidebar';
@@ -7,14 +8,16 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
     <div className="min-h-screen bg-dark-bg">
-      <div className="lg:pr-64 min-h-screen">
-        <main className="page-container safe-bottom">
+      <div className={`min-h-screen transition-[padding] duration-300 ${sidebarCollapsed ? 'lg:pr-16' : 'lg:pr-64'}`}>
+        <main className="page-container pb-24 lg:pb-4">
           {children || <Outlet />}
         </main>
       </div>
-      <RightSidebar />
+      <RightSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((c) => !c)} />
     </div>
   );
 }

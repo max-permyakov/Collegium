@@ -165,6 +165,7 @@ public class AuthService : IAuthService
         // Find or create user in our system
         var studentProfile = await _dbContext.StudentProfiles
             .Include(sp => sp.User)
+            .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.ExternalStudentId == externalStudentId, ct);
 
         ApplicationUser user;
@@ -173,6 +174,21 @@ public class AuthService : IAuthService
         {
             user = studentProfile.User;
             profile = studentProfile;
+
+            // Self-heal: если при прошлом входе не было настоящего названия группы
+            // (плейсхолдер «Группа N» / «Без группы»), а дневник сейчас вернул его,
+            // перепривязываем профиль к настоящей группе (важно для kkepik-расписания).
+            if (!string.IsNullOrWhiteSpace(diaryResult.GroupName) &&
+                IsPlaceholderGroupName(profile.StudyGroup?.Name))
+            {
+                var realGroup = await GetOrCreateStudyGroupAsync(diaryResult.GroupName, diaryResult.StudentGroupId, ct);
+                if (realGroup.Id != profile.StudyGroupId)
+                {
+                    profile.StudyGroupId = realGroup.Id;
+                    await _dbContext.SaveChangesAsync(ct);
+                    _logger.LogInformation("Reassigned student {StudentId} to study group {Group}", externalStudentId, diaryResult.GroupName);
+                }
+            }
         }
         else
         {
@@ -204,25 +220,7 @@ public class AuthService : IAuthService
                 await _userManager.AddToRoleAsync(user, "Student");
 
             // Resolve (or create) the study group so StudentProfile.StudyGroupId is valid.
-            var groupName = diaryResult.GroupName;
-            if (string.IsNullOrWhiteSpace(groupName))
-                groupName = diaryResult.StudentGroupId > 0 ? $"Группа {diaryResult.StudentGroupId}" : "Без группы";
-
-            var studyGroup = await _dbContext.StudyGroups
-                .FirstOrDefaultAsync(g => g.Name == groupName, ct);
-            if (studyGroup == null)
-            {
-                studyGroup = new StudyGroup
-                {
-                    Id = Guid.NewGuid(),
-                    Name = groupName,
-                    Course = ParseCourseNumber(groupName),
-                    AcademicYear = $"{DateTime.UtcNow.Year}-{DateTime.UtcNow.Year + 1}",
-                    CreatedAt = DateTime.UtcNow
-                };
-                _dbContext.StudyGroups.Add(studyGroup);
-                await _dbContext.SaveChangesAsync(ct);
-            }
+            var studyGroup = await GetOrCreateStudyGroupAsync(diaryResult.GroupName, diaryResult.StudentGroupId, ct);
 
             // Create student profile
             profile = new StudentProfile
@@ -417,6 +415,38 @@ public class AuthService : IAuthService
         if (!match.Success)
             return 1;
         return int.TryParse(match.Value[..1], out var course) && course >= 1 && course <= 4 ? course : 1;
+    }
+
+    private static bool IsPlaceholderGroupName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return true;
+        return name == "Без группы" || name.StartsWith("Группа ", StringComparison.Ordinal);
+    }
+
+    private async Task<StudyGroup> GetOrCreateStudyGroupAsync(string? groupName, int studentGroupId, CancellationToken ct)
+    {
+        var name = !string.IsNullOrWhiteSpace(groupName)
+            ? groupName
+            : studentGroupId > 0 ? $"Группа {studentGroupId}" : "Без группы";
+
+        var studyGroup = await _dbContext.StudyGroups
+            .FirstOrDefaultAsync(g => g.Name == name, ct);
+        if (studyGroup == null)
+        {
+            studyGroup = new StudyGroup
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
+                Course = ParseCourseNumber(name),
+                AcademicYear = $"{DateTime.UtcNow.Year}-{DateTime.UtcNow.Year + 1}",
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.StudyGroups.Add(studyGroup);
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        return studyGroup;
     }
 
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
