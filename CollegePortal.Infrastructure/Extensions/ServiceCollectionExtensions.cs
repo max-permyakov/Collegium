@@ -100,6 +100,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGradesProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
 
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IScheduleService, ScheduleService>();
+        services.AddScoped<IGradesService, GradesService>();
+        services.AddScoped<IAnnouncementService, AnnouncementService>();
+        services.AddScoped<IAssignmentService, AssignmentService>();
 
         return services;
     }

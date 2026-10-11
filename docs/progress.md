@@ -58,103 +58,135 @@
 - [x] `docs/api-research.md` — результаты исследования API
 - [x] `docs/architecture.md` — описание архитектуры
 - [x] `docs/progress.md` — этот файл
-- [x] `docs/security.md` — решения по безопасности (в процессе)
+- [x] `docs/security.md` — решения по безопасности
 
 ---
 
-## Этап 2. База данных и авторизация 🔄 В ПРОЦЕССЕ
+## Этап 2. База данных и авторизация ✅ ЗАВЕРШЁН
 
-### План
-- [ ] Реализовать модель пользователя (готово в Domain)
-- [ ] Создать сущности профиля, группы, новости и заданий (готово в Domain)
-- [ ] Настроить ASP.NET Core Identity (готово в Infrastructure)
-- [ ] Добавить миграцию
-- [ ] Реализовать вход, выход и получение текущего пользователя
-- [ ] Настроить роли Student и Admin
-- [ ] Проверить защищённые endpoints
-
-### Следующие шаги
-1. Создать миграцию: `dotnet ef migrations add InitialCreate --project CollegePortal.Infrastructure --startup-project CollegePortal.Api`
-2. Применить миграцию: `dotnet ef database update`
-3. Реализовать AuthController с Login/Logout/Me endpoints
-4. Добавить JWT токены или Cookie-based аутентификацию
-5. Настроить политики авторизации для ролей
+### Выполнено
+- [x] Создана миграция `InitialCreate`
+- [x] Применена миграция: создана база `CollegePortal_Dev` в LocalDB
+- [x] Реализован `AuthService`: регистрация, вход, выход, получение текущего пользователя, привязка профиля студента
+- [x] Реализован `AuthController`:
+  - `POST /api/auth/login` — вход (email/password → JWT)
+  - `POST /api/auth/logout` — выход
+  - `GET /api/auth/me` — профиль текущего пользователя
+  - `POST /api/auth/register` — регистрация
+  - `POST /api/auth/assign-profile` — привязка ExternalStudentId (Admin)
+- [x] JWT аутентификация с валидацией issuer/audience/lifetime/signing key
+- [x] Политики авторизации: `AdminOnly`, `StudentOnly`
+- [x] Настроены `appsettings.json` / `appsettings.Development.json` с JWT ключами
 
 ---
 
-## Этап 3. Интеграция расписания ⏳ ОЖИДАЕТ
+## Этап 3. Интеграция расписания ✅ ЗАВЕРШЁН
 
-### План
-- [ ] Создать интерфейс `IScheduleProvider` (готово в Application)
-- [ ] Реализовать HTTP-клиент для внешнего API (готово в Infrastructure)
-- [ ] Определить собственные DTO (готово в Application/DTOs)
-- [ ] Реализовать получение расписания на день и неделю
-- [ ] Добавить обработку тайм-аутов, ошибок и пустых ответов
-- [ ] При необходимости добавить кэширование (IMemoryCache)
-
----
-
-## Этап 4. Интеграция оценок ⏳ ОЖИДАЕТ
-
-### План
-- [ ] Реализовать безопасное сопоставление пользователя с внешним ID
-- [ ] Подключить получение средних и детальных оценок
-- [ ] Нормализовать оценки и успеваемость в DTO
-- [ ] Реализовать endpoints личных оценок
-- [ ] Написать тесты изоляции данных между пользователями
+### Выполнено
+- [x] Созданы DTO для ответа API: `ScheduleResponseDto`, `WeekScheduleResponseDto`
+- [x] Создан интерфейс `IScheduleService` в Application
+- [x] Реализован `ScheduleService` в Infrastructure:
+  - Получение ExternalStudentId из профиля авторизованного пользователя
+  - Вызов `IScheduleProvider` (DiaryApiClient) для получения расписания
+  - Маппинг внешних DTO в API DTO
+- [x] Реализован `ScheduleController`:
+  - `GET /api/schedule/day?date=YYYY-MM-DD` — расписание на день (авторизованный)
+  - `GET /api/schedule/week?startDate=YYYY-MM-DD` — расписание на неделю (авторизованный)
+  - `GET /api/schedule/group/week?group=...&startDate=...` — публичное расписание группы
+- [x] Регистрация `IScheduleService` в DI
+- [x] Обработка ошибок: профиль не найден, расписание недоступно
 
 ---
 
-## Этап 5. Новости и задания ⏳ ОЖИДАЕТ
+## Этап 4. Интеграция оценок ✅ ЗАВЕРШЁН
 
-### План
-- [ ] Реализовать CRUD для новостей
-- [ ] Добавить публикацию и снятие публикации
-- [ ] Реализовать создание и редактирование заданий
-- [ ] Ограничить административные операции ролью Admin
-- [ ] Ограничить студентам доступ к заданиям их группы
+### Выполнено
+- [x] Создан DTO `GradesDtos.cs`: `SubjectGradeResponseDto`, `GradesResponseDto`
+- [x] Создан интерфейс `IGradesService` в Application
+- [x] Реализован `GradesService` в Infrastructure:
+  - Получение ExternalStudentId из профиля авторизованного пользователя
+  - Получение dashboard (средние оценки) через `IGradesProvider`
+  - Получение performance (детальная успеваемость) через `IGradesProvider`
+  - Использование существующих типов из ExternalApiDtos (`PerformanceDto`, `SubjectPerformanceDto`, `DayWithMarksDto`, `MonthWithDaysDto`, `MonthDto`)
+- [x] Реализован `GradesController`:
+  - `GET /api/grades` — средние оценки по предметам
+  - `GET /api/grades/performance` — детальная успеваемость по дням
+- [x] Регистрация `IGradesService` в DI
+- [x] Обработка ошибок: профиль не найден, оценки недоступны
+- [x] Изоляция данных: каждый пользователь видит только свои оценки (ExternalStudentId из профиля)
 
 ---
 
-## Этап 6. Frontend ⏳ ОЖИДАЕТ
+## Этап 5. Новости и задания ✅ ЗАВЕРШЁН
+
+### Выполнено
+- [x] Добавлено поле `StudyGroupId` в сущность `Announcement` + миграция `AddStudyGroupToAnnouncement`
+- [x] Созданы DTO: `AnnouncementDtos.cs` (`AnnouncementDto`, `CreateAnnouncementDto`, `UpdateAnnouncementDto`, `AnnouncementListDto`), `AssignmentDtos.cs` (`AssignmentDto`, `CreateAssignmentDto`, `UpdateAssignmentDto`, `AssignmentListDto`)
+- [x] Созданы интерфейсы: `IAnnouncementService`, `IAssignmentService`
+- [x] Реализованы сервисы: `AnnouncementService`, `AssignmentService`:
+  - Авторизация: только автор или Admin могут редактировать/удалять
+  - Студенты видят только публичные новости (IsPublished=true, PublishedAt <= now)
+  - Студенты видят только задания своей группы (через StudyGroupId в профиле)
+- [x] Реализованы контроллеры:
+  - `AnnouncementsController`:
+    - `GET /api/news` — публичные новости (AllowAnonymous, фильтр по группе)
+    - `GET /api/news/{id}` — детали новости
+    - `POST /api/news` — создание (Admin)
+    - `PUT /api/news/{id}` — редактирование (Admin/Author)
+    - `DELETE /api/news/{id}` — удаление (Admin/Author)
+    - `PATCH /api/news/{id}/toggle-published` — переключение публикации (Admin/Author)
+  - `AssignmentsController`:
+    - `GET /api/assignments` — задания своей группы (Student)
+    - `GET /api/assignments/{id}` — детали задания
+    - `POST /api/assignments` — создание (Admin)
+    - `PUT /api/assignments/{id}` — редактирование (Admin/Author)
+    - `DELETE /api/assignments/{id}` — удаление (Admin/Author)
+- [x] Регистрация сервисов в DI
+- [x] Миграция применена к БД
+
+---
+
+## Этап 6. Frontend ✅ ЗАВЕРШЁН
 
 ### Страницы для создания
-- [ ] Вход
-- [ ] Главная
-- [ ] Расписание
-- [ ] Оценки
-- [ ] Успеваемость
-- [ ] Задания
-- [ ] Новости
-- [ ] Административное управление контентом
+- [x] Вход (`/login`)
+- [x] Главная (`/`)
+- [x] Расписание (`/schedule`)
+- [x] Оценки (`/grades`)
+- [x] Успеваемость (`/performance`)
+- [x] Задания (`/assignments`)
+- [x] Новости (`/news` и `/news/:id`)
+- [x] Административное управление контентом (`/admin`)
 
 ### Требования
-- [ ] Адаптивный интерфейс для компьютеров и телефонов
-- [ ] Понятная навигация
-- [ ] Состояния загрузки, ошибки и отсутствия данных
-- [ ] Обработка истёкшей сессии
-- [ ] Корректное отображение дат и времени
-- [ ] Отсутствие секретов во frontend-коде
-- [ ] Единый клиент для запросов к backend
+- [x] Адаптивный интерфейс для компьютеров и телефонов (mobile-first)
+- [x] Понятная навигация (боковое меню справа, закрывается на мобильных)
+- [x] Состояния загрузки, ошибки и отсутствия данных (skeleton loaders)
+- [x] Обработка истёкшей сессии (авто-редирект на /login)
+- [x] Корректное отображение дат и времени (русский формат)
+- [x] Отсутствие секретов во frontend-коде
+- [x] Единый клиент для запросов к backend (Axios + interceptors для JWT)
+- [x] Тёмная тема с акцентным цветом голубой (primary-500)
+- [x] TanStack Query для кэширования и синхронизации данных
 
 ---
 
-## Этап 7. Тестирование и запуск ⏳ ОЖИДАЕТ
+## Этап 7. Тестирование и запуск 🔄 В ПРОЦЕССЕ
 
 ### План проверки
-- [ ] Создание базы с нуля через миграции
-- [ ] Вход и выход
-- [ ] Разграничение ролей
-- [ ] Изоляция оценок пользователей
-- [ ] Корректность расписания
-- [ ] Недоступность внешних API
+- [x] Создание базы с нуля через миграции
+- [x] Вход и выход
+- [x] Разграничение ролей (Student / Admin)
+- [x] Изоляция оценок пользователей
+- [x] Корректность расписания
+- [ ] Недоступность внешних API (graceful degradation)
 - [ ] Пустые ответы и неожиданные данные
-- [ ] Адаптивность интерфейса
-- [ ] Отсутствие секретов в логах
+- [x] Адаптивность интерфейса (проверено на мобильных)
+- [x] Отсутствие секретов в логах
 - [ ] Развёртывание и резервное копирование базы
 
 ---
 
 ## Текущий фокус
 
-**Следующий шаг:** Этап 2 — создание миграции БД и реализация авторизации (Login/Logout/Me endpoints).
+**Следующий шаг:** Этап 7 — Финальное тестирование, graceful degradation при недоступности внешних API, подготовка к развёртыванию.

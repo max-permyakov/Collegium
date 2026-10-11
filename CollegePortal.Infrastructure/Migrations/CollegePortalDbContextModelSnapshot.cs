@@ -390,11 +390,13 @@ namespace CollegePortal.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CollegePortal.Domain.Entities.StudyGroup", null)
+                    b.HasOne("CollegePortal.Domain.Entities.StudyGroup", "StudyGroup")
                         .WithMany("Announcements")
                         .HasForeignKey("StudyGroupId");
 
                     b.Navigation("Author");
+
+                    b.Navigation("StudyGroup");
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.Assignment", b =>

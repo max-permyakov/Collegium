@@ -1,0 +1,337 @@
+import { useEffect, useState } from 'react';
+import { newsApi } from '../../services/api';
+import { assignmentsApi } from '../../services/api';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Textarea } from '../../components/ui/Input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
+import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto } from '../../types';
+
+export function AdminPage() {
+  const [announcements, setAnnouncements] = useState<AnnouncementListItem[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [showCreateNews, setShowCreateNews] = useState(false);
+  const [showCreateAssignment, setShowCreateAssignment] = useState(false);
+  const [editingNews, setEditingNews] = useState<AnnouncementListItem | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<AssignmentListItem | null>(null);
+
+  const [newsForm, setNewsForm] = useState<CreateAnnouncementDto>({
+    title: '',
+    body: '',
+    publishedAt: new Date().toISOString().slice(0, 16),
+    studyGroupId: undefined,
+  });
+
+  const [assignmentForm, setAssignmentForm] = useState<CreateAssignmentDto>({
+    title: '',
+    description: '',
+    dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    studyGroupId: '',
+  });
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const loadData = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const [newsRes, assignmentsRes] = await Promise.allSettled([
+        newsApi.getNews(),
+        assignmentsApi.getMyAssignments(),
+      ]);
+      if (newsRes.status === 'fulfilled') setAnnouncements(newsRes.value.data || []);
+      if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.data || []);
+    } catch (err) {
+      setError('Не удалось загрузить данные');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleCreateNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await newsApi.create(newsForm);
+      setShowCreateNews(false);
+      setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка создания новости');
+    }
+  };
+
+  const handleUpdateNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNews) return;
+    setError('');
+    try {
+      await newsApi.update(editingNews.id, {
+        ...newsForm,
+        isPublished: editingNews.isPublished,
+      });
+      setEditingNews(null);
+      setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка обновления новости');
+    }
+  };
+
+  const handleDeleteNews = async (id: string) => {
+    if (!confirm('Удалить эту новость?')) return;
+    setError('');
+    try {
+      await newsApi.delete(id);
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка удаления новости');
+    }
+  };
+
+  const handleTogglePublished = async (id: string) => {
+    setError('');
+    try {
+      await newsApi.togglePublished(id);
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка изменения статуса');
+    }
+  };
+
+  const handleCreateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await assignmentsApi.create(assignmentForm);
+      setShowCreateAssignment(false);
+      setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка создания задания');
+    }
+  };
+
+  const handleUpdateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAssignment) return;
+    setError('');
+    try {
+      await assignmentsApi.update(editingAssignment.id, assignmentForm);
+      setEditingAssignment(null);
+      setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка обновления задания');
+    }
+  };
+
+  const handleDeleteAssignment = async (id: string) => {
+    if (!confirm('Удалить это задание?')) return;
+    setError('');
+    try {
+      await assignmentsApi.delete(id);
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ошибка удаления задания');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="skeleton h-20" />
+        <div className="skeleton h-64" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card variant="hover" className="text-center py-12">
+        <div className="text-red-400 mb-4">{error}</div>
+        <Button onClick={loadData}>Попробовать снова</Button>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-dark-text">Панель администратора</h1>
+          <p className="text-dark-textMuted">Управление новостями и заданиями</p>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>
+            + Новость
+          </Button>
+          <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>
+            + Задание
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="ghost" size="sm" onClick={() => setError('')}>✕</Button>
+        </div>
+      )}
+
+      <Tabs defaultValue="news" className="w-full">
+        <TabsList className="grid grid-cols-2">
+          <TabsTrigger value="news">📰 Новости ({announcements.length})</TabsTrigger>
+          <TabsTrigger value="assignments">📝 Задания ({assignments.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="news">
+          <div className="space-y-4">
+            {showCreateNews || editingNews ? (
+              <Card variant="hover">
+                <CardHeader>
+                  <CardTitle>{editingNews ? 'Редактирование новости' : 'Создание новости'}</CardTitle>
+                </CardHeader>
+                <form onSubmit={editingNews ? handleUpdateNews : handleCreateNews} className="p-4 space-y-4">
+                  <Input label="Заголовок" name="title" value={newsForm.title} onChange={e => setNewsForm({...newsForm, title: e.target.value})} placeholder="Заголовок новости" required />
+                  <Textarea label="Текст" name="body" value={newsForm.body} onChange={e => setNewsForm({...newsForm, body: e.target.value})} placeholder="Текст новости" required rows={4} />
+                  <Input label="Дата публикации" name="publishedAt" type="datetime-local" value={newsForm.publishedAt} onChange={e => setNewsForm({...newsForm, publishedAt: e.target.value})} required />
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1">{editingNews ? 'Сохранить' : 'Опубликовать'}</Button>
+                    <Button type="button" variant="secondary" onClick={() => { setShowCreateNews(false); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>Отмена</Button>
+                  </div>
+                </form>
+              </Card>
+            ) : (
+              <div className="flex gap-2 mb-4">
+                <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>
+                  + Создать новость
+                </Button>
+              </div>
+            )}
+
+            {announcements.length > 0 ? (
+              <div className="space-y-2">
+                {announcements.map((item) => (
+                  <Card key={item.id} variant="hover">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <Badge variant={item.isPublished ? 'success' : 'default'}>
+                              {item.isPublished ? 'Опубликовано' : 'Черновик'}
+                            </Badge>
+                            {item.studyGroupName && <Badge variant="primary">{item.studyGroupName}</Badge>}
+                          </div>
+                          <h3 className="font-medium text-dark-text truncate">{item.title}</h3>
+                          <p className="text-sm text-dark-textMuted line-clamp-1">{item.body}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm text-dark-textMuted">{formatDate(item.publishedAt)}</span>
+                          <Button variant="ghost" size="sm" onClick={() => handleTogglePublished(item.id)}>
+                            {item.isPublished ? 'Снять' : 'Опубликовать'}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingNews(item); setNewsForm({ title: item.title, body: item.body, publishedAt: item.publishedAt.slice(0, 16), studyGroupId: item.studyGroupId }); }}>
+                            ✏️
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => handleDeleteNews(item.id)}>🗑️</Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card variant="hover" className="text-center py-12">
+                <p className="text-dark-textMuted mb-4">Нет новостей</p>
+                <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>
+                  Создать первую новость
+                </Button>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="assignments">
+          <div className="space-y-4">
+            {showCreateAssignment || editingAssignment ? (
+              <Card variant="hover">
+                <CardHeader>
+                  <CardTitle>{editingAssignment ? 'Редактирование задания' : 'Создание задания'}</CardTitle>
+                </CardHeader>
+                <form onSubmit={editingAssignment ? handleUpdateAssignment : handleCreateAssignment} className="p-4 space-y-4">
+                  <Input label="Название" name="title" value={assignmentForm.title} onChange={e => setAssignmentForm({...assignmentForm, title: e.target.value})} placeholder="Название задания" required />
+                  <Textarea label="Описание" name="description" value={assignmentForm.description} onChange={e => setAssignmentForm({...assignmentForm, description: e.target.value})} placeholder="Описание задания" required rows={3} />
+                  <Input label="Срок сдачи" name="dueAt" type="datetime-local" value={assignmentForm.dueAt} onChange={e => setAssignmentForm({...assignmentForm, dueAt: e.target.value})} required />
+                  <Input label="ID учебной группы" name="studyGroupId" value={assignmentForm.studyGroupId} onChange={e => setAssignmentForm({...assignmentForm, studyGroupId: e.target.value})} placeholder="UUID группы" required />
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1">{editingAssignment ? 'Сохранить' : 'Создать'}</Button>
+                    <Button type="button" variant="secondary" onClick={() => { setShowCreateAssignment(false); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>Отмена</Button>
+                  </div>
+                </form>
+              </Card>
+            ) : (
+              <div className="flex gap-2 mb-4">
+                <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>
+                  + Создать задание
+                </Button>
+              </div>
+            )}
+
+            {assignments.length > 0 ? (
+              <div className="space-y-2">
+                {assignments.map((item) => (
+                  <Card key={item.id} variant="hover">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant={new Date(item.dueAt) < new Date() ? 'danger' : 'primary'}>
+                              {new Date(item.dueAt) < new Date() ? 'Просрочено' : 'Активно'}
+                            </Badge>
+                          </div>
+                          <h3 className="font-medium text-dark-text truncate">{item.title}</h3>
+                          <p className="text-sm text-dark-textMuted line-clamp-1 mt-1">{item.description}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-dark-textMuted">
+                            <span>📚 {item.studyGroupName}</span>
+                            <span>👨‍🏫 {item.createdByName}</span>
+                            <span>📅 {formatDate(item.dueAt)}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingAssignment(item); setAssignmentForm({ title: item.title, description: item.description, dueAt: item.dueAt.slice(0, 16), studyGroupId: item.studyGroupId }); }}>
+                            ✏️
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => handleDeleteAssignment(item.id)}>🗑️</Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card variant="hover" className="text-center py-12">
+                <p className="text-dark-textMuted mb-4">Нет заданий</p>
+                <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>
+                  Создать первое задание
+                </Button>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
