@@ -227,6 +227,112 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("Assignments");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Club", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AvatarDataUrl")
+                        .HasMaxLength(3000000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("InviteToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("IsPrivate")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("JoinByLink")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InviteToken")
+                        .IsUnique();
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Clubs");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.ClubMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClubId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsLeader")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ClubId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("ClubMembers");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.ClubMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClubId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ClubId", "CreatedAt");
+
+                    b.ToTable("ClubMessages");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.KkepikSchedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -526,6 +632,55 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Navigation("StudyGroup");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Club", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.ClubMember", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.Club", "Club")
+                        .WithMany("Members")
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Club");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.ClubMessage", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.Club", "Club")
+                        .WithMany("Messages")
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Club");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.StudentProfile", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.StudyGroup", "StudyGroup")
@@ -599,6 +754,13 @@ namespace CollegePortal.Infrastructure.Migrations
             modelBuilder.Entity("CollegePortal.Domain.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("StudentProfile");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Club", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.StudyGroup", b =>

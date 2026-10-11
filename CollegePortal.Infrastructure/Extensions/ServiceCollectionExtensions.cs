@@ -112,6 +112,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssignmentService, AssignmentService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IAdminService, AdminService>();
+        services.AddScoped<IClubService, ClubService>();
 
         services.AddHostedService<KkepikScheduleSyncService>();
 

@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto } from '../types';
+import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -151,6 +151,25 @@ export const adminApi = {
   recomputeGrades: (id: string) => api.post(`/admin/users/${id}/recompute-grades`),
   getAudit: (limit = 100) => api.get<AuditLogDto[]>(`/admin/audit`, { params: { limit } }),
   exportUsersCsv: () => api.get<Blob>('/admin/users.csv', { responseType: 'blob' }),
+  getClubs: () => api.get<ClubListDto[]>('/admin/clubs'),
+  getClub: (id: string) => api.get<ClubDetailDto>(`/admin/clubs/${id}`),
+  getClubMessages: (id: string) => api.get<ClubMessageDto[]>(`/admin/clubs/${id}/messages`),
+  deleteClub: (id: string) => api.delete(`/admin/clubs/${id}`),
+};
+
+export const clubsApi = {
+  getClubs: () => api.get<ClubListDto[]>('/clubs'),
+  getClub: (id: string, invite?: string) => api.get<ClubDetailDto>(`/clubs/${id}`, { params: invite ? { invite } : undefined }),
+  create: (data: CreateClubDto) => api.post<ClubDetailDto>('/clubs', data),
+  update: (id: string, data: UpdateClubDto) => api.put(`/clubs/${id}`, data),
+  delete: (id: string) => api.delete(`/clubs/${id}`),
+  join: (id: string, token?: string) => api.post(`/clubs/${id}/join`, { token: token ?? null }),
+  leave: (id: string) => api.post(`/clubs/${id}/leave`),
+  setLeader: (id: string, userId: string, isLeader: boolean) => api.post(`/clubs/${id}/members/${userId}/leader`, { isLeader }),
+  removeMember: (id: string, userId: string) => api.delete(`/clubs/${id}/members/${userId}`),
+  getMessages: (id: string) => api.get<ClubMessageDto[]>(`/clubs/${id}/messages`),
+  postMessage: (id: string, text: string) => api.post<ClubMessageDto>(`/clubs/${id}/messages`, { text }),
+  deleteMessage: (messageId: string) => api.delete(`/clubs/messages/${messageId}`),
 };
 
 
