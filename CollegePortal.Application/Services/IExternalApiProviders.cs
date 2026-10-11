@@ -21,7 +21,7 @@ public interface IDiaryApiClient : IScheduleProvider, IGradesProvider
     
     // New methods for hash-based authentication
     Task<DiaryLoginResult?> LoginWithPrecomputedHashAsync(string login, string passwordHash, CancellationToken ct = default);
-    Task<bool> ReloginAsync(string login, CancellationToken ct = default);
+    Task<bool> ReloginAsync(string login, string passwordHash, CancellationToken ct = default);
     
     Task<AccountSettingsDto?> GetAccountSettingsAsync(CancellationToken ct = default);
 }

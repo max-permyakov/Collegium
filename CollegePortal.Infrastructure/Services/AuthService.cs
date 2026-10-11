@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace CollegePortal.Infrastructure.Services;
@@ -23,6 +24,7 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly IDiaryApiClient _diaryApiClient;
     private readonly IDataProtector _dataProtector;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
@@ -30,7 +32,8 @@ public class AuthService : IAuthService
         CollegePortalDbContext dbContext,
         IConfiguration configuration,
         IDiaryApiClient diaryApiClient,
-        IDataProtectionProvider dataProtectionProvider)
+        IDataProtectionProvider dataProtectionProvider,
+        ILogger<AuthService> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -38,6 +41,7 @@ public class AuthService : IAuthService
         _configuration = configuration;
         _diaryApiClient = diaryApiClient;
         _dataProtector = dataProtectionProvider.CreateProtector("DiaryIntegration");
+        _logger = logger;
     }
 
     public async Task<LoginResponseDto?> LoginAsync(string email, string password, CancellationToken ct = default)
@@ -151,7 +155,7 @@ public class AuthService : IAuthService
     // Diary integration: login with diary credentials
     public async Task<LoginResponseDto?> DiaryLoginAsync(string login, string passwordHash, CancellationToken ct = default)
     {
-        // Login to diary with pre-computed hash (SHA256 of login)
+        // Login to diary with pre-computed hash (SHA256 of the password)
         var diaryResult = await _diaryApiClient.LoginWithPrecomputedHashAsync(login, passwordHash, ct);
         if (diaryResult == null)
             return null;
@@ -164,40 +168,81 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(sp => sp.ExternalStudentId == externalStudentId, ct);
 
         ApplicationUser user;
+        StudentProfile profile;
         if (studentProfile != null)
         {
             user = studentProfile.User;
+            profile = studentProfile;
         }
         else
         {
-            // Create new user
-            user = new ApplicationUser
+            // Reuse an existing user created by a previous login (e.g. whose profile
+            // failed to persist), otherwise create one from the diary login.
+            user = await _userManager.FindByNameAsync(login);
+            if (user == null)
             {
-                UserName = login,
-                Email = login + "@diary.local",
-                DisplayName = $"{diaryResult.LastName} {diaryResult.FirstName} {diaryResult.MiddleName}".Trim(),
-                Role = "Student",
-                IsActive = true,
-                EmailConfirmed = true
-            };
+                user = new ApplicationUser
+                {
+                    UserName = login,
+                    Email = login + "@diary.local",
+                    DisplayName = $"{diaryResult.LastName} {diaryResult.FirstName} {diaryResult.MiddleName}".Trim(),
+                    Role = "Student",
+                    IsActive = true,
+                    EmailConfirmed = true
+                };
 
-            var createResult = await _userManager.CreateAsync(user, GenerateRandomPassword());
-            if (!createResult.Succeeded)
-                return null;
+                var createResult = await _userManager.CreateAsync(user, GenerateRandomPassword());
+                if (!createResult.Succeeded)
+                {
+                    _logger.LogError("Diary user creation failed for {Login}: {Errors}",
+                        login, string.Join("; ", createResult.Errors.Select(e => e.Code + ":" + e.Description)));
+                    return null;
+                }
+            }
 
-            await _userManager.AddToRoleAsync(user, "Student");
+            if (!await _userManager.IsInRoleAsync(user, "Student"))
+                await _userManager.AddToRoleAsync(user, "Student");
+
+            // Resolve (or create) the study group so StudentProfile.StudyGroupId is valid.
+            var groupName = diaryResult.GroupName;
+            if (string.IsNullOrWhiteSpace(groupName))
+                groupName = diaryResult.StudentGroupId > 0 ? $"Группа {diaryResult.StudentGroupId}" : "Без группы";
+
+            var studyGroup = await _dbContext.StudyGroups
+                .FirstOrDefaultAsync(g => g.Name == groupName, ct);
+            if (studyGroup == null)
+            {
+                studyGroup = new StudyGroup
+                {
+                    Id = Guid.NewGuid(),
+                    Name = groupName,
+                    Course = ParseCourseNumber(groupName),
+                    AcademicYear = $"{DateTime.UtcNow.Year}-{DateTime.UtcNow.Year + 1}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _dbContext.StudyGroups.Add(studyGroup);
+                await _dbContext.SaveChangesAsync(ct);
+            }
 
             // Create student profile
-            var profile = new StudentProfile
+            profile = new StudentProfile
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
                 ExternalStudentId = externalStudentId,
+                StudyGroupId = studyGroup.Id,
                 CreatedAt = DateTime.UtcNow
             };
             _dbContext.StudentProfiles.Add(profile);
-            await _dbContext.SaveChangesAsync(ct);
         }
+
+        // Persist the diary credentials and session cookies (encrypted hash, per-user cookies)
+        // so we can automatically re-login / continue the session later.
+        profile.DiaryPasswordHash = _dataProtector.Protect(passwordHash);
+        if (!string.IsNullOrEmpty(diaryResult.CookieData))
+            profile.DiaryCookieData = diaryResult.CookieData;
+        profile.DiaryLastSyncedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
 
         // Sync diary data (profile, schedule, grades)
         await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
@@ -246,12 +291,21 @@ public class AuthService : IAuthService
         if (user == null)
             return null;
 
-        var login = studentProfile.ExternalStudentId.ToString();
+        // The diary login is stored in UserName; fall back to the numeric id for legacy rows
+        var login = !string.IsNullOrEmpty(user.UserName)
+            ? user.UserName
+            : studentProfile.ExternalStudentId.ToString();
         var passwordHash = _dataProtector.Unprotect(studentProfile.DiaryPasswordHash);
 
         var diaryResult = await _diaryApiClient.LoginWithPrecomputedHashAsync(login, passwordHash, ct);
         if (diaryResult == null)
             return null;
+
+        if (!string.IsNullOrEmpty(diaryResult.CookieData))
+        {
+            studentProfile.DiaryCookieData = diaryResult.CookieData;
+            await _dbContext.SaveChangesAsync(ct);
+        }
 
         // Sync data
         await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
@@ -355,6 +409,14 @@ public class AuthService : IAuthService
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(bytes);
         return Convert.ToBase64String(bytes);
+    }
+
+    private int ParseCourseNumber(string groupName)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(groupName ?? "", @"\d+");
+        if (!match.Success)
+            return 1;
+        return int.TryParse(match.Value[..1], out var course) && course >= 1 && course <= 4 ? course : 1;
     }
 
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)

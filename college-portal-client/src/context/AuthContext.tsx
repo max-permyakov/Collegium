@@ -53,10 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, [refreshUser]);
 
-  // Hash login using SHA-256 for diary authentication
-  const hashDiaryPassword = async (login: string): Promise<string> => {
+  // Hash password using SHA-256 (base64) for diary authentication
+  const hashDiaryPassword = async (password: string): Promise<string> => {
     const encoder = new TextEncoder();
-    const data = encoder.encode(login);
+    const data = encoder.encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     return btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
   };
@@ -72,9 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
-  const diaryLogin = async (login: string, _password: string) => {
-    // Hash the login (which is the password for diary) using SHA-256
-    const passwordHash = await hashDiaryPassword(login);
+  const diaryLogin = async (login: string, password: string) => {
+    // The diary API expects the password pre-hashed (SHA-256, base64) on the client
+    const passwordHash = await hashDiaryPassword(password);
     
     const response = await authApi.diaryLogin(login, passwordHash);
     const { accessToken, refreshToken, user: userData } = response.data;
