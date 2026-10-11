@@ -12,6 +12,7 @@ using CollegePortal.Domain.Entities;
 using CollegePortal.Application.Services;
 using CollegePortal.Infrastructure.Data;
 using CollegePortal.Infrastructure.ExternalApis.Diary;
+using CollegePortal.Infrastructure.ExternalApis.Gosuslugi;
 using CollegePortal.Infrastructure.ExternalApis.Schedule;
 using CollegePortal.Infrastructure.Services;
 
@@ -75,6 +76,9 @@ public static class ServiceCollectionExtensions
 
         services.Configure<DiaryApiOptions>(configuration.GetSection("ExternalApis:Diary"));
         services.Configure<ScheduleApiOptions>(configuration.GetSection("ExternalApis:Schedule"));
+        services.Configure<GosuslugiOptions>(configuration.GetSection("ExternalApis:Gosuslugi"));
+
+        services.AddMemoryCache();
 
         services.AddHttpContextAccessor();
 
@@ -102,6 +106,15 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
         });
 
+        services.AddHttpClient<GosuslugiStaffClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<GosuslugiOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+            client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        });
+
         services.AddScoped<IScheduleProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
         services.AddScoped<IGradesProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
 
@@ -113,6 +126,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IClubService, ClubService>();
+        services.AddScoped<ICollegeInfoService, CollegeInfoService>();
 
         services.AddHostedService<KkepikScheduleSyncService>();
 

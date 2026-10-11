@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto } from '../types';
+import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -155,6 +155,8 @@ export const adminApi = {
   getClub: (id: string) => api.get<ClubDetailDto>(`/admin/clubs/${id}`),
   getClubMessages: (id: string) => api.get<ClubMessageDto[]>(`/admin/clubs/${id}/messages`),
   deleteClub: (id: string) => api.delete(`/admin/clubs/${id}`),
+  refreshCollegeCatalog: () => api.post('/admin/college-info/catalog/refresh'),
+  refreshCollegeTeachers: () => api.post('/admin/college-info/teachers/refresh'),
 };
 
 export const clubsApi = {
@@ -170,6 +172,13 @@ export const clubsApi = {
   getMessages: (id: string) => api.get<ClubMessageDto[]>(`/clubs/${id}/messages`),
   postMessage: (id: string, text: string) => api.post<ClubMessageDto>(`/clubs/${id}/messages`, { text }),
   deleteMessage: (messageId: string) => api.delete(`/clubs/messages/${messageId}`),
+};
+
+export const collegeInfoApi = {
+  getCatalog: () => api.get<CollegeCatalog>('/college-info/catalog'),
+  searchSchedule: (type: string, query: string, date?: string) =>
+    api.get<CollegeScheduleSearchResult>('/college-info/schedule/search', { params: { type, query, date } }),
+  getTeachers: () => api.get<CollegeTeacher[]>('/college-info/teachers'),
 };
 
 

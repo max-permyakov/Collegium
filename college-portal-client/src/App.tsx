@@ -14,6 +14,8 @@ import { AdminPage } from './pages/admin/AdminPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
 import { ClubsPage } from './pages/clubs/ClubsPage';
 import { ClubDetailPage } from './pages/clubs/ClubDetailPage';
+import { CollegeInfoPage } from './pages/college/CollegeInfoPage';
+import { CollegeMapPage } from './pages/college/CollegeMapPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +92,8 @@ function AppRoutes() {
         <Route path="news" element={<NewsPage />} />
         <Route path="clubs" element={<ClubsPage />} />
         <Route path="clubs/:clubId" element={<ClubDetailPage />} />
+        <Route path="college-info" element={<CollegeInfoPage />} />
+        <Route path="college-info/map" element={<CollegeMapPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="users/:userId" element={<ProfilePage />} />
         <Route path="admin" element={

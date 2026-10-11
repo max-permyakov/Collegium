@@ -9,7 +9,7 @@ namespace CollegePortal.Infrastructure.ExternalApis.Schedule;
 
 public class ScheduleApiOptions
 {
-    public string BaseUrl { get; set; } = "https://kkepik.rub1kub.ru/api";
+    public string BaseUrl { get; set; } = "https://kkepik.rub1kub.ru";
     public int TimeoutSeconds { get; set; } = 10;
 }
 
