@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
+import { Lightbox } from '../../components/ui/Lightbox';
 import type { ClubListDto } from '../../types';
 
 const getError = (err: unknown) => {
@@ -19,6 +20,7 @@ export function ClubsTab() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const { data: clubs, isLoading } = useQuery<ClubListDto[]>({
     queryKey: ['admin', 'clubs'],
@@ -74,7 +76,13 @@ export function ClubsTab() {
                 className={`w-full text-left p-3 rounded-xl border transition-colors ${selectedId === club.id ? 'border-primary-500/40 bg-primary-500/10' : 'border-dark-border hover:bg-dark-border/50'}`}
               >
                 <div className="flex items-center gap-3">
-                  <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="md" className="rounded-2xl" />
+                  <Avatar
+                    src={club.avatarDataUrl || undefined}
+                    name={club.name}
+                    size="md"
+                    className="rounded-2xl"
+                    onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-dark-text truncate">{club.name}</p>
                     <p className="text-xs text-dark-textMuted truncate">{club.ownerName} · {club.memberCount} участн.</p>
@@ -106,7 +114,13 @@ export function ClubsTab() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <Avatar src={detail.avatarDataUrl || undefined} name={detail.name} size="lg" className="rounded-2xl" />
+                      <Avatar
+                        src={detail.avatarDataUrl || undefined}
+                        name={detail.name}
+                        size="lg"
+                        className="rounded-2xl"
+                        onImageClick={() => detail.avatarDataUrl && setPreviewImage(detail.avatarDataUrl)}
+                      />
                       <div>
                         <CardTitle>{detail.name}</CardTitle>
                         <p className="text-sm text-dark-textMuted">Группа: {detail.ownerName} · {detail.memberCount} участников</p>
@@ -177,6 +191,8 @@ export function ClubsTab() {
           )}
         </div>
       </div>
+
+      <Lightbox src={previewImage} alt="Фото группы" onClose={() => setPreviewImage(null)} />
     </div>
   );
 }

@@ -93,6 +93,9 @@ export function LoginPage() {
         <p className="text-xs text-dark-textMuted text-center">
           Пароль не сохраняется, используется только для входа в дневник
         </p>
+        <p className="text-xs text-dark-textMuted text-center">
+          Код проекта доступен на <a href="https://github.com/Collegium/college-portal" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">GitHub</a>
+        </p>
       </CardFooter>
       </Card>
     </div>

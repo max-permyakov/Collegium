@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
+import { Lightbox } from '../../components/ui/Lightbox';
 import type { ClubDetailDto, UpdateClubDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -40,6 +41,7 @@ export function ClubDetailPage() {
   const [messageText, setMessageText] = useState('');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<UpdateClubDto | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const { data: club, isLoading, error: loadError } = useQuery<ClubDetailDto>({
     queryKey: ['club', clubId, invite],
@@ -159,7 +161,13 @@ export function ClubDetailPage() {
       <Card>
         <CardContent className="p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
-            <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="xl" className="rounded-2xl w-24 h-24" />
+            <Avatar
+              src={club.avatarDataUrl || undefined}
+              name={club.name}
+              size="xl"
+              className="rounded-2xl w-24 h-24"
+              onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
+            />
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold text-dark-text">{club.name}</h1>
@@ -258,7 +266,12 @@ export function ClubDetailPage() {
                   {messages && messages.length > 0 ? (
                     messages.map((m) => (
                       <div key={m.id} className="flex items-start gap-2">
-                        <Avatar src={m.userAvatar || undefined} name={m.userName} size="sm" />
+                        <Avatar
+                          src={m.userAvatar || undefined}
+                          name={m.userName}
+                          size="sm"
+                          onImageClick={() => m.userAvatar && setPreviewImage(m.userAvatar)}
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-dark-text">{m.userName}</span>
@@ -317,7 +330,12 @@ export function ClubDetailPage() {
           <CardContent className="space-y-3">
             {club.members.map((m) => (
               <div key={m.userId} className="flex items-center gap-3">
-                <Avatar src={m.avatarDataUrl || undefined} name={m.displayName} size="sm" />
+                <Avatar
+                  src={m.avatarDataUrl || undefined}
+                  name={m.displayName}
+                  size="sm"
+                  onImageClick={() => m.avatarDataUrl && setPreviewImage(m.avatarDataUrl)}
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-dark-text truncate">{m.displayName}</p>
                   {m.isLeader && <span className="text-xs text-primary-400">Глава</span>}
@@ -347,6 +365,8 @@ export function ClubDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Lightbox src={previewImage} alt="Фото группы" onClose={() => setPreviewImage(null)} />
     </div>
   );
 }

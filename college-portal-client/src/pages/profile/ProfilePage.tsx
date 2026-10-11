@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi, adminApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -6,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { Lightbox } from '../../components/ui/Lightbox';
 import type { ProfileDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -16,6 +18,7 @@ export function ProfilePage() {
   const queryClient = useQueryClient();
   const isAdminView = Boolean(userId);
   const targetUserId = userId;
+  const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
 
   const { data: profile, isLoading, error } = useQuery<ProfileDto | null>({
     queryKey: isAdminView ? ['admin', 'user', targetUserId] : ['profile', 'me', user?.id],
@@ -113,7 +116,13 @@ export function ProfilePage() {
             <div className="flex flex-col items-center gap-3">
               <div className="w-32 h-32 rounded-2xl bg-dark-bg border border-dark-border overflow-hidden flex items-center justify-center">
                 {profile.avatarDataUrl ? (
-                  <img src={profile.avatarDataUrl} alt="avatar" className="w-full h-full object-cover" />
+                  <img
+                    src={profile.avatarDataUrl}
+                    alt="avatar"
+                    className="w-full h-full object-cover cursor-zoom-in"
+                    onClick={() => setPreviewAvatar(profile.avatarDataUrl || null)}
+                    role="button"
+                  />
                 ) : (
                   <span className="text-3xl font-semibold text-dark-textMuted">{profile.displayName.slice(0,2).toUpperCase()}</span>
                 )}
@@ -280,6 +289,8 @@ export function ProfilePage() {
           </CardContent>
         </Card>
       )}
+
+      <Lightbox src={previewAvatar} alt="Фото профиля" onClose={() => setPreviewAvatar(null)} />
     </div>
   );
 }
