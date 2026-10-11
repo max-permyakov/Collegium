@@ -35,7 +35,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasIndex(e => e.UserId).IsUnique();
             entity.HasIndex(e => e.ExternalStudentId).IsUnique();
             entity.Property(e => e.Bio).HasMaxLength(2000);
-            entity.Property(e => e.AvatarDataUrl).HasMaxLength(700000);
+            entity.Property(e => e.AvatarDataUrl).HasMaxLength(3_000_000);
             entity.Property(e => e.AverageMark).HasPrecision(5, 2);
             entity.HasOne(e => e.User)
                 .WithOne(u => u.StudentProfile)

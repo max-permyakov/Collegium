@@ -119,7 +119,7 @@ export function HomePage() {
           </h1>
           <p className="text-dark-textMuted">Вот ваша сводка на сегодня</p>
         </div>
-        <Avatar name={user?.displayName || ''} size="lg" />
+        <Avatar src={user?.studentProfile?.avatarDataUrl || undefined} name={user?.displayName || ''} size="lg" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
