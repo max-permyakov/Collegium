@@ -1,10 +1,15 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
+using CollegePortal.Infrastructure.Data;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -21,22 +26,24 @@ public class DiaryApiClient : IDiaryApiClient
     private readonly HttpClient _httpClient;
     private readonly DiaryApiOptions _options;
     private readonly ILogger<DiaryApiClient> _logger;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly CollegePortalDbContext _dbContext;
+    private readonly IDataProtector _dataProtector;
 
     public DiaryApiClient(
         HttpClient httpClient,
         IOptions<DiaryApiOptions> options,
-        ILogger<DiaryApiClient> logger)
+        ILogger<DiaryApiClient> logger,
+        IHttpContextAccessor httpContextAccessor,
+        CollegePortalDbContext dbContext,
+        IDataProtectionProvider dataProtectionProvider)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
-
-        var handler = new HttpClientHandler
-        {
-            CookieContainer = new CookieContainer(),
-            UseCookies = true,
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        };
+        _httpContextAccessor = httpContextAccessor;
+        _dbContext = dbContext;
+        _dataProtector = dataProtectionProvider.CreateProtector("DiaryIntegration");
 
         _httpClient.BaseAddress = new Uri(_options.BaseUrl);
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
@@ -44,16 +51,176 @@ public class DiaryApiClient : IDiaryApiClient
         _httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
     }
 
-    // Legacy method - kept for compatibility
-    public async Task<DiaryLoginResult?> LoginAsync(string login, string password, CancellationToken ct = default)
+    // ---------------------------------------------------------------------
+    // Per-user cookie management
+    //
+    // The diary authenticates via cookies. Cookies must be isolated per user,
+    // so the shared HttpClient handler is configured with UseCookies=false and
+    // we attach/store cookies explicitly via the "Cookie" request header and
+    // the "Set-Cookie" response header, persisting them in StudentProfile.DiaryCookieData.
+    // ---------------------------------------------------------------------
+
+    private Guid? TryGetCurrentUserId()
     {
-        var response = await _httpClient.PostAsJsonAsync("/services/security/login", new
+        var id = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(id, out var userId) ? userId : null;
+    }
+
+    private async Task<string?> GetStoredCookieHeaderAsync(Guid? userId, CancellationToken ct)
+    {
+        if (userId == null)
+            return null;
+
+        var profile = await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+
+        return profile?.DiaryCookieData;
+    }
+
+    private static IReadOnlyList<string> ExtractSetCookies(HttpResponseMessage response)
+    {
+        var cookies = new List<string>();
+        if (response.Headers.TryGetValues("Set-Cookie", out var set1))
+            cookies.AddRange(set1);
+        if (response.Content.Headers.TryGetValues("Set-Cookie", out var set2))
+            cookies.AddRange(set2);
+        return cookies;
+    }
+
+    private static string MergeCookieData(string? existing, IEnumerable<string> setCookies)
+    {
+        var cookies = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (!string.IsNullOrEmpty(existing))
         {
-            login,
-            password = login, // The API hashes this server-side
-            isRemember = false
-        }, ct);
-        
+            foreach (var part in existing.Split(';'))
+            {
+                var idx = part.IndexOf('=');
+                if (idx <= 0)
+                    continue;
+
+                var name = part[..idx].Trim();
+                var value = part[(idx + 1)..].Trim();
+                if (name.Length > 0)
+                    cookies[name] = value;
+            }
+        }
+
+        foreach (var sc in setCookies)
+        {
+            var idx = sc.IndexOf('=');
+            if (idx <= 0)
+                continue;
+
+            var name = sc[..idx].Trim();
+            var value = sc[(idx + 1)..].Split(';')[0].Trim();
+            if (name.Length > 0)
+                cookies[name] = value;
+        }
+
+        return string.Join("; ", cookies.Select(kv => $"{kv.Key}={kv.Value}"));
+    }
+
+    private async Task PersistSetCookiesAsync(Guid? userId, HttpResponseMessage response, CancellationToken ct)
+    {
+        var setCookies = ExtractSetCookies(response);
+        if (userId == null || setCookies.Count == 0)
+            return;
+
+        var profile = await _dbContext.StudentProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+        if (profile == null)
+            return;
+
+        profile.DiaryCookieData = MergeCookieData(profile.DiaryCookieData, setCookies);
+        await _dbContext.SaveChangesAsync(ct);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    {
+        var userId = TryGetCurrentUserId();
+        var cookieHeader = await GetStoredCookieHeaderAsync(userId, ct);
+
+        var request = requestFactory();
+        if (!string.IsNullOrEmpty(cookieHeader))
+            request.Headers.TryAddWithoutValidation("Cookie", cookieHeader);
+
+        var response = await _httpClient.SendAsync(request, ct);
+        await PersistSetCookiesAsync(userId, response, ct);
+        return response;
+    }
+
+    // Executes an HTTP request and transparently retries once after re-login if
+    // the diary session has expired (HTTP 401).
+    private async Task<HttpResponseMessage> SendWithReloginAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    {
+        var response = await SendAsync(requestFactory, ct);
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+            return response;
+
+        response.Dispose();
+        if (!await TryReloginAsync(ct))
+            return await SendAsync(requestFactory, ct);
+
+        _logger.LogInformation("Diary session expired, re-login succeeded, retrying request");
+        return await SendAsync(requestFactory, ct);
+    }
+
+    // Re-authenticates the current user in the diary using credentials stored during login.
+    private async Task<bool> TryReloginAsync(CancellationToken ct)
+    {
+        try
+        {
+            var userId = TryGetCurrentUserId();
+            if (userId == null)
+                return false;
+
+            var profile = await _dbContext.StudentProfiles
+                .Include(sp => sp.User)
+                .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+
+            if (profile == null || string.IsNullOrEmpty(profile.DiaryPasswordHash))
+            {
+                _logger.LogWarning("No stored diary credentials for user {UserId}", userId);
+                return false;
+            }
+
+            var login = !string.IsNullOrEmpty(profile.User.UserName)
+                ? profile.User.UserName
+                : profile.ExternalStudentId.ToString();
+
+            var passwordHash = _dataProtector.Unprotect(profile.DiaryPasswordHash);
+
+            var result = await LoginWithPrecomputedHashAsync(login, passwordHash, ct);
+            if (result == null)
+                return false;
+
+            if (!string.IsNullOrEmpty(result.CookieData))
+                profile.DiaryCookieData = result.CookieData;
+            profile.DiaryLastSyncedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Diary re-login failed");
+            return false;
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Login methods (stateless: they never use per-user cookies; the cookies
+    // issued by the diary on a successful login are captured into the result).
+    // ---------------------------------------------------------------------
+
+    private async Task<DiaryLoginResult?> LoginRequestAsync(string login, string password, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/services/security/login");
+        request.Content = JsonContent.Create(new { login, password, isRemember = false });
+        request.Headers.Accept.ParseAdd("application/json, text/plain, */*");
+
+        var response = await _httpClient.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Diary login failed: {StatusCode}", response.StatusCode);
@@ -66,77 +233,80 @@ public class DiaryApiClient : IDiaryApiClient
         var studentId = ExtractStudentId(doc.RootElement);
 
         var tenant = doc.RootElement.GetProperty("tenants").EnumerateObject().FirstOrDefault().Value;
-        var studentRole = tenant.GetProperty("studentRole");
+
+        // First/last/middle names are on the tenant level, not on studentRole.
+        var tenantFirstName = tenant.TryGetProperty("firstName", out var tF) ? tF.GetString() : null;
+        var tenantLastName = tenant.TryGetProperty("lastName", out var tL) ? tL.GetString() : null;
+        var tenantMiddleName = tenant.TryGetProperty("middleName", out var tM) ? tM.GetString() : null;
+
+        // Group info comes from studentRole / students list.
+        string? groupName = null;
+        var studentGroupId = 0;
+        if (tenant.TryGetProperty("studentRole", out var sr))
+        {
+            if (sr.TryGetProperty("studentGroupId", out var sgId))
+                studentGroupId = sgId.GetInt32();
+
+            if (sr.TryGetProperty("students", out var students) && students.EnumerateArray().FirstOrDefault().TryGetProperty("groupName", out var gn))
+                groupName = gn.GetString();
+        }
+
+        // Fall back to the first student entry if the tenant-level names are absent.
+        if (string.IsNullOrEmpty(tenantFirstName))
+        {
+            if (tenant.TryGetProperty("studentRole", out var sr2) &&
+                sr2.TryGetProperty("students", out var students2) &&
+                students2.EnumerateArray().FirstOrDefault().TryGetProperty("firstName", out var f))
+            {
+                tenantFirstName = f.GetString();
+            }
+        }
+
+        var cookieData = MergeCookieData(null, ExtractSetCookies(response));
 
         return new DiaryLoginResult(
             StudentId: studentId ?? 0,
-            FirstName: studentRole.GetProperty("firstName").GetString() ?? "",
-            LastName: studentRole.GetProperty("lastName").GetString() ?? "",
-            MiddleName: studentRole.GetProperty("middleName").GetString() ?? "",
-            OrganizationName: tenant.GetProperty("settings").GetProperty("organization").GetProperty("name").GetString() ?? "",
-            OrganizationShortName: tenant.GetProperty("settings").GetProperty("organization").GetProperty("shortName").GetString() ?? ""
+            FirstName: tenantFirstName ?? "",
+            LastName: tenantLastName ?? "",
+            MiddleName: tenantMiddleName ?? "",
+            OrganizationName: tenant.TryGetProperty("settings", out var settings)
+                ? settings.GetProperty("organization").GetProperty("name").GetString() ?? ""
+                : "",
+            OrganizationShortName: settings.GetProperty("organization").GetProperty("shortName").GetString() ?? "",
+            GroupName: groupName,
+            StudentGroupId: studentGroupId,
+            CookieData: string.IsNullOrWhiteSpace(cookieData) ? null : cookieData
         );
     }
 
-    // Login with pre-computed SHA256 hash of login
+    // Legacy method - kept for compatibility (sends the raw password; the diary
+    // expects a SHA-256 base64 hash, so use LoginWithPrecomputedHashAsync).
+    public async Task<DiaryLoginResult?> LoginAsync(string login, string password, CancellationToken ct = default)
+    {
+        return await LoginRequestAsync(login, password, ct);
+    }
+
+    // Login with pre-computed SHA256 (base64) hash of the password
     public async Task<DiaryLoginResult?> LoginWithPrecomputedHashAsync(string login, string passwordHash, CancellationToken ct = default)
     {
-        // The diary API hashes the password server-side
-        // From our research: the API accepts the login as password and hashes it server-side
-        // SHA256("60300078") = n91LLc3kEf5Z0y2/wzxKbmw3wXeoUYYhng9Do9pVgxM=
-        // So we just send the login as both login and password
-        
-        var response = await _httpClient.PostAsJsonAsync("/services/security/login", new
-        {
-            login,
-            password = login, // The API hashes this server-side
-            isRemember = false
-        }, ct);
-        
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogWarning("Diary login failed: {StatusCode}", response.StatusCode);
-            return null;
-        }
-
-        var json = await response.Content.ReadAsStringAsync(ct);
-        var doc = JsonDocument.Parse(json);
-
-        var studentId = ExtractStudentId(doc.RootElement);
-
-        var tenant = doc.RootElement.GetProperty("tenants").EnumerateObject().FirstOrDefault().Value;
-        var studentRole = tenant.GetProperty("studentRole");
-
-        return new DiaryLoginResult(
-            StudentId: studentId ?? 0,
-            FirstName: studentRole.GetProperty("firstName").GetString() ?? "",
-            LastName: studentRole.GetProperty("lastName").GetString() ?? "",
-            MiddleName: studentRole.GetProperty("middleName").GetString() ?? "",
-            OrganizationName: tenant.GetProperty("settings").GetProperty("organization").GetProperty("name").GetString() ?? "",
-            OrganizationShortName: tenant.GetProperty("settings").GetProperty("organization").GetProperty("shortName").GetString() ?? ""
-        );
+        return await LoginRequestAsync(login, passwordHash, ct);
     }
 
     // Relogin using stored credentials
-    public async Task<bool> ReloginAsync(string login, CancellationToken ct = default)
+    public async Task<bool> ReloginAsync(string login, string passwordHash, CancellationToken ct = default)
     {
-        var response = await _httpClient.PostAsJsonAsync("/services/security/login", new
-        {
-            login,
-            password = login,
-            isRemember = false
-        }, ct);
-        
-        return response.IsSuccessStatusCode;
+        return await LoginRequestAsync(login, passwordHash, ct) != null;
     }
 
     public async Task<ScheduleDayDto[]> GetScheduleAsync(int studentId, DateTime startDate, DateTime endDate, CancellationToken ct = default)
     {
         var start = startDate.ToString("yyyy-MM-dd");
         var end = endDate.ToString("yyyy-MM-dd");
-        
-        var response = await _httpClient.GetAsync($"/services/students/{studentId}/lessons/{start}/{end}", ct);
-        
+
+        var response = await SendWithReloginAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"/services/students/{studentId}/lessons/{start}/{end}"),
+            ct);
+
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Get schedule failed: {StatusCode}", response.StatusCode);
@@ -260,8 +430,10 @@ public class DiaryApiClient : IDiaryApiClient
 
     public async Task<SubjectGradeDto[]> GetDashboardAsync(int studentId, CancellationToken ct = default)
     {
-        var response = await _httpClient.GetAsync($"/services/students/{studentId}/dashboard", ct);
-        
+        var response = await SendWithReloginAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"/services/students/{studentId}/dashboard"),
+            ct);
+
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Get dashboard failed: {StatusCode}", response.StatusCode);
@@ -289,8 +461,10 @@ public class DiaryApiClient : IDiaryApiClient
 
     public async Task<PerformanceDto?> GetPerformanceAsync(int studentId, CancellationToken ct = default)
     {
-        var response = await _httpClient.GetAsync($"/services/reports/current/performance/{studentId}", ct);
-        
+        var response = await SendWithReloginAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"/services/reports/current/performance/{studentId}"),
+            ct);
+
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Get performance failed: {StatusCode}", response.StatusCode);
@@ -348,8 +522,10 @@ public class DiaryApiClient : IDiaryApiClient
 
     public async Task<AccountSettingsDto?> GetAccountSettingsAsync(CancellationToken ct = default)
     {
-        var response = await _httpClient.GetAsync("/services/security/account-settings", ct);
-        
+        var response = await SendWithReloginAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, "/services/security/account-settings"),
+            ct);
+
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Get account settings failed: {StatusCode}", response.StatusCode);

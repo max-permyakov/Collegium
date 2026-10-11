@@ -91,7 +91,10 @@ public record DiaryLoginResult(
     string LastName,
     string MiddleName,
     string OrganizationName,
-    string OrganizationShortName
+    string OrganizationShortName,
+    string? GroupName = null,
+    int StudentGroupId = 0,
+    string? CookieData = null
 );
 
 public record AccountSettingsDto(

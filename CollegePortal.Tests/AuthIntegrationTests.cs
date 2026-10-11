@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,6 +43,12 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
         return response;
     }
 
+    // The diary expects the SHA-256 (base64) hash of the password, not the raw password.
+    private static string HashPassword(string password)
+    {
+        return Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(password)));
+    }
+
     [Fact]
     public async Task DiaryLogin_WithValidCredentials_ReturnsToken()
     {
@@ -51,7 +59,7 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
         login.Should().NotBeNullOrEmpty("Test login should be configured in user secrets");
         password.Should().NotBeNullOrEmpty("Test password should be configured in user secrets");
 
-        var request = new DiaryLoginRequestDto(login!, password!);
+        var request = new DiaryLoginRequestDto(login!, HashPassword(password!));
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/diary-login", request);
@@ -97,7 +105,7 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
             throw new InvalidOperationException("SKIP: Diary test credentials not configured in user secrets");
         }
         
-        var initialRequest = new DiaryLoginRequestDto(login!, password!);
+        var initialRequest = new DiaryLoginRequestDto(login!, HashPassword(password!));
 
         var initialResponse = await _client.PostAsJsonAsync("/api/auth/diary-login", initialRequest);
         

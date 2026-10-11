@@ -35,6 +35,9 @@ public static class ServiceCollectionExtensions
             options.Password.RequireNonAlphanumeric = false;
             options.Password.RequiredLength = 8;
             options.User.RequireUniqueEmail = true;
+            options.User.AllowedUserNameCharacters =
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+" +
+                "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя";
             options.SignIn.RequireConfirmedEmail = false;
         })
         .AddEntityFrameworkStores<CollegePortalDbContext>()
@@ -73,6 +76,8 @@ public static class ServiceCollectionExtensions
         services.Configure<DiaryApiOptions>(configuration.GetSection("ExternalApis:Diary"));
         services.Configure<ScheduleApiOptions>(configuration.GetSection("ExternalApis:Schedule"));
 
+        services.AddHttpContextAccessor();
+
         services.AddHttpClient<IDiaryApiClient, DiaryApiClient>((sp, client) =>
         {
             var options = sp.GetRequiredService<IOptions<DiaryApiOptions>>().Value;
@@ -82,8 +87,9 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
-            CookieContainer = new CookieContainer(),
-            UseCookies = true,
+            // Cookies are managed per user by DiaryApiClient (via Cookie/Set-Cookie headers
+            // persisted in StudentProfile.DiaryCookieData), so disable the shared container.
+            UseCookies = false,
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 

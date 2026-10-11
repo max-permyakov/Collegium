@@ -15,6 +15,16 @@ public class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
+        // Allow the frontend (Vite dev server / any local origin) to call the API.
+        // Authenticated via Bearer tokens, so credentials/cookies are not required.
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("Client", policy =>
+                policy.AllowAnyOrigin()
+                      .AllowAnyMethod()
+                      .AllowAnyHeader());
+        });
+
         builder.Services.AddInfrastructure(builder.Configuration);
 
         var app = builder.Build();
@@ -26,6 +36,8 @@ public class Program
         }
 
         app.UseHttpsRedirection();
+
+        app.UseCors("Client");
 
         app.UseAuthentication();
         app.UseAuthorization();
