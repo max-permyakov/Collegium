@@ -18,6 +18,8 @@ public record UserDto(
     string DisplayName,
     string Role,
     bool IsActive,
+    bool IsProtected,
+    string? PhoneNumber,
     StudentProfileDto? StudentProfile
 );
 
@@ -25,7 +27,12 @@ public record StudentProfileDto(
     Guid Id,
     Guid StudyGroupId,
     string StudyGroupName,
-    int ExternalStudentId
+    int ExternalStudentId,
+    string? Bio,
+    string? AvatarDataUrl,
+    string HeadmanRole,
+    decimal? AverageMark,
+    DateTime? GradesCachedAt
 );
 
 public record RefreshTokenRequestDto(

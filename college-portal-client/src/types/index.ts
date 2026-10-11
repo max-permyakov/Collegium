@@ -4,6 +4,8 @@ export interface User {
   displayName: string;
   role: 'Student' | 'Admin';
   isActive: boolean;
+  isProtected: boolean;
+  phoneNumber?: string | null;
   studentProfile?: StudentProfile;
 }
 
@@ -12,6 +14,11 @@ export interface StudentProfile {
   studyGroupId: string;
   studyGroupName: string;
   externalStudentId: number;
+  bio?: string | null;
+  avatarDataUrl?: string | null;
+  headmanRole?: string | null;
+  averageMark?: number | null;
+  gradesCachedAt?: string | null;
 }
 
 export interface LoginRequest {
@@ -216,3 +223,7 @@ export interface KkepikScheduleResponse {
   lessons: Lesson[];
   updatedAt?: string | null;
 }
+
+import type { AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole } from './admin';
+
+export type { AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole };

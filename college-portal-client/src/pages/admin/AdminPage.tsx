@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
-import { newsApi } from '../../services/api';
-import { assignmentsApi } from '../../services/api';
+import { useQuery } from '@tanstack/react-query';
+import { newsApi, assignmentsApi, adminApi } from '../../services/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
+import { StatisticsTab } from './StatisticsTab';
+import { UsersTab } from './UsersTab';
+import { AuditTab } from './AuditTab';
 import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto } from '../../types';
+import type { StatisticsDto } from '../../types/admin';
 
 export function AdminPage() {
   const [announcements, setAnnouncements] = useState<AnnouncementListItem[]>([]);
@@ -19,6 +23,13 @@ export function AdminPage() {
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const [editingNews, setEditingNews] = useState<AnnouncementListItem | null>(null);
   const [editingAssignment, setEditingAssignment] = useState<AssignmentListItem | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const { data: statistics } = useQuery<StatisticsDto>({
+    queryKey: ['admin', 'statistics'],
+    queryFn: async () => (await adminApi.getStatistics()).data,
+  });
+  const groups = statistics?.groups ?? [];
 
   const [newsForm, setNewsForm] = useState<CreateAnnouncementDto>({
     title: '',
@@ -49,7 +60,7 @@ export function AdminPage() {
       ]);
       if (newsRes.status === 'fulfilled') setAnnouncements(newsRes.value.data || []);
       if (assignmentsRes.status === 'fulfilled') setAssignments(assignmentsRes.value.data || []);
-    } catch (err) {
+    } catch {
       setError('Не удалось загрузить данные');
     } finally {
       setIsLoading(false);
@@ -60,6 +71,26 @@ export function AdminPage() {
     loadData();
   }, []);
 
+  const handleExportCsv = async () => {
+    setIsExporting(true);
+    setError('');
+    try {
+      const res = await adminApi.exportUsersCsv();
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'users.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Не удалось экспортировать CSV');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleCreateNews = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -68,8 +99,9 @@ export function AdminPage() {
       setShowCreateNews(false);
       setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
       loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка создания новости');
+    } catch (err) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message || 'Ошибка создания новости');
     }
   };
 
@@ -85,8 +117,9 @@ export function AdminPage() {
       setEditingNews(null);
       setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
       loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка обновления новости');
+    } catch (err) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message || 'Ошибка обновления новости');
     }
   };
 
@@ -96,8 +129,9 @@ export function AdminPage() {
     try {
       await newsApi.delete(id);
       loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка удаления новости');
+    } catch (err) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message || 'Ошибка удаления новости');
     }
   };
 
@@ -106,8 +140,9 @@ export function AdminPage() {
     try {
       await newsApi.togglePublished(id);
       loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка изменения статуса');
+    } catch (err) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message || 'Ошибка изменения статуса');
     }
   };
 
@@ -115,12 +150,13 @@ export function AdminPage() {
     e.preventDefault();
     setError('');
     try {
-      await assignmentsApi.create(assignmentForm);
+      await assignmentsApi.createAssignment(assignmentForm);
       setShowCreateAssignment(false);
       setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
       loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка создания задания');
+    } catch (err) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message || 'Ошибка создания задания');
     }
   };
 
@@ -129,12 +165,13 @@ export function AdminPage() {
     if (!editingAssignment) return;
     setError('');
     try {
-      await assignmentsApi.update(editingAssignment.id, assignmentForm);
+      await assignmentsApi.updateAssignment(editingAssignment.id, assignmentForm);
       setEditingAssignment(null);
       setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
       loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка обновления задания');
+    } catch (err) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message || 'Ошибка обновления задания');
     }
   };
 
@@ -142,44 +179,38 @@ export function AdminPage() {
     if (!confirm('Удалить это задание?')) return;
     setError('');
     try {
-      await assignmentsApi.delete(id);
+      await assignmentsApi.deleteAssignment(id);
       loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка удаления задания');
+    } catch (err) {
+      const e2 = err as { response?: { data?: { message?: string } } };
+      setError(e2.response?.data?.message || 'Ошибка удаления задания');
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="skeleton h-20" />
-        <div className="skeleton h-64" />
-      </div>
-    );
-  }
+  const resetNewsForm = () => {
+    setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
+  };
 
-  if (error) {
-    return (
-      <Card variant="hover" className="text-center py-12">
-        <div className="text-red-400 mb-4">{error}</div>
-        <Button onClick={loadData}>Попробовать снова</Button>
-      </Card>
-    );
-  }
+  const resetAssignmentForm = () => {
+    setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-dark-text">Панель администратора</h1>
-          <p className="text-dark-textMuted">Управление новостями и заданиями</p>
+          <p className="text-dark-textMuted">Пользователи, статистика, аудит, новости и задания</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); resetNewsForm(); }}>
             + Новость
           </Button>
-          <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>
+          <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); resetAssignmentForm(); }}>
             + Задание
+          </Button>
+          <Button variant="secondary" loading={isExporting} onClick={handleExportCsv}>
+            Экспорт CSV
           </Button>
         </div>
       </div>
@@ -191,35 +222,57 @@ export function AdminPage() {
         </div>
       )}
 
-      <Tabs defaultValue="news" className="w-full">
-        <TabsList className="grid grid-cols-2">
-          <TabsTrigger value="news">📰 Новости ({announcements.length})</TabsTrigger>
-          <TabsTrigger value="assignments">📝 Задания ({assignments.length})</TabsTrigger>
+      <Tabs defaultValue="statistics" className="w-full">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 h-auto">
+          <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>
+          <TabsTrigger value="users">👥 Пользователи</TabsTrigger>
+          <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>
+          <TabsTrigger value="news">📰 Новости</TabsTrigger>
+          <TabsTrigger value="assignments">📝 Задания</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="statistics">
+          <StatisticsTab />
+        </TabsContent>
+
+        <TabsContent value="users">
+          <UsersTab />
+        </TabsContent>
+
+        <TabsContent value="audit">
+          <AuditTab />
+        </TabsContent>
 
         <TabsContent value="news">
           <div className="space-y-4">
-            {showCreateNews || editingNews ? (
+            {(showCreateNews || editingNews) && (
               <Card variant="hover">
                 <CardHeader>
                   <CardTitle>{editingNews ? 'Редактирование новости' : 'Создание новости'}</CardTitle>
                 </CardHeader>
                 <form onSubmit={editingNews ? handleUpdateNews : handleCreateNews} className="p-4 space-y-4">
-                  <Input label="Заголовок" name="title" value={newsForm.title} onChange={e => setNewsForm({...newsForm, title: e.target.value})} placeholder="Заголовок новости" required />
-                  <Textarea label="Текст" name="body" value={newsForm.body} onChange={e => setNewsForm({...newsForm, body: e.target.value})} placeholder="Текст новости" required rows={4} />
-                  <Input label="Дата публикации" name="publishedAt" type="datetime-local" value={newsForm.publishedAt} onChange={e => setNewsForm({...newsForm, publishedAt: e.target.value})} required />
+                  <Input label="Заголовок" value={newsForm.title} onChange={e => setNewsForm({...newsForm, title: e.target.value})} placeholder="Заголовок новости" required />
+                  <Textarea label="Текст" value={newsForm.body} onChange={e => setNewsForm({...newsForm, body: e.target.value})} placeholder="Текст новости" required rows={4} />
+                  <Input label="Дата публикации" type="datetime-local" value={newsForm.publishedAt} onChange={e => setNewsForm({...newsForm, publishedAt: e.target.value})} required />
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-dark-text mb-1.5">Группа (необязательно)</label>
+                    <select
+                      className="input"
+                      value={newsForm.studyGroupId ?? ''}
+                      onChange={e => setNewsForm({...newsForm, studyGroupId: e.target.value || undefined})}
+                    >
+                      <option value="">Для всех</option>
+                      {groups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="flex gap-2">
                     <Button type="submit" className="flex-1">{editingNews ? 'Сохранить' : 'Опубликовать'}</Button>
-                    <Button type="button" variant="secondary" onClick={() => { setShowCreateNews(false); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>Отмена</Button>
+                    <Button type="button" variant="secondary" onClick={() => { setShowCreateNews(false); setEditingNews(null); resetNewsForm(); }}>Отмена</Button>
                   </div>
                 </form>
               </Card>
-            ) : (
-              <div className="flex gap-2 mb-4">
-                <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>
-                  + Создать новость
-                </Button>
-              </div>
             )}
 
             {announcements.length > 0 ? (
@@ -256,7 +309,7 @@ export function AdminPage() {
             ) : (
               <Card variant="hover" className="text-center py-12">
                 <p className="text-dark-textMuted mb-4">Нет новостей</p>
-                <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined }); }}>
+                <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); resetNewsForm(); }}>
                   Создать первую новость
                 </Button>
               </Card>
@@ -266,31 +319,40 @@ export function AdminPage() {
 
         <TabsContent value="assignments">
           <div className="space-y-4">
-            {showCreateAssignment || editingAssignment ? (
+            {(showCreateAssignment || editingAssignment) && (
               <Card variant="hover">
                 <CardHeader>
                   <CardTitle>{editingAssignment ? 'Редактирование задания' : 'Создание задания'}</CardTitle>
                 </CardHeader>
                 <form onSubmit={editingAssignment ? handleUpdateAssignment : handleCreateAssignment} className="p-4 space-y-4">
-                  <Input label="Название" name="title" value={assignmentForm.title} onChange={e => setAssignmentForm({...assignmentForm, title: e.target.value})} placeholder="Название задания" required />
-                  <Textarea label="Описание" name="description" value={assignmentForm.description} onChange={e => setAssignmentForm({...assignmentForm, description: e.target.value})} placeholder="Описание задания" required rows={3} />
-                  <Input label="Срок сдачи" name="dueAt" type="datetime-local" value={assignmentForm.dueAt} onChange={e => setAssignmentForm({...assignmentForm, dueAt: e.target.value})} required />
-                  <Input label="ID учебной группы" name="studyGroupId" value={assignmentForm.studyGroupId} onChange={e => setAssignmentForm({...assignmentForm, studyGroupId: e.target.value})} placeholder="UUID группы" required />
+                  <Input label="Название" value={assignmentForm.title} onChange={e => setAssignmentForm({...assignmentForm, title: e.target.value})} placeholder="Название задания" required />
+                  <Textarea label="Описание" value={assignmentForm.description} onChange={e => setAssignmentForm({...assignmentForm, description: e.target.value})} placeholder="Описание задания" required rows={3} />
+                  <Input label="Срок сдачи" type="datetime-local" value={assignmentForm.dueAt} onChange={e => setAssignmentForm({...assignmentForm, dueAt: e.target.value})} required />
+                  <div className="w-full">
+                    <label className="block text-sm font-medium text-dark-text mb-1.5">Учебная группа</label>
+                    <select
+                      className="input"
+                      value={assignmentForm.studyGroupId}
+                      onChange={e => setAssignmentForm({...assignmentForm, studyGroupId: e.target.value})}
+                      required
+                    >
+                      <option value="">Выберите группу</option>
+                      {groups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="flex gap-2">
                     <Button type="submit" className="flex-1">{editingAssignment ? 'Сохранить' : 'Создать'}</Button>
-                    <Button type="button" variant="secondary" onClick={() => { setShowCreateAssignment(false); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>Отмена</Button>
+                    <Button type="button" variant="secondary" onClick={() => { setShowCreateAssignment(false); setEditingAssignment(null); resetAssignmentForm(); }}>Отмена</Button>
                   </div>
                 </form>
               </Card>
-            ) : (
-              <div className="flex gap-2 mb-4">
-                <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>
-                  + Создать задание
-                </Button>
-              </div>
             )}
 
-            {assignments.length > 0 ? (
+            {isLoading ? (
+              <div className="skeleton h-32" />
+            ) : assignments.length > 0 ? (
               <div className="space-y-2">
                 {assignments.map((item) => (
                   <Card key={item.id} variant="hover">
@@ -324,7 +386,7 @@ export function AdminPage() {
             ) : (
               <Card variant="hover" className="text-center py-12">
                 <p className="text-dark-textMuted mb-4">Нет заданий</p>
-                <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' }); }}>
+                <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); resetAssignmentForm(); }}>
                   Создать первое задание
                 </Button>
               </Card>

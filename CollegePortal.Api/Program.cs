@@ -1,3 +1,4 @@
+using CollegePortal.Api.Middleware;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure;
 using CollegePortal.Infrastructure.Extensions;
@@ -14,6 +15,7 @@ public class Program
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
+        builder.Services.AddMemoryCache();
 
         // Allow the frontend (Vite dev server / any local origin) to call the API.
         // Authenticated via Bearer tokens, so credentials/cookies are not required.
@@ -40,6 +42,7 @@ public class Program
         app.UseCors("Client");
 
         app.UseAuthentication();
+        app.UseMiddleware<BannedUsersMiddleware>();
         app.UseAuthorization();
 
         app.MapControllers();
@@ -87,8 +90,52 @@ public class Program
             {
                 await userManager.AddToRoleAsync(adminUser, "Admin");
             }
+
+            // Seed / protect the primary admin (perмяков158) by login and by user id.
+            // This is idempotent and re-run on every startup, so the user is always admin.
+            var primaryLogins = (builder.Configuration["PrimaryAdmin:Logins"] ?? "пермяков158")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var primaryIds = (builder.Configuration["PrimaryAdmin:UserIds"] ?? "5ca44056-2418-43d8-39b4-08df27791252")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var login in primaryLogins)
+            {
+                var primaryUser = await userManager.FindByNameAsync(login);
+                if (primaryUser != null)
+                    await ApplyPrimaryAdminAsync(userManager, primaryUser);
+            }
+
+            foreach (var id in primaryIds)
+            {
+                var primaryUser = await userManager.FindByIdAsync(id);
+                if (primaryUser != null)
+                    await ApplyPrimaryAdminAsync(userManager, primaryUser);
+            }
         }
 
         await app.RunAsync();
+    }
+
+    private static async Task ApplyPrimaryAdminAsync(UserManager<ApplicationUser> userManager, ApplicationUser user)
+    {
+        var changed = false;
+        if (user.Role != "Admin")
+        {
+            user.Role = "Admin";
+            changed = true;
+        }
+        if (!user.IsProtected)
+        {
+            user.IsProtected = true;
+            changed = true;
+        }
+        if (!await userManager.IsInRoleAsync(user, "Admin"))
+        {
+            var roleResult = await userManager.AddToRoleAsync(user, "Admin");
+            changed |= roleResult.Succeeded;
+        }
+
+        if (changed)
+            await userManager.UpdateAsync(user);
     }
 }

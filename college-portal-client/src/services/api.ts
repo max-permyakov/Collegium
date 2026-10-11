@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User } from '../types';
+import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -126,11 +126,32 @@ export const newsApi = {
 };
 
 export const assignmentsApi = {
-  getMyAssignments: () => api.get<AssignmentListItem[]>('/assignments'),
-  getById: (id: string) => api.get<Assignment>(`/assignments/${id}`),
-  create: (data: CreateAssignmentDto) => api.post<Assignment>('/assignments', data),
-  update: (id: string, data: UpdateAssignmentDto) => api.put<Assignment>(`/assignments/${id}`, data),
+  getMyAssignments: () => api.get<AssignmentListItem[]>(`/assignments`),
+  getAssignment: (id: string) => api.get<Assignment>(`/assignments/${id}`),
+  createAssignment: (data: CreateAssignmentDto) => api.post<Assignment>(`/assignments`, data),
+  updateAssignment: (id: string, data: UpdateAssignmentDto) => api.put<Assignment>(`/assignments/${id}`, data),
+  deleteAssignment: (id: string) => api.delete(`/assignments/${id}`),
   delete: (id: string) => api.delete(`/assignments/${id}`),
 };
+
+export const profileApi = {
+  getMe: () => api.get<ProfileDto>('/profile/me'),
+  updateMe: (data: { bio?: string | null; email?: string | null; phoneNumber?: string | null }) => api.put('/profile/me', data),
+  setAvatar: (dataUrl?: string | null) => api.post('/profile/me/avatar', { dataUrl }),
+  clearAvatar: () => api.delete('/profile/me/avatar'),
+};
+
+export const adminApi = {
+  getStatistics: () => api.get<StatisticsDto>('/admin/statistics'),
+  getUsers: () => api.get<AdminUserDto[]>('/admin/users'),
+  getUser: (id: string) => api.get<ProfileDto>(`/admin/users/${id}`),
+  setRole: (id: string, role: 'Student' | 'Admin') => api.post(`/admin/users/${id}/role`, { role }),
+  setIsActive: (id: string, isActive: boolean) => api.post(`/admin/users/${id}/is-active`, { isActive }),
+  setHeadman: (id: string, headmanRole: string) => api.post(`/admin/users/${id}/headman`, { headmanRole }),
+  recomputeGrades: (id: string) => api.post(`/admin/users/${id}/recompute-grades`),
+  getAudit: (limit = 100) => api.get<AuditLogDto[]>(`/admin/audit`, { params: { limit } }),
+  exportUsersCsv: () => api.get<Blob>('/admin/users.csv', { responseType: 'blob' }),
+};
+
 
 export default api;

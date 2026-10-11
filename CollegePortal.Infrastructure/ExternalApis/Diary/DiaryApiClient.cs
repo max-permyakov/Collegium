@@ -137,9 +137,9 @@ public class DiaryApiClient : IDiaryApiClient
         await _dbContext.SaveChangesAsync(ct);
     }
 
-    private async Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    private async Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestFactory, Guid? userIdOverride, CancellationToken ct)
     {
-        var userId = TryGetCurrentUserId();
+        var userId = userIdOverride ?? TryGetCurrentUserId();
         var cookieHeader = await GetStoredCookieHeaderAsync(userId, ct);
 
         var request = requestFactory();
@@ -151,28 +151,38 @@ public class DiaryApiClient : IDiaryApiClient
         return response;
     }
 
+    private async Task<HttpResponseMessage> SendAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    {
+        return await SendAsync(requestFactory, null, ct);
+    }
+
     // Executes an HTTP request and transparently retries once after re-login if
     // the diary session has expired (HTTP 401).
-    private async Task<HttpResponseMessage> SendWithReloginAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    private async Task<HttpResponseMessage> SendWithReloginAsync(Func<HttpRequestMessage> requestFactory, Guid? userIdOverride, CancellationToken ct)
     {
-        var response = await SendAsync(requestFactory, ct);
+        var response = await SendAsync(requestFactory, userIdOverride, ct);
         if (response.StatusCode != HttpStatusCode.Unauthorized)
             return response;
 
         response.Dispose();
-        if (!await TryReloginAsync(ct))
-            return await SendAsync(requestFactory, ct);
+        if (!await TryReloginAsync(userIdOverride, ct))
+            return await SendAsync(requestFactory, userIdOverride, ct);
 
         _logger.LogInformation("Diary session expired, re-login succeeded, retrying request");
-        return await SendAsync(requestFactory, ct);
+        return await SendAsync(requestFactory, userIdOverride, ct);
     }
 
-    // Re-authenticates the current user in the diary using credentials stored during login.
-    private async Task<bool> TryReloginAsync(CancellationToken ct)
+    private async Task<HttpResponseMessage> SendWithReloginAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    {
+        return await SendWithReloginAsync(requestFactory, null, ct);
+    }
+
+    // Re-authenticates the current (or overridden) user in the diary using credentials stored during login.
+    private async Task<bool> TryReloginAsync(Guid? userIdOverride, CancellationToken ct)
     {
         try
         {
-            var userId = TryGetCurrentUserId();
+            var userId = userIdOverride ?? TryGetCurrentUserId();
             if (userId == null)
                 return false;
 
@@ -441,6 +451,28 @@ public class DiaryApiClient : IDiaryApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(ct);
+        return ParseDashboard(json);
+    }
+
+    public async Task<SubjectGradeDto[]> GetDashboardForUserAsync(Guid userId, int studentId, CancellationToken ct = default)
+    {
+        var response = await SendWithReloginAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"/services/students/{studentId}/dashboard"),
+            userId,
+            ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Get dashboard for user failed: {StatusCode}", response.StatusCode);
+            return Array.Empty<SubjectGradeDto>();
+        }
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+        return ParseDashboard(json);
+    }
+
+    private static SubjectGradeDto[] ParseDashboard(string json)
+    {
         var doc = JsonDocument.Parse(json);
 
         var subjects = new List<SubjectGradeDto>();
