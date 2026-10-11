@@ -22,6 +22,9 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<ClubMember> ClubMembers => Set<ClubMember>();
     public DbSet<ClubMessage> ClubMessages => Set<ClubMessage>();
     public DbSet<CollegeTeacher> CollegeTeachers => Set<CollegeTeacher>();
+    public DbSet<Building> Buildings => Set<Building>();
+    public DbSet<Auditorium> Auditoriums => Set<Auditorium>();
+    public DbSet<Discipline> Disciplines => Set<Discipline>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -156,6 +159,40 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.Property(e => e.Phone).HasMaxLength(100);
             entity.Property(e => e.Email).HasMaxLength(200);
             entity.Property(e => e.PhotoUrl).HasMaxLength(1000);
+        });
+
+        builder.Entity<Building>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(2000);
+        });
+
+        builder.Entity<Discipline>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(200);
+        });
+
+        builder.Entity<Auditorium>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.BuildingId, e.Number }).IsUnique();
+            entity.Property(e => e.Number).HasMaxLength(50);
+            entity.Property(e => e.DisplayName).HasMaxLength(200);
+            entity.Property(e => e.LocationHint).HasMaxLength(500);
+            entity.HasOne(e => e.Building)
+                .WithMany(b => b.Auditoriums)
+                .HasForeignKey(e => e.BuildingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(e => e.Disciplines)
+                .WithMany(d => d.Auditoriums)
+                .UsingEntity(join => join.ToTable("AuditoriumDisciplines"));
+            entity.HasMany(e => e.Teachers)
+                .WithMany()
+                .UsingEntity(join => join.ToTable("AuditoriumTeachers"));
         });
     }
 }
