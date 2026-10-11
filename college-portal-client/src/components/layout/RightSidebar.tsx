@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -61,22 +60,16 @@ const LogoutIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const MenuIcon = ({ className }: { className?: string }) => (
+const ChevronIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-  </svg>
-);
-
-const CloseIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
   </svg>
 );
 
 const CollegeLogo = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v4m-4 4h8" />
   </svg>
 );
 
@@ -90,103 +83,80 @@ const navItems: NavItem[] = [
   { path: '/admin', label: 'Админка', icon: <SettingsIcon className="w-5 h-5" />, roles: ['Admin'] },
 ];
 
-export function RightSidebar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const location = useLocation();
+interface RightSidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
   const { user, logout } = useAuth();
 
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  useEffect(() => {
-    setIsOpen(false);
-  }, [location.pathname]);
-
-  const filteredNavItems = navItems.filter(item => 
+  const filteredNavItems = navItems.filter(item =>
     !item.roles || (user && item.roles.includes(user.role))
   );
 
   const handleLogout = async () => {
     await logout();
-    setIsOpen(false);
   };
-
-  if (isMobile && !isOpen) {
-    return (
-      <button
-        className="fixed bottom-4 right-4 z-50 btn-primary shadow-xl p-3"
-        onClick={() => setIsOpen(true)}
-        aria-label="Открыть меню"
-        aria-expanded={isOpen}
-      >
-        <MenuIcon className="w-6 h-6" />
-      </button>
-    );
-  }
 
   return (
     <>
-      {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50"
-          onClick={() => setIsOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+      {/* Desktop: collapsible right panel */}
       <aside
-        className={`fixed right-0 top-0 h-full z-50 w-72 bg-dark-card border-l border-dark-border transform transition-transform duration-300 ease-in-out flex flex-col
-          ${isMobile ? (isOpen ? 'translate-x-0' : 'translate-x-full') : 'translate-x-0'}
-          ${!isMobile ? 'lg:w-64' : ''}`}
+        className={`fixed right-0 top-0 h-full z-40 hidden lg:flex flex-col bg-dark-card border-l border-dark-border transition-[width] duration-300 ${collapsed ? 'w-16' : 'w-64'}`}
         aria-label="Навигация"
       >
-        <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-dark-border flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
-                <CollegeLogo className="w-6 h-6 text-primary-400" />
-              </div>
-              <h2 className="text-lg font-semibold text-dark-text">Колледж-Портал</h2>
+        <div className={`flex items-center h-16 border-b border-dark-border flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
+          <div className={`flex items-center gap-3 ${collapsed ? 'hidden' : ''}`}>
+            <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
+              <CollegeLogo className="w-6 h-6 text-primary-400" />
             </div>
-            {isMobile && (
-              <button
-                onClick={() => setIsOpen(false)}
-                className="btn-ghost p-2"
-                aria-label="Закрыть меню"
-              >
-                <CloseIcon className="w-5 h-5" />
-              </button>
-            )}
+            <span className="text-lg font-semibold text-dark-text">KKEP.ka</span>
           </div>
+          {collapsed && (
+            <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
+              <CollegeLogo className="w-6 h-6 text-primary-400" />
+            </div>
+          )}
+          <button
+            onClick={onToggle}
+            className="btn-ghost p-2"
+            aria-label={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
+            title={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
+          >
+            <ChevronIcon className={`w-5 h-5 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
 
-          <nav className="flex-1 p-3 overflow-y-auto" aria-label="Основная навигация">
-            <ul className="space-y-1" role="list">
-              {filteredNavItems.map((item) => (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    className={({ isActive }) => `
-                      flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
-                      ${isActive
-                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
-                        : 'text-dark-textMuted hover:bg-dark-border hover:text-dark-text'}
-                    `}
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
+        <nav className="flex-1 overflow-y-auto py-3 px-2" aria-label="Основная навигация">
+          <ul className="space-y-1" role="list">
+            {filteredNavItems.map((item) => (
+              <li key={item.path}>
+                <NavLink
+                  to={item.path}
+                  end={item.path === '/'}
+                  title={collapsed ? item.label : undefined}
+                  className={({ isActive }) => `
+                    flex items-center rounded-xl text-sm font-medium transition-all duration-200
+                    ${collapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2.5'}
+                    ${isActive
+                      ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
+                      : 'text-dark-textMuted hover:bg-dark-border hover:text-dark-text border border-transparent'}
+                  `}
+                >
+                  <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
+                  {!collapsed && item.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-          <div className="p-4 border-t border-dark-border space-y-3">
-            {user && (
+        <div className={`p-4 border-t border-dark-border ${collapsed ? 'flex flex-col items-center gap-3' : 'space-y-3'}`}>
+          {user && (
+            collapsed ? (
+              <Avatar name={user.displayName} size="md" />
+            ) : (
               <div className="flex items-center gap-3">
                 <Avatar name={user.displayName} size="md" />
                 <div className="flex-1 min-w-0">
@@ -194,14 +164,55 @@ export function RightSidebar() {
                   <p className="text-xs text-dark-textMuted capitalize">{user.role}</p>
                 </div>
               </div>
-            )}
-            <Button variant="ghost" className="w-full justify-start gap-3 text-red-400 hover:bg-red-500/10" onClick={handleLogout}>
-              <LogoutIcon className="w-5 h-5" />
-              Выйти
-            </Button>
-          </div>
+            )
+          )}
+          <Button
+            variant="ghost"
+            className={`text-red-400 hover:bg-red-500/10 ${collapsed ? 'w-10 h-10 p-0 justify-center' : 'w-full justify-start gap-3'}`}
+            onClick={handleLogout}
+            title="Выйти"
+          >
+            <LogoutIcon className="w-5 h-5" />
+            {!collapsed && 'Выйти'}
+          </Button>
         </div>
       </aside>
+
+      {/* Mobile: icon-only bottom navigation bar */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-dark-card/95 backdrop-blur border-t border-dark-border safe-bottom"
+        aria-label="Основная навигация"
+      >
+        <div className="flex items-stretch justify-around">
+          {filteredNavItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              className={({ isActive }) => `
+                relative flex flex-col flex-1 min-w-0 items-center justify-center gap-1.5 py-3 transition-colors
+                ${isActive ? 'text-primary-400' : 'text-dark-textMuted'}
+              `}
+              aria-label={item.label}
+            >
+              {({ isActive }) => (
+                <>
+                  <span className={`absolute top-0 h-0.5 w-8 rounded-full bg-primary-400 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+                  <span className="w-5 h-5">{item.icon}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+          <button
+            onClick={handleLogout}
+            className="relative flex flex-col flex-1 min-w-0 items-center justify-center gap-1.5 py-3 text-red-400"
+            aria-label="Выйти"
+            title="Выйти"
+          >
+            <span className="w-5 h-5"><LogoutIcon className="w-5 h-5" /></span>
+          </button>
+        </div>
+      </nav>
     </>
   );
 }

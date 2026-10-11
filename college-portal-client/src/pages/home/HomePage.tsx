@@ -9,14 +9,31 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
-import type { SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
+import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
 interface DashboardData {
-  nextLesson?: { lesson: any; date: string };
+  remainingToday?: Lesson[];
+  kkepik?: KkepikScheduleResponse;
   grades?: SubjectGrade[];
   news?: AnnouncementListItem[];
   assignments?: AssignmentListItem[];
 }
+
+const toDateInputValue = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const teacherShort = (teacher: Lesson['teacher']) => {
+  if (!teacher) return '';
+  const initials = [teacher.firstName, teacher.middleName]
+    .filter(Boolean)
+    .map(n => `${(n || '').replace('.', '').charAt(0).toUpperCase()}.`)
+    .join('');
+  return `${teacher.lastName} ${initials}`.trim();
+};
 
 export function HomePage() {
   const { user } = useAuth();
@@ -34,39 +51,34 @@ export function HomePage() {
     if (!user?.studentProfile) return;
 
     try {
+      const now = new Date();
+      const todayStr = toDateInputValue(now);
       const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-      const weekStartStr = weekStart.toISOString().split('T')[0];
+      weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+      const weekStartStr = toDateInputValue(weekStart);
+      const nowTime = now.toTimeString().slice(0, 8);
 
-      const [scheduleRes, gradesRes, newsRes, assignmentsRes] = await Promise.allSettled([
+      const [scheduleRes, kkepikRes, gradesRes, newsRes, assignmentsRes] = await Promise.allSettled([
         scheduleApi.getWeek(weekStartStr),
+        scheduleApi.getKkepik(),
         gradesApi.getGrades(),
         newsApi.getNews(user.studentProfile?.studyGroupId),
         assignmentsApi.getMyAssignments(),
       ]);
 
-      let nextLesson: DashboardData['nextLesson'];
+      let remainingToday: Lesson[] = [];
       if (scheduleRes.status === 'fulfilled' && scheduleRes.value.data?.days) {
-        const days = scheduleRes.value.data.days;
-        for (const day of days) {
-          if (day.lessons.length > 0) {
-            const upcoming = day.lessons.find(l => {
-              const lessonTime = new Date(`${day.date}T${l.startTime}`);
-              return lessonTime > new Date();
-            });
-            if (upcoming) {
-              nextLesson = { lesson: upcoming, date: day.date };
-              break;
-            }
-            if (!nextLesson) {
-              nextLesson = { lesson: day.lessons[0], date: day.date };
-            }
-          }
+        const todayDay = scheduleRes.value.data.days.find(
+          d => d.date === todayStr || d.date.slice(0, 10) === todayStr
+        );
+        if (todayDay) {
+          remainingToday = todayDay.lessons.filter(l => l.startTime > nowTime);
         }
       }
 
       setDashboardData({
-        nextLesson,
+        remainingToday,
+        kkepik: kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined,
         grades: gradesRes.status === 'fulfilled' ? gradesRes.value.data?.subjects?.slice(0, 4) : [],
         news: newsRes.status === 'fulfilled' ? newsRes.value.data?.slice(0, 3) : [],
         assignments: assignmentsRes.status === 'fulfilled' ? assignmentsRes.value.data?.slice(0, 3) : [],
@@ -86,128 +98,110 @@ export function HomePage() {
     return (
       <div className="space-y-4">
         <div className="skeleton h-20" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[1,2,3,4].map(i => <div key={i} className="skeleton h-24" />)}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {[1, 2].map(i => <div key={i} className="skeleton h-40" />)}
         </div>
       </div>
     );
   }
+
+  const displayName = (() => {
+    const parts = (user?.displayName || '').split(/\s+/).filter(Boolean);
+    return parts[1] || parts[0] || 'Студент';
+  })();
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-dark-text">
-            Привет, {user?.displayName?.split(' ')[0] || 'Студент'}! 👋
+            Привет, {displayName}!
           </h1>
           <p className="text-dark-textMuted">Вот ваша сводка на сегодня</p>
         </div>
         <Avatar name={user?.displayName || ''} size="lg" />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card variant="hover" className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-primary-500/20 flex items-center justify-center">
-              <svg className="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm text-dark-textMuted">Следующая пара</p>
-              <p className="font-medium text-dark-text">
-                {dashboardData.nextLesson
-                  ? `${dashboardData.nextLesson.lesson.name} (${_formatTime(dashboardData.nextLesson.lesson.startTime)})`
-                  : 'Пар нет'}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card variant="hover" className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-              <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm text-dark-textMuted">Средний балл</p>
-              <p className="font-medium text-dark-text">
-                {dashboardData.grades && dashboardData.grades.length > 0
-                  ? (dashboardData.grades.reduce((sum, s) => sum + s.averageMark, 0) / dashboardData.grades.length).toFixed(2)
-                  : '—'}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card variant="hover" className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
-              <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm text-dark-textMuted">Заданий</p>
-              <p className="font-medium text-dark-text">{dashboardData.assignments?.length || 0}</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card variant="hover" className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
-              <svg className="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm text-dark-textMuted">Новостей</p>
-              <p className="font-medium text-dark-text">{dashboardData.news?.length || 0}</p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
       <div className="grid gap-4 lg:grid-cols-2">
         <Card variant="hover">
           <CardHeader>
-            <CardTitle>Следующая пара</CardTitle>
+            <CardTitle>Оставшиеся пары сегодня</CardTitle>
           </CardHeader>
           <CardContent>
-            {dashboardData.nextLesson ? (
-              <Link to="/schedule" className="block">
-                <div className="p-4 rounded-xl bg-dark-bg border border-dark-border">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Badge variant="primary">{_formatDate(dashboardData.nextLesson.date)}</Badge>
-                    <Badge variant="info">{_formatTime(dashboardData.nextLesson.lesson.startTime)} - {_formatTime(dashboardData.nextLesson.lesson.endTime)}</Badge>
+            {dashboardData.remainingToday && dashboardData.remainingToday.length > 0 ? (
+              <div className="space-y-2">
+                {dashboardData.remainingToday.map((lesson, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-dark-bg border border-dark-border">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Badge variant="primary">
+                        {_formatTime(lesson.startTime)} - {_formatTime(lesson.endTime)}
+                      </Badge>
+                    </div>
+                    <p className="font-medium text-dark-text">{lesson.name}</p>
+                    {lesson.classroom && lesson.classroom.name && (
+                      <p className="text-sm text-dark-textMuted mt-1">Ауд. {lesson.classroom.name}</p>
+                    )}
+                    {lesson.teacher && (
+                      <p className="text-sm text-dark-textMuted">{teacherShort(lesson.teacher)}</p>
+                    )}
                   </div>
-                  <h3 className="font-medium text-dark-text">{dashboardData.nextLesson.lesson.name}</h3>
-                  {dashboardData.nextLesson.lesson.classroom && (
-                    <p className="text-sm text-dark-textMuted mt-1">
-                      📍 Ауд. {dashboardData.nextLesson.lesson.classroom.name}, Корп. {dashboardData.nextLesson.lesson.classroom.buildingName}
-                    </p>
-                  )}
-                  {dashboardData.nextLesson.lesson.teacher && (
-                    <p className="text-sm text-dark-textMuted">
-                      👨‍🏫 {dashboardData.nextLesson.lesson.teacher.lastName} {dashboardData.nextLesson.lesson.teacher.firstName[0]}.{dashboardData.nextLesson.lesson.teacher.middleName[0]}.'
-                    </p>
-                  )}
-                </div>
-              </Link>
+                ))}
+              </div>
             ) : (
-              <p className="text-dark-textMuted text-center py-8">Пар на ближайшее время нет</p>
+              <p className="text-dark-textMuted text-center py-8">Сегодня пар больше нет</p>
             )}
           </CardContent>
           <CardFooter>
-            <Link to="/schedule">
+            <Link to="/schedule" className="w-full">
               <Button variant="ghost" className="w-full">Открыть расписание</Button>
             </Link>
           </CardFooter>
         </Card>
 
+        <Card variant="hover">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Расписание на завтра</CardTitle>
+            {dashboardData.kkepik?.date && (
+              <Badge variant="info">{_formatDate(dashboardData.kkepik.date)}</Badge>
+            )}
+          </CardHeader>
+          <CardContent>
+            {dashboardData.kkepik && dashboardData.kkepik.lessons.length > 0 ? (
+              <div className="space-y-2">
+                {dashboardData.kkepik.lessons.slice(0, 5).map((lesson, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-dark-bg border border-dark-border">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Badge variant="primary">
+                        {_formatTime(lesson.startTime)} - {_formatTime(lesson.endTime)}
+                      </Badge>
+                      <span className="text-xs text-dark-textMuted">пара {i + 1}</span>
+                    </div>
+                    <p className="font-medium text-dark-text">{lesson.name}</p>
+                    {lesson.classroom && lesson.classroom.name && (
+                      <p className="text-sm text-dark-textMuted mt-1">Ауд. {lesson.classroom.name}</p>
+                    )}
+                    {lesson.teacher && (
+                      <p className="text-sm text-dark-textMuted">{teacherShort(lesson.teacher)}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-dark-textMuted text-center py-8">Данных от kkepik пока нет</p>
+            )}
+          </CardContent>
+          {dashboardData.kkepik?.updatedAt && (
+            <CardFooter>
+              <p className="text-xs text-dark-textMuted flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block flex-shrink-0" />
+                Обновлено от kkepik в {_formatTime(new Date(dashboardData.kkepik.updatedAt).toTimeString())}
+              </p>
+            </CardFooter>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card variant="hover">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Оценки</CardTitle>
@@ -237,9 +231,7 @@ export function HomePage() {
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
         <Card variant="hover">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Задания</CardTitle>
@@ -269,33 +261,33 @@ export function HomePage() {
             )}
           </CardContent>
         </Card>
-
-        <Card variant="hover">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Новости</CardTitle>
-            <Link to="/news">
-              <Button variant="ghost" size="sm">Все новости</Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {dashboardData.news && dashboardData.news.length > 0 ? (
-              <div className="space-y-2">
-                {dashboardData.news.map(news => (
-                  <Link key={news.id} to={`/news/${news.id}`} className="block">
-                    <div className="p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
-                      <p className="font-medium text-dark-text line-clamp-1">{news.title}</p>
-                      <p className="text-sm text-dark-textMuted mt-1 line-clamp-2">{news.body}</p>
-                      <p className="text-xs text-dark-textMuted mt-2">{_formatDate(news.publishedAt)}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="text-dark-textMuted text-center py-8">Нет новостей</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
+
+      <Card variant="hover">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Новости</CardTitle>
+          <Link to="/news">
+            <Button variant="ghost" size="sm">Все новости</Button>
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {dashboardData.news && dashboardData.news.length > 0 ? (
+            <div className="space-y-2">
+              {dashboardData.news.map(news => (
+                <Link key={news.id} to={`/news/${news.id}`} className="block">
+                  <div className="p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
+                    <p className="font-medium text-dark-text line-clamp-1">{news.title}</p>
+                    <p className="text-sm text-dark-textMuted mt-1 line-clamp-2">{news.body}</p>
+                    <p className="text-xs text-dark-textMuted mt-2">{_formatDate(news.publishedAt)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-dark-textMuted text-center py-8">Нет новостей</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

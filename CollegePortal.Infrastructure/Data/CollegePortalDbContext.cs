@@ -16,6 +16,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<StudyGroup> StudyGroups => Set<StudyGroup>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
+    public DbSet<KkepikSchedule> KkepikSchedules => Set<KkepikSchedule>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -47,6 +48,14 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.AcademicYear).HasMaxLength(20);
+        });
+
+        builder.Entity<KkepikSchedule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.GroupName).HasMaxLength(100);
+            entity.Property(e => e.ScheduleLinesJson).HasMaxLength(10000);
+            entity.HasIndex(e => new { e.GroupName, e.Date }).IsUnique();
         });
 
         builder.Entity<Announcement>(entity =>

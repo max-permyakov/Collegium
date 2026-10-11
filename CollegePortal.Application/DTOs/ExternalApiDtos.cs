@@ -60,7 +60,7 @@ public record SubjectGradeDto(
 
 public record PerformanceDto(
     MonthWithDaysDto[] MonthsWithDays,
-    SubjectPerformanceDto[] DaysWithMarksForSubject
+    SubjectPerformanceDto[] Subjects
 );
 
 public record MonthWithDaysDto(

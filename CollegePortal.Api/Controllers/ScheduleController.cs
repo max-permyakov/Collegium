@@ -65,6 +65,21 @@ public class ScheduleController : ControllerBase
         return Ok(schedule);
     }
 
+    [HttpGet("kkepik")]
+    public async Task<IActionResult> GetKkepikSchedule([FromQuery] DateTime? date = null)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var schedule = await _scheduleService.GetKkepikScheduleAsync(userId.Value, date);
+
+        if (schedule == null)
+            return NotFound(new { message = "Колледж пока не опубликовал актуальное расписание (kkepik)" });
+
+        return Ok(schedule);
+    }
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);

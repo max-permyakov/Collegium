@@ -34,13 +34,6 @@ export function GradesPage() {
     return 'danger';
   };
 
-  const _getGradeLabel = (mark: number) => {
-    if (mark >= 4.5) return 'Отлично';
-    if (mark >= 3.5) return 'Хорошо';
-    if (mark >= 2.5) return 'Удовл.';
-    return 'Неудовл.';
-  };
-
   const averageMark = grades.length > 0
     ? (grades.reduce((sum, s) => sum + s.averageMark, 0) / grades.length).toFixed(2)
     : '—';
@@ -84,11 +77,8 @@ export function GradesPage() {
       </div>
 
       <Card variant="hover">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>Предметы</CardTitle>
-          <div className="flex items-center gap-2 text-sm text-dark-textMuted">
-            <span>Предметов: {grades.length}</span>
-          </div>
         </CardHeader>
         <CardContent>
           {grades.length > 0 ? (
@@ -98,13 +88,11 @@ export function GradesPage() {
                   <div className="flex items-center justify-between p-4 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors group">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-dark-text truncate">{subject.name}</p>
-                      <p className="text-sm text-dark-textMuted mt-0.5">ID предмета: {subject.id}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <Badge variant={_getGradeColor(subject.averageMark)}>
                         {subject.averageMark.toFixed(2)}
                       </Badge>
-                      <Badge variant="default">{_getGradeLabel(subject.averageMark)}</Badge>
                       <svg className="w-5 h-5 text-dark-textMuted group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
@@ -127,28 +115,6 @@ export function GradesPage() {
             <Button variant="primary" className="w-full sm:w-auto">Подробная успеваемость</Button>
           </Link>
         </CardFooter>
-      </Card>
-
-      <Card variant="hover">
-        <CardHeader>
-          <CardTitle>Легенда</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
-              <Badge variant="success">4.50 - 5.00</Badge>
-              <span className="text-sm text-dark-text">Отлично</span>
-            </div>
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <Badge variant="warning">3.50 - 4.49</Badge>
-              <span className="text-sm text-dark-text">Хорошо</span>
-            </div>
-            <div className="flex items_center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-              <Badge variant="danger">0 - 3.49</Badge>
-              <span className="text-sm text-dark-text">Удовл. / Неудовл.</span>
-            </div>
-          </div>
-        </CardContent>
       </Card>
     </div>
   );

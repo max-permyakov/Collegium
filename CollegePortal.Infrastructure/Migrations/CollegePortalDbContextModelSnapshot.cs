@@ -190,6 +190,36 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("Assignments");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.KkepikSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ScheduleLinesJson")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupName", "Date")
+                        .IsUnique();
+
+                    b.ToTable("KkepikSchedules");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.StudentProfile", b =>
                 {
                     b.Property<Guid>("Id")
