@@ -22,6 +22,36 @@ namespace CollegePortal.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("AuditoriumCollegeTeacher", b =>
+                {
+                    b.Property<Guid>("AuditoriumId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TeachersId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("AuditoriumId", "TeachersId");
+
+                    b.HasIndex("TeachersId");
+
+                    b.ToTable("AuditoriumTeachers", (string)null);
+                });
+
+            modelBuilder.Entity("AuditoriumDiscipline", b =>
+                {
+                    b.Property<Guid>("AuditoriumsId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DisciplinesId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("AuditoriumsId", "DisciplinesId");
+
+                    b.HasIndex("DisciplinesId");
+
+                    b.ToTable("AuditoriumDisciplines", (string)null);
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.AdminAuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -227,6 +257,92 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("Assignments");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Auditorium", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BuildingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("Floor")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("HasComputers")
+                        .HasColumnType("bit");
+
+                    b.Property<double>("Height")
+                        .HasColumnType("float");
+
+                    b.Property<string>("LocationHint")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double>("Width")
+                        .HasColumnType("float");
+
+                    b.Property<double>("X")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Y")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("Auditoriums");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Building", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Buildings");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.Club", b =>
                 {
                     b.Property<Guid>("Id")
@@ -374,6 +490,28 @@ namespace CollegePortal.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("CollegeTeachers");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Discipline", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Disciplines");
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.KkepikSchedule", b =>
@@ -628,6 +766,36 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("AuditoriumCollegeTeacher", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.Auditorium", null)
+                        .WithMany()
+                        .HasForeignKey("AuditoriumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CollegePortal.Domain.Entities.CollegeTeacher", null)
+                        .WithMany()
+                        .HasForeignKey("TeachersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AuditoriumDiscipline", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.Auditorium", null)
+                        .WithMany()
+                        .HasForeignKey("AuditoriumsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CollegePortal.Domain.Entities.Discipline", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.AdminAuditLog", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "AdminUser")
@@ -673,6 +841,17 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Navigation("CreatedBy");
 
                     b.Navigation("StudyGroup");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Auditorium", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.Building", "Building")
+                        .WithMany("Auditoriums")
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Building");
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.Club", b =>
@@ -797,6 +976,11 @@ namespace CollegePortal.Infrastructure.Migrations
             modelBuilder.Entity("CollegePortal.Domain.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("StudentProfile");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Building", b =>
+                {
+                    b.Navigation("Auditoriums");
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.Club", b =>

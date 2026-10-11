@@ -11,6 +11,7 @@ import { StatisticsTab } from './StatisticsTab';
 import { UsersTab } from './UsersTab';
 import { AuditTab } from './AuditTab';
 import { ClubsTab } from './ClubsTab';
+import { MapTab } from './MapTab';
 import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto } from '../../types';
 import type { StatisticsDto } from '../../types/admin';
 
@@ -224,13 +225,14 @@ export function AdminPage() {
       )}
 
       <Tabs defaultValue="statistics" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-6 h-auto">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-7 h-auto">
           <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>
           <TabsTrigger value="users">👥 Пользователи</TabsTrigger>
           <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>
           <TabsTrigger value="news">📰 Новости</TabsTrigger>
           <TabsTrigger value="assignments">📝 Задания</TabsTrigger>
           <TabsTrigger value="clubs">🎓 Кружки</TabsTrigger>
+          <TabsTrigger value="map">🗺️ Карта</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statistics">
@@ -398,6 +400,10 @@ export function AdminPage() {
 
         <TabsContent value="clubs">
           <ClubsTab />
+        </TabsContent>
+
+        <TabsContent value="map">
+          <MapTab />
         </TabsContent>
       </Tabs>
     </div>

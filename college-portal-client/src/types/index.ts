@@ -227,7 +227,9 @@ export interface KkepikScheduleResponse {
 import type { AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole } from './admin';
 import type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto } from './clubs';
 import type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher } from './college';
+import type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto } from './map';
 
 export type { AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole };
 export type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto };
 export type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher };
+export type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto };

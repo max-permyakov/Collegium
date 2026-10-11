@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher } from '../types';
+import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -179,6 +179,19 @@ export const collegeInfoApi = {
   searchSchedule: (type: string, query: string, date?: string) =>
     api.get<CollegeScheduleSearchResult>('/college-info/schedule/search', { params: { type, query, date } }),
   getTeachers: () => api.get<CollegeTeacher[]>('/college-info/teachers'),
+};
+
+export const collegeMapApi = {
+  getMap: () => api.get<CollegeMapDto>('/college-map'),
+  getBuildings: () => api.get<BuildingDto[]>('/college-map/buildings'),
+  getDisciplines: () => api.get<DisciplineDto[]>('/college-map/disciplines'),
+  search: (query: string) => api.get<MapSearchResultDto>('/college-map/search', { params: { query } }),
+  createBuilding: (data: CreateBuildingDto) => api.post<BuildingDto>('/admin/college-map/buildings', data),
+  updateBuilding: (id: string, data: UpdateBuildingDto) => api.put(`/admin/college-map/buildings/${id}`, data),
+  deleteBuilding: (id: string) => api.delete(`/admin/college-map/buildings/${id}`),
+  createAuditorium: (data: CreateAuditoriumDto) => api.post<AuditoriumDto>('/admin/college-map/auditoriums', data),
+  updateAuditorium: (id: string, data: UpdateAuditoriumDto) => api.put(`/admin/college-map/auditoriums/${id}`, data),
+  deleteAuditorium: (id: string) => api.delete(`/admin/college-map/auditoriums/${id}`),
 };
 
 
