@@ -10,6 +10,8 @@ public class Announcement
     public bool IsPublished { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+    public Guid? StudyGroupId { get; set; }
 
     public ApplicationUser Author { get; set; } = null!;
+    public StudyGroup? StudyGroup { get; set; }
 }
