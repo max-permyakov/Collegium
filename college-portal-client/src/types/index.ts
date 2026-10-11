@@ -19,6 +19,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface DiaryLoginRequestDto {
+  login: string;
+  passwordHash: string;
+}
+
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;

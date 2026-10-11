@@ -28,13 +28,6 @@ public record StudentProfileDto(
     int ExternalStudentId
 );
 
-public record RegisterRequestDto(
-    string Email,
-    string Password,
-    string DisplayName,
-    string Role
-);
-
 public record RefreshTokenRequestDto(
     string RefreshToken
 );

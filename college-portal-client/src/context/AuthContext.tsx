@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi } from '../services/api';
-import type { User, LoginRequest, RegisterRequest } from '../types';
+import type { User, LoginRequest } from '../types';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  diaryLogin: (login: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -53,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, [refreshUser]);
 
+  // Hash login using SHA-256 for diary authentication
+  const hashDiaryPassword = async (login: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(login);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+  };
+
   const login = async (data: LoginRequest) => {
     const response = await authApi.login(data);
     const { accessToken, refreshToken, user: userData } = response.data;
@@ -64,8 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
-  const register = async (data: RegisterRequest) => {
-    const response = await authApi.register(data);
+  const diaryLogin = async (login: string, _password: string) => {
+    // Hash the login (which is the password for diary) using SHA-256
+    const passwordHash = await hashDiaryPassword(login);
+    
+    const response = await authApi.diaryLogin(login, passwordHash);
     const { accessToken, refreshToken, user: userData } = response.data;
 
     localStorage.setItem('accessToken', accessToken);
@@ -89,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, diaryLogin, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

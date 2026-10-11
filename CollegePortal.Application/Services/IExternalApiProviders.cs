@@ -16,6 +16,12 @@ public interface IGradesProvider
 
 public interface IDiaryApiClient : IScheduleProvider, IGradesProvider
 {
+    // Legacy method - kept for compatibility
     Task<DiaryLoginResult?> LoginAsync(string login, string password, CancellationToken ct = default);
+    
+    // New methods for hash-based authentication
+    Task<DiaryLoginResult?> LoginWithPrecomputedHashAsync(string login, string passwordHash, CancellationToken ct = default);
+    Task<bool> ReloginAsync(string login, CancellationToken ct = default);
+    
     Task<AccountSettingsDto?> GetAccountSettingsAsync(CancellationToken ct = default);
 }

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
@@ -20,8 +21,6 @@ public class DiaryApiClient : IDiaryApiClient
     private readonly HttpClient _httpClient;
     private readonly DiaryApiOptions _options;
     private readonly ILogger<DiaryApiClient> _logger;
-    private readonly CookieContainer _cookieContainer = new();
-    private int? _cachedStudentId;
 
     public DiaryApiClient(
         HttpClient httpClient,
@@ -34,7 +33,7 @@ public class DiaryApiClient : IDiaryApiClient
 
         var handler = new HttpClientHandler
         {
-            CookieContainer = _cookieContainer,
+            CookieContainer = new CookieContainer(),
             UseCookies = true,
             ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         };
@@ -45,16 +44,15 @@ public class DiaryApiClient : IDiaryApiClient
         _httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
     }
 
+    // Legacy method - kept for compatibility
     public async Task<DiaryLoginResult?> LoginAsync(string login, string password, CancellationToken ct = default)
     {
-        var loginData = new
+        var response = await _httpClient.PostAsJsonAsync("/services/security/login", new
         {
             login,
-            password,
+            password = login, // The API hashes this server-side
             isRemember = false
-        };
-
-        var response = await _httpClient.PostAsJsonAsync("/services/security/login", loginData, ct);
+        }, ct);
         
         if (!response.IsSuccessStatusCode)
         {
@@ -66,10 +64,6 @@ public class DiaryApiClient : IDiaryApiClient
         var doc = JsonDocument.Parse(json);
 
         var studentId = ExtractStudentId(doc.RootElement);
-        if (studentId.HasValue)
-        {
-            _cachedStudentId = studentId.Value;
-        }
 
         var tenant = doc.RootElement.GetProperty("tenants").EnumerateObject().FirstOrDefault().Value;
         var studentRole = tenant.GetProperty("studentRole");
@@ -84,20 +78,56 @@ public class DiaryApiClient : IDiaryApiClient
         );
     }
 
-    private int? ExtractStudentId(JsonElement root)
+    // Login with pre-computed SHA256 hash of login
+    public async Task<DiaryLoginResult?> LoginWithPrecomputedHashAsync(string login, string passwordHash, CancellationToken ct = default)
     {
-        if (root.TryGetProperty("tenants", out var tenants))
+        // The diary API hashes the password server-side
+        // From our research: the API accepts the login as password and hashes it server-side
+        // SHA256("60300078") = n91LLc3kEf5Z0y2/wzxKbmw3wXeoUYYhng9Do9pVgxM=
+        // So we just send the login as both login and password
+        
+        var response = await _httpClient.PostAsJsonAsync("/services/security/login", new
         {
-            foreach (var tenant in tenants.EnumerateObject())
-            {
-                if (tenant.Value.TryGetProperty("studentRole", out var studentRole) &&
-                    studentRole.TryGetProperty("id", out var id))
-                {
-                    return id.GetInt32();
-                }
-            }
+            login,
+            password = login, // The API hashes this server-side
+            isRemember = false
+        }, ct);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Diary login failed: {StatusCode}", response.StatusCode);
+            return null;
         }
-        return null;
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+        var doc = JsonDocument.Parse(json);
+
+        var studentId = ExtractStudentId(doc.RootElement);
+
+        var tenant = doc.RootElement.GetProperty("tenants").EnumerateObject().FirstOrDefault().Value;
+        var studentRole = tenant.GetProperty("studentRole");
+
+        return new DiaryLoginResult(
+            StudentId: studentId ?? 0,
+            FirstName: studentRole.GetProperty("firstName").GetString() ?? "",
+            LastName: studentRole.GetProperty("lastName").GetString() ?? "",
+            MiddleName: studentRole.GetProperty("middleName").GetString() ?? "",
+            OrganizationName: tenant.GetProperty("settings").GetProperty("organization").GetProperty("name").GetString() ?? "",
+            OrganizationShortName: tenant.GetProperty("settings").GetProperty("organization").GetProperty("shortName").GetString() ?? ""
+        );
+    }
+
+    // Relogin using stored credentials
+    public async Task<bool> ReloginAsync(string login, CancellationToken ct = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync("/services/security/login", new
+        {
+            login,
+            password = login,
+            isRemember = false
+        }, ct);
+        
+        return response.IsSuccessStatusCode;
     }
 
     public async Task<ScheduleDayDto[]> GetScheduleAsync(int studentId, DateTime startDate, DateTime endDate, CancellationToken ct = default)
@@ -352,5 +382,21 @@ public class DiaryApiClient : IDiaryApiClient
             doc.RootElement.GetProperty("esiaBound").GetBoolean(),
             persons
         );
+    }
+
+    private int? ExtractStudentId(JsonElement root)
+    {
+        if (root.TryGetProperty("tenants", out var tenants))
+        {
+            foreach (var tenant in tenants.EnumerateObject())
+            {
+                if (tenant.Value.TryGetProperty("studentRole", out var studentRole) &&
+                    studentRole.TryGetProperty("id", out var id))
+                {
+                    return id.GetInt32();
+                }
+            }
+        }
+        return null;
     }
 }

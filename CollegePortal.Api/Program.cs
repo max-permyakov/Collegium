@@ -1,11 +1,13 @@
+using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure;
 using CollegePortal.Infrastructure.Extensions;
+using Microsoft.AspNetCore.Identity;
 
 namespace CollegePortal.Api;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +32,51 @@ public class Program
 
         app.MapControllers();
 
-        app.Run();
+        // Seed admin user
+        using (var scope = app.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+
+            // Ensure roles exist
+            foreach (var roleName in new[] { "Student", "Admin" })
+            {
+                if (!await roleManager.RoleExistsAsync(roleName))
+                {
+                    await roleManager.CreateAsync(new IdentityRole<Guid>(roleName));
+                }
+            }
+
+            // Seed admin user
+            var adminEmail = builder.Configuration["Admin:Email"] ?? "admin@college.local";
+            var adminPassword = builder.Configuration["Admin:Password"] ?? "Admin123456!";
+            var adminName = builder.Configuration["Admin:DisplayName"] ?? "Administrator";
+
+            var adminUser = await userManager.FindByEmailAsync(adminEmail);
+            if (adminUser == null)
+            {
+                adminUser = new ApplicationUser
+                {
+                    UserName = adminEmail,
+                    Email = adminEmail,
+                    DisplayName = adminName,
+                    Role = "Admin",
+                    IsActive = true,
+                    EmailConfirmed = true
+                };
+
+                var result = await userManager.CreateAsync(adminUser, adminPassword);
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(adminUser, "Admin");
+                }
+            }
+            else if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
+            {
+                await userManager.AddToRoleAsync(adminUser, "Admin");
+            }
+        }
+
+        await app.RunAsync();
     }
 }
