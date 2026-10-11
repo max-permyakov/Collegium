@@ -225,5 +225,7 @@ export interface KkepikScheduleResponse {
 }
 
 import type { AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole } from './admin';
+import type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto } from './clubs';
 
 export type { AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole };
+export type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto };

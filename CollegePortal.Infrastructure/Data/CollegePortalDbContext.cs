@@ -18,6 +18,9 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<KkepikSchedule> KkepikSchedules => Set<KkepikSchedule>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
+    public DbSet<Club> Clubs => Set<Club>();
+    public DbSet<ClubMember> ClubMembers => Set<ClubMember>();
+    public DbSet<ClubMessage> ClubMessages => Set<ClubMessage>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -97,6 +100,49 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasOne(e => e.AdminUser)
                 .WithMany()
                 .HasForeignKey(e => e.AdminUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Club>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(120);
+            entity.Property(e => e.Description).HasMaxLength(2000);
+            entity.Property(e => e.AvatarDataUrl).HasMaxLength(3_000_000);
+            entity.Property(e => e.InviteToken).HasMaxLength(64);
+            entity.HasIndex(e => e.InviteToken).IsUnique();
+            entity.HasOne(e => e.Owner)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ClubMember>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ClubId, e.UserId }).IsUnique();
+            entity.HasOne(e => e.Club)
+                .WithMany(c => c.Members)
+                .HasForeignKey(e => e.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ClubMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Text).HasMaxLength(2000);
+            entity.HasIndex(e => new { e.ClubId, e.CreatedAt });
+            entity.HasOne(e => e.Club)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(e => e.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }
