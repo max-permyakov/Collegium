@@ -54,6 +54,8 @@ public class AuthService : IAuthService
         if (!result.Succeeded)
             return null;
 
+        await EnsurePrimaryAdminAsync(user);
+
         user.LastLoginAt = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
 
@@ -69,19 +71,7 @@ public class AuthService : IAuthService
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        var userDto = new UserDto(
-            user.Id,
-            user.Email ?? "",
-            user.DisplayName,
-            roles.FirstOrDefault() ?? "Student",
-            user.IsActive,
-            studentProfile != null ? new StudentProfileDto(
-                studentProfile.Id,
-                studentProfile.StudyGroupId,
-                studentProfile.StudyGroup?.Name ?? "",
-                studentProfile.ExternalStudentId
-            ) : null
-        );
+        var userDto = ToUserDto(user, roles, studentProfile);
 
         return new LoginResponseDto(token, refreshToken, expiresAt, userDto);
     }
@@ -103,24 +93,14 @@ public class AuthService : IAuthService
         if (user == null || !user.IsActive)
             return null;
 
+        await EnsurePrimaryAdminAsync(user);
+
         var roles = await _userManager.GetRolesAsync(user);
         var studentProfile = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        return new UserDto(
-            user.Id,
-            user.Email ?? "",
-            user.DisplayName,
-            roles.FirstOrDefault() ?? "Student",
-            user.IsActive,
-            studentProfile != null ? new StudentProfileDto(
-                studentProfile.Id,
-                studentProfile.StudyGroupId,
-                studentProfile.StudyGroup?.Name ?? "",
-                studentProfile.ExternalStudentId
-            ) : null
-        );
+        return ToUserDto(user, roles, studentProfile);
     }
 
     public async Task<bool> AssignStudentProfileAsync(Guid userId, int externalStudentId, Guid studyGroupId, CancellationToken ct = default)
@@ -234,6 +214,10 @@ public class AuthService : IAuthService
             _dbContext.StudentProfiles.Add(profile);
         }
 
+        // Primary admin: если это защищённый логин (по логину или id), принудительно
+        // даём роль админа и защиту от демоции/бана.
+        await EnsurePrimaryAdminAsync(user);
+
         // Persist the diary credentials and session cookies (encrypted hash, per-user cookies)
         // so we can automatically re-login / continue the session later.
         profile.DiaryPasswordHash = _dataProtector.Protect(passwordHash);
@@ -259,19 +243,7 @@ public class AuthService : IAuthService
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        var userDto = new UserDto(
-            user.Id,
-            user.Email ?? "",
-            user.DisplayName,
-            roles.FirstOrDefault() ?? "Student",
-            user.IsActive,
-            studentProfileAfterSync != null ? new StudentProfileDto(
-                studentProfileAfterSync.Id,
-                studentProfileAfterSync.StudyGroupId,
-                studentProfileAfterSync.StudyGroup?.Name ?? "",
-                studentProfileAfterSync.ExternalStudentId
-            ) : null
-        );
+        var userDto = ToUserDto(user, roles, studentProfileAfterSync);
 
         return new LoginResponseDto(token, GenerateRefreshToken(), expiresAt, userDto);
     }
@@ -299,6 +271,8 @@ public class AuthService : IAuthService
         if (diaryResult == null)
             return null;
 
+        await EnsurePrimaryAdminAsync(user);
+
         if (!string.IsNullOrEmpty(diaryResult.CookieData))
         {
             studentProfile.DiaryCookieData = diaryResult.CookieData;
@@ -321,19 +295,7 @@ public class AuthService : IAuthService
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        var userDto = new UserDto(
-            user.Id,
-            user.Email ?? "",
-            user.DisplayName,
-            roles.FirstOrDefault() ?? "Student",
-            user.IsActive,
-            studentProfileAfterSync != null ? new StudentProfileDto(
-                studentProfileAfterSync.Id,
-                studentProfileAfterSync.StudyGroupId,
-                studentProfileAfterSync.StudyGroup?.Name ?? "",
-                studentProfileAfterSync.ExternalStudentId
-            ) : null
-        );
+        var userDto = ToUserDto(user, roles, studentProfileAfterSync);
 
         return new LoginResponseDto(token, GenerateRefreshToken(), expiresAt, userDto);
     }
@@ -369,6 +331,31 @@ public class AuthService : IAuthService
                 if (studentProfile != null)
                 {
                     studentProfile.UpdatedAt = DateTime.UtcNow;
+                }
+
+                // Best-effort: подтягиваем настоящие контакты из дневника,
+                // если в нашей системе их ещё нет (или стоит заглушка @diary.local).
+                var user = await _userManager.FindByIdAsync(userId.ToString());
+                if (user != null)
+                {
+                    var userChanged = false;
+                    if ((string.IsNullOrEmpty(user.Email) || user.Email.EndsWith("@diary.local", StringComparison.Ordinal))
+                        && !string.IsNullOrWhiteSpace(person.Email))
+                    {
+                        user.Email = person.Email;
+                        userChanged = true;
+                    }
+                    if (string.IsNullOrEmpty(user.PhoneNumber) && !string.IsNullOrWhiteSpace(person.Phone))
+                    {
+                        user.PhoneNumber = person.Phone;
+                        userChanged = true;
+                    }
+                    if (userChanged)
+                    {
+                        var updateResult = await _userManager.UpdateAsync(user);
+                        if (!updateResult.Succeeded)
+                            _logger.LogWarning("Failed to update contacts for user {UserId}", userId);
+                    }
                 }
             }
 
@@ -447,6 +434,70 @@ public class AuthService : IAuthService
         }
 
         return studyGroup;
+    }
+
+    private async Task<bool> IsPrimaryAdminAsync(ApplicationUser user)
+    {
+        var logins = (_configuration["PrimaryAdmin:Logins"] ?? "пермяков158")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
+        var ids = (_configuration["PrimaryAdmin:UserIds"] ?? "5ca44056-2418-43d8-39b4-08df27791252")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return logins.Contains(user.UserName ?? "") || ids.Contains(user.Id.ToString());
+    }
+
+    private async Task EnsurePrimaryAdminAsync(ApplicationUser user)
+    {
+        if (!await IsPrimaryAdminAsync(user))
+            return;
+
+        var changed = false;
+        if (user.Role != "Admin")
+        {
+            user.Role = "Admin";
+            changed = true;
+        }
+        if (!user.IsProtected)
+        {
+            user.IsProtected = true;
+            changed = true;
+        }
+        if (!await _userManager.IsInRoleAsync(user, "Admin"))
+        {
+            var roleResult = await _userManager.AddToRoleAsync(user, "Admin");
+            changed |= roleResult.Succeeded;
+        }
+
+        if (changed)
+            await _userManager.UpdateAsync(user);
+    }
+
+    private UserDto ToUserDto(ApplicationUser user, IList<string> roles, StudentProfile? profile)
+    {
+        return new UserDto(
+            user.Id,
+            user.Email ?? "",
+            user.DisplayName,
+            roles.Contains("Admin", StringComparer.OrdinalIgnoreCase) ? "Admin" : (roles.FirstOrDefault() ?? "Student"),
+            user.IsActive,
+            user.IsProtected,
+            user.PhoneNumber,
+            profile != null
+                ? new StudentProfileDto(
+                    profile.Id,
+                    profile.StudyGroupId,
+                    profile.StudyGroup?.Name ?? "",
+                    profile.ExternalStudentId,
+                    profile.Bio,
+                    profile.AvatarDataUrl,
+                    profile.HeadmanRole.ToString(),
+                    profile.AverageMark,
+                    profile.GradesCachedAt
+                )
+                : null
+        );
     }
 
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)

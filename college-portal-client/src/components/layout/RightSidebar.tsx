@@ -73,6 +73,12 @@ const CollegeLogo = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const UserIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
 const navItems: NavItem[] = [
   { path: '/', label: 'Главная', icon: <HomeIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/schedule', label: 'Расписание', icon: <CalendarIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
@@ -80,6 +86,7 @@ const navItems: NavItem[] = [
   { path: '/performance', label: 'Успеваемость', icon: <TrendingUpIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/assignments', label: 'Задания', icon: <ClipboardIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/news', label: 'Новости', icon: <NewspaperIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
+  { path: '/profile', label: 'Профиль', icon: <UserIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/admin', label: 'Админка', icon: <SettingsIcon className="w-5 h-5" />, roles: ['Admin'] },
 ];
 

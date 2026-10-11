@@ -17,6 +17,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<KkepikSchedule> KkepikSchedules => Set<KkepikSchedule>();
+    public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -33,6 +34,9 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.UserId).IsUnique();
             entity.HasIndex(e => e.ExternalStudentId).IsUnique();
+            entity.Property(e => e.Bio).HasMaxLength(2000);
+            entity.Property(e => e.AvatarDataUrl).HasMaxLength(700000);
+            entity.Property(e => e.AverageMark).HasPrecision(5, 2);
             entity.HasOne(e => e.User)
                 .WithOne(u => u.StudentProfile)
                 .HasForeignKey<StudentProfile>(e => e.UserId)
@@ -81,6 +85,18 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasOne(e => e.CreatedBy)
                 .WithMany()
                 .HasForeignKey(e => e.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<AdminAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Action).HasMaxLength(100);
+            entity.Property(e => e.Details).HasMaxLength(2000);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasOne(e => e.AdminUser)
+                .WithMany()
+                .HasForeignKey(e => e.AdminUserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

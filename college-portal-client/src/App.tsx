@@ -11,6 +11,7 @@ import { PerformancePage } from './pages/performance/PerformancePage';
 import { AssignmentsPage } from './pages/assignments/AssignmentsPage';
 import { NewsPage } from './pages/news/NewsPage';
 import { AdminPage } from './pages/admin/AdminPage';
+import { ProfilePage } from './pages/profile/ProfilePage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,6 +86,8 @@ function AppRoutes() {
         <Route path="performance" element={<PerformancePage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="news" element={<NewsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="users/:userId" element={<ProfilePage />} />
         <Route path="admin" element={
           <ProtectedRoute allowedRoles={['Admin']}>
             <AdminPage />
