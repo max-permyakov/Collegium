@@ -264,7 +264,7 @@ namespace CollegePortal.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AvatarDataUrl")
-                        .HasMaxLength(700000)
+                        .HasMaxLength(3000000)
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("AverageMark")

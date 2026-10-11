@@ -10,7 +10,7 @@ namespace CollegePortal.Infrastructure.Services;
 
 public class ProfileService : IProfileService
 {
-    private const int MaxAvatarDataUrlLength = 600_000;
+    private const int MaxAvatarDataUrlLength = 3_000_000;
 
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly CollegePortalDbContext _dbContext;

@@ -8,11 +8,11 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import type { ProfileDto } from '../../types';
 
-const MAX_AVATAR_SIZE = 600_000;
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 
 export function ProfilePage() {
   const { userId } = useParams<{ userId?: string }>();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const isAdminView = Boolean(userId);
   const targetUserId = userId;
@@ -45,10 +45,13 @@ export function ProfilePage() {
 
   const avatarMutation = useMutation({
     mutationFn: (dataUrl?: string | null) => profileApi.setAvatar(dataUrl),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
       if (isAdminView && targetUserId) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
+      }
+      if (!isAdminView) {
+        await refreshUser();
       }
     },
   });
@@ -116,24 +119,34 @@ export function ProfilePage() {
                 )}
               </div>
               {!isAdminView && (
-                <div className="flex flex-wrap gap-2">
-                  <label className="btn-ghost text-sm cursor-pointer">
-                    Загрузить фото
-                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > MAX_AVATAR_SIZE) {
-                        alert('Файл слишком большой. Максимум 600 КБ');
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onload = () => avatarMutation.mutate(reader.result as string);
-                      reader.readAsDataURL(file);
-                    }} />
-                  </label>
-                  {profile.avatarDataUrl && (
-                    <Button variant="ghost" size="sm" onClick={() => avatarMutation.mutate(null)}>Удалить фото</Button>
-                  )}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <label className="btn-ghost text-sm cursor-pointer">
+                      Загрузить фото
+                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        if (!file.type.startsWith('image/')) {
+                          alert('Можно загрузить только изображение');
+                          return;
+                        }
+                        if (file.size > MAX_AVATAR_SIZE) {
+                          alert('Файл слишком большой. Максимум 2 МБ');
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => avatarMutation.mutate(reader.result as string);
+                        reader.readAsDataURL(file);
+                      }} />
+                    </label>
+                    {profile.avatarDataUrl && (
+                      <Button variant="ghost" size="sm" onClick={() => avatarMutation.mutate(null)}>Удалить фото</Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-dark-textMuted text-center max-w-[220px]">
+                    До 2 МБ. За нецензурные фото — бан.
+                  </p>
                 </div>
               )}
             </div>
