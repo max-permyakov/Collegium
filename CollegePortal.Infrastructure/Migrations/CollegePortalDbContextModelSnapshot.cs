@@ -199,6 +199,18 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("DiaryCookieData")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DiaryCookiesExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DiaryLastSyncedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DiaryPasswordHash")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("ExternalStudentId")
                         .HasColumnType("int");
 

@@ -27,6 +27,33 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("diary-login")]
+    [AllowAnonymous]
+    public async Task<IActionResult> DiaryLogin([FromBody] DiaryLoginRequestDto request)
+    {
+        // Client sends login and pre-computed SHA256 hash of login
+        var result = await _authService.DiaryLoginAsync(request.Login, request.PasswordHash);
+        if (result == null)
+            return Unauthorized(new { message = "Неверный логин или пароль дневника" });
+
+        return Ok(result);
+    }
+
+    [HttpPost("diary-relogin")]
+    [Authorize]
+    public async Task<IActionResult> DiaryRelogin()
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _authService.DiaryReloginAsync(userId.Value);
+        if (result == null)
+            return Unauthorized(new { message = "Сессия дневника истекла, требуется повторный вход" });
+
+        return Ok(result);
+    }
+
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout()
@@ -52,32 +79,6 @@ public class AuthController : ControllerBase
         return Ok(user);
     }
 
-    [HttpPost("register")]
-    [AllowAnonymous]
-    public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
-    {
-        var allowedRoles = new[] { "Student", "Admin" };
-        if (!allowedRoles.Contains(request.Role))
-            return BadRequest(new { message = "Недопустимая роль" });
-
-        var result = await _authService.RegisterAsync(request.Email, request.Password, request.DisplayName, request.Role);
-        if (result == null)
-            return BadRequest(new { message = "Пользователь с таким email уже существует" });
-
-        return Ok(result);
-    }
-
-    [HttpPost("assign-profile")]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> AssignStudentProfile([FromBody] AssignProfileRequestDto request)
-    {
-        var success = await _authService.AssignStudentProfileAsync(request.UserId, request.ExternalStudentId, request.StudyGroupId);
-        if (!success)
-            return BadRequest(new { message = "Не удалось привязать профиль. Проверьте данные." });
-
-        return Ok(new { message = "Профиль успешно привязан" });
-    }
-
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
@@ -87,8 +88,7 @@ public class AuthController : ControllerBase
     }
 }
 
-public record AssignProfileRequestDto(
-    Guid UserId,
-    int ExternalStudentId,
-    Guid StudyGroupId
+public record DiaryLoginRequestDto(
+    string Login,
+    string PasswordHash
 );

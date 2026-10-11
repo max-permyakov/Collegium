@@ -9,6 +9,12 @@ public class StudentProfile
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
+    // Diary integration fields
+    public string? DiaryCookieData { get; set; }
+    public string? DiaryPasswordHash { get; set; }
+    public DateTime? DiaryCookiesExpiresAt { get; set; }
+    public DateTime? DiaryLastSyncedAt { get; set; }
+
     public ApplicationUser User { get; set; } = null!;
     public StudyGroup StudyGroup { get; set; } = null!;
 }

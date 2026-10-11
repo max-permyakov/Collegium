@@ -1,10 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure.Data;
+using CollegePortal.Infrastructure.ExternalApis.Diary;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -18,17 +21,23 @@ public class AuthService : IAuthService
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly CollegePortalDbContext _dbContext;
     private readonly IConfiguration _configuration;
+    private readonly IDiaryApiClient _diaryApiClient;
+    private readonly IDataProtector _dataProtector;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         CollegePortalDbContext dbContext,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IDiaryApiClient diaryApiClient,
+        IDataProtectionProvider dataProtectionProvider)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _dbContext = dbContext;
         _configuration = configuration;
+        _diaryApiClient = diaryApiClient;
+        _dataProtector = dataProtectionProvider.CreateProtector("DiaryIntegration");
     }
 
     public async Task<LoginResponseDto?> LoginAsync(string email, string password, CancellationToken ct = default)
@@ -110,43 +119,6 @@ public class AuthService : IAuthService
         );
     }
 
-    public async Task<LoginResponseDto?> RegisterAsync(string email, string password, string displayName, string role, CancellationToken ct = default)
-    {
-        var existingUser = await _userManager.FindByEmailAsync(email);
-        if (existingUser != null)
-            return null;
-
-        var user = new ApplicationUser
-        {
-            UserName = email,
-            Email = email,
-            DisplayName = displayName,
-            Role = role,
-            IsActive = true,
-            EmailConfirmed = true
-        };
-
-        var result = await _userManager.CreateAsync(user, password);
-        if (!result.Succeeded)
-            return null;
-
-        await _userManager.AddToRoleAsync(user, role);
-
-        var roles = new[] { role };
-        var token = GenerateJwtToken(user, roles);
-        var refreshToken = GenerateRefreshToken();
-        var expiresAt = DateTime.UtcNow.AddHours(1);
-
-        return new LoginResponseDto(token, refreshToken, expiresAt, new UserDto(
-            user.Id,
-            user.Email ?? "",
-            user.DisplayName,
-            role,
-            user.IsActive,
-            null
-        ));
-    }
-
     public async Task<bool> AssignStudentProfileAsync(Guid userId, int externalStudentId, Guid studyGroupId, CancellationToken ct = default)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
@@ -174,6 +146,215 @@ public class AuthService : IAuthService
         _dbContext.StudentProfiles.Add(profile);
         await _dbContext.SaveChangesAsync(ct);
         return true;
+    }
+
+    // Diary integration: login with diary credentials
+    public async Task<LoginResponseDto?> DiaryLoginAsync(string login, string passwordHash, CancellationToken ct = default)
+    {
+        // Login to diary with pre-computed hash (SHA256 of login)
+        var diaryResult = await _diaryApiClient.LoginWithPrecomputedHashAsync(login, passwordHash, ct);
+        if (diaryResult == null)
+            return null;
+
+        var externalStudentId = diaryResult.StudentId;
+
+        // Find or create user in our system
+        var studentProfile = await _dbContext.StudentProfiles
+            .Include(sp => sp.User)
+            .FirstOrDefaultAsync(sp => sp.ExternalStudentId == externalStudentId, ct);
+
+        ApplicationUser user;
+        if (studentProfile != null)
+        {
+            user = studentProfile.User;
+        }
+        else
+        {
+            // Create new user
+            user = new ApplicationUser
+            {
+                UserName = login,
+                Email = login + "@diary.local",
+                DisplayName = $"{diaryResult.LastName} {diaryResult.FirstName} {diaryResult.MiddleName}".Trim(),
+                Role = "Student",
+                IsActive = true,
+                EmailConfirmed = true
+            };
+
+            var createResult = await _userManager.CreateAsync(user, GenerateRandomPassword());
+            if (!createResult.Succeeded)
+                return null;
+
+            await _userManager.AddToRoleAsync(user, "Student");
+
+            // Create student profile
+            var profile = new StudentProfile
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                ExternalStudentId = externalStudentId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.StudentProfiles.Add(profile);
+            await _dbContext.SaveChangesAsync(ct);
+        }
+
+        // Sync diary data (profile, schedule, grades)
+        await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
+
+        // Generate JWT token
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = GenerateJwtToken(user, roles);
+        var refreshToken = GenerateRefreshToken();
+        var expiresAt = DateTime.UtcNow.AddHours(1);
+
+        user.SecurityStamp = Guid.NewGuid().ToString();
+        user.LastLoginAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        var studentProfileAfterSync = await _dbContext.StudentProfiles
+            .Include(sp => sp.StudyGroup)
+            .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
+
+        var userDto = new UserDto(
+            user.Id,
+            user.Email ?? "",
+            user.DisplayName,
+            roles.FirstOrDefault() ?? "Student",
+            user.IsActive,
+            studentProfileAfterSync != null ? new StudentProfileDto(
+                studentProfileAfterSync.Id,
+                studentProfileAfterSync.StudyGroupId,
+                studentProfileAfterSync.StudyGroup?.Name ?? "",
+                studentProfileAfterSync.ExternalStudentId
+            ) : null
+        );
+
+        return new LoginResponseDto(token, GenerateRefreshToken(), expiresAt, userDto);
+    }
+
+    public async Task<LoginResponseDto?> DiaryReloginAsync(Guid userId, CancellationToken ct = default)
+    {
+        var studentProfile = await _dbContext.StudentProfiles
+            .Include(sp => sp.User)
+            .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+
+        if (studentProfile == null || string.IsNullOrEmpty(studentProfile.DiaryPasswordHash))
+            return null;
+
+        var user = studentProfile.User;
+        if (user == null)
+            return null;
+
+        var login = studentProfile.ExternalStudentId.ToString();
+        var passwordHash = _dataProtector.Unprotect(studentProfile.DiaryPasswordHash);
+
+        var diaryResult = await _diaryApiClient.LoginWithPrecomputedHashAsync(login, passwordHash, ct);
+        if (diaryResult == null)
+            return null;
+
+        // Sync data
+        await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = GenerateJwtToken(user, roles);
+        var refreshToken = GenerateRefreshToken();
+        var expiresAt = DateTime.UtcNow.AddHours(1);
+
+        user.SecurityStamp = Guid.NewGuid().ToString();
+        user.LastLoginAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        var studentProfileAfterSync = await _dbContext.StudentProfiles
+            .Include(sp => sp.StudyGroup)
+            .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
+
+        var userDto = new UserDto(
+            user.Id,
+            user.Email ?? "",
+            user.DisplayName,
+            roles.FirstOrDefault() ?? "Student",
+            user.IsActive,
+            studentProfileAfterSync != null ? new StudentProfileDto(
+                studentProfileAfterSync.Id,
+                studentProfileAfterSync.StudyGroupId,
+                studentProfileAfterSync.StudyGroup?.Name ?? "",
+                studentProfileAfterSync.ExternalStudentId
+            ) : null
+        );
+
+        return new LoginResponseDto(token, GenerateRefreshToken(), expiresAt, userDto);
+    }
+
+    public async Task<bool> UpdateDiaryDataAsync(Guid userId, int externalStudentId, string cookieData, string passwordHash, DateTime? cookiesExpiresAt, CancellationToken ct = default)
+    {
+        var studentProfile = await _dbContext.StudentProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+
+        if (studentProfile == null)
+            return false;
+
+        studentProfile.DiaryCookieData = cookieData;
+        studentProfile.DiaryPasswordHash = _dataProtector.Protect(passwordHash);
+        studentProfile.DiaryCookiesExpiresAt = cookiesExpiresAt;
+        studentProfile.DiaryLastSyncedAt = DateTime.UtcNow;
+        studentProfile.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(ct);
+        return true;
+    }
+
+    private async Task SyncDiaryDataAsync(Guid userId, int studentId, CancellationToken ct)
+    {
+        try
+        {
+            // Sync profile (account settings)
+            var accountSettings = await _diaryApiClient.GetAccountSettingsAsync(ct);
+            if (accountSettings?.Persons?.Length > 0)
+            {
+                var person = accountSettings.Persons[0];
+                var studentProfile = await _dbContext.StudentProfiles.FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+                if (studentProfile != null)
+                {
+                    studentProfile.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            // Sync schedule (2 weeks)
+            var weekStart = DateTime.Today;
+            weekStart = weekStart.AddDays(-(int)weekStart.DayOfWeek + (weekStart.DayOfWeek == DayOfWeek.Sunday ? 0 : 1)); // Monday
+            var weekEnd = weekStart.AddDays(13);
+            var schedule = await _diaryApiClient.GetScheduleAsync(studentId, weekStart, weekEnd, ct);
+            // Schedule is cached via ScheduleService
+
+            // Sync grades
+            var grades = await _diaryApiClient.GetDashboardAsync(studentId, ct);
+            // Grades are cached via GradesService
+
+            // Sync performance
+            var performance = await _diaryApiClient.GetPerformanceAsync(studentId, ct);
+            // Performance is cached via GradesService
+
+            // Update last synced time
+            var profile = await _dbContext.StudentProfiles.FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+            if (profile != null)
+            {
+                profile.DiaryLastSyncedAt = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync(ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail login
+        }
+    }
+
+    private string GenerateRandomPassword()
+    {
+        var bytes = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(bytes);
+        return Convert.ToBase64String(bytes);
     }
 
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)

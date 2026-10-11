@@ -1,102 +1,5 @@
 [
   {
-    "date": "2026-10-10T00:00:00.0000000",
-    "lessons": [
-      {
-        "startTime": "08:45",
-        "endTime": "10:05",
-        "name": "Основы финансовой грамотности",
-        "timetable": {
-          "classroom": {
-            "buildingName": "1",
-            "buildingId": 1,
-            "name": "53",
-            "id": 87
-          },
-          "teacher": {
-            "firstName": "Марина",
-            "lastName": "Воробьева",
-            "middleName": "Михайловна",
-            "id": 158
-          }
-        }
-      },
-      {
-        "startTime": "10:15",
-        "endTime": "11:35",
-        "name": "Основы алгоритмизации и программирования",
-        "timetable": {
-          "classroom": {
-            "buildingName": "2",
-            "buildingId": 4,
-            "name": "85",
-            "id": 101
-          },
-          "teacher": {
-            "firstName": "Руслана",
-            "lastName": "Вахитова",
-            "middleName": "Рaдиковна",
-            "id": 188
-          }
-        },
-        "gradebook": {
-          "id": 91514,
-          "themes": [
-            "ПР№4. Применение оператора выбора при разработке программ"
-          ],
-          "lessonType": "PracticalTraining",
-          "tasks": [
-            {
-              "id": 94898,
-              "type": "Home",
-              "topic": "Практическая работа №1 \"\"",
-              "isRequired": true,
-              "attachments": []
-            }
-          ]
-        }
-      },
-      {
-        "startTime": "11:45",
-        "endTime": "13:05",
-        "name": "Элементы высшей математики",
-        "timetable": {
-          "classroom": {
-            "buildingName": "1",
-            "buildingId": 1,
-            "name": "48",
-            "id": 85
-          },
-          "teacher": {
-            "firstName": "Галина",
-            "lastName": "Емельянова",
-            "middleName": "Филипповна",
-            "id": 136
-          }
-        },
-        "gradebook": {
-          "id": 91590,
-          "themes": [
-            "Приложение двойных интегралов."
-          ],
-          "lessonType": "PracticalTraining",
-          "tasks": [
-            {
-              "id": 94976,
-              "type": "Home",
-              "topic": "-",
-              "condition": "",
-              "isRequired": false,
-              "attachments": []
-            }
-          ]
-        }
-      }
-    ],
-    "isHoliday": false,
-    "isShort": false
-  },
-  {
     "date": "2026-10-11T00:00:00.0000000",
     "lessons": [],
     "isHoliday": false,
@@ -495,6 +398,12 @@
         }
       }
     ],
+    "isHoliday": false,
+    "isShort": false
+  },
+  {
+    "date": "2026-10-18T00:00:00.0000000",
+    "lessons": [],
     "isHoliday": false,
     "isShort": false
   }

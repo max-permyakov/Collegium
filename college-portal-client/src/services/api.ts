@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, LoginResponse, RegisterRequest, ScheduleDay, WeekScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User } from '../types';
+import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -62,16 +62,14 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token');
-        }
-
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
-
+        // Try diary relogin first
+        const diaryReloginResponse = await axios.post(`${API_BASE_URL}/auth/diary-relogin`, {}, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+        });
+        
+        const { accessToken, refreshToken } = diaryReloginResponse.data;
         localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
+        localStorage.setItem('refreshToken', refreshToken);
 
         processQueue(null, accessToken);
 
@@ -98,7 +96,8 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: (data: LoginRequest) => api.post<LoginResponse>('/auth/login', data),
-  register: (data: RegisterRequest) => api.post<LoginResponse>('/auth/register', data),
+  diaryLogin: (login: string, passwordHash: string) => api.post<LoginResponse>('/auth/diary-login', { login, passwordHash }),
+  diaryRelogin: () => api.post<LoginResponse>('/auth/diary-relogin'),
   logout: () => api.post('/auth/logout'),
   me: () => api.get<User>('/auth/me'),
   assignProfile: (data: { userId: string; externalStudentId: number; studyGroupId: string }) =>
