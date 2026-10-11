@@ -85,6 +85,18 @@ const GroupIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const InfoIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const MapIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+  </svg>
+);
+
 const navItems: NavItem[] = [
   { path: '/', label: 'Главная', icon: <HomeIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/schedule', label: 'Расписание', icon: <CalendarIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
@@ -93,6 +105,8 @@ const navItems: NavItem[] = [
   { path: '/assignments', label: 'Задания', icon: <ClipboardIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/news', label: 'Новости', icon: <NewspaperIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/clubs', label: 'Кружки', icon: <GroupIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
+  { path: '/college-info', label: 'Колледж', icon: <InfoIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
+  { path: '/college-info/map', label: 'Карта', icon: <MapIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/profile', label: 'Профиль', icon: <UserIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/admin', label: 'Админка', icon: <SettingsIcon className="w-5 h-5" />, roles: ['Admin'] },
 ];
@@ -104,6 +118,8 @@ interface RightSidebarProps {
 
 export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
   const { user, logout } = useAuth();
+
+  const isExact = (item: NavItem) => item.path === '/' || item.path === '/college-info';
 
   const filteredNavItems = navItems.filter(item =>
     !item.roles || (user && item.roles.includes(user.role))
@@ -148,7 +164,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
               <li key={item.path}>
                 <NavLink
                   to={item.path}
-                  end={item.path === '/'}
+                  end={isExact(item)}
                   title={collapsed ? item.label : undefined}
                   className={({ isActive }) => `
                     flex items-center rounded-xl text-sm font-medium transition-all duration-200
@@ -202,7 +218,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
             <NavLink
               key={item.path}
               to={item.path}
-              end={item.path === '/'}
+              end={isExact(item)}
               className={({ isActive }) => `
                 relative flex flex-col flex-1 min-w-0 items-center justify-center gap-1.5 py-3 transition-colors
                 ${isActive ? 'text-primary-400' : 'text-dark-textMuted'}

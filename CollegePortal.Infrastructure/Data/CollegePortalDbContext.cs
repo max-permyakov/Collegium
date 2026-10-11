@@ -21,6 +21,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<Club> Clubs => Set<Club>();
     public DbSet<ClubMember> ClubMembers => Set<ClubMember>();
     public DbSet<ClubMessage> ClubMessages => Set<ClubMessage>();
+    public DbSet<CollegeTeacher> CollegeTeachers => Set<CollegeTeacher>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -144,6 +145,17 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    builder.Entity<CollegeTeacher>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.FullName).IsUnique();
+            entity.Property(e => e.FullName).HasMaxLength(200);
+            entity.Property(e => e.Position).HasMaxLength(500);
+            entity.Property(e => e.PageUrl).HasMaxLength(1000);
+            entity.Property(e => e.Phone).HasMaxLength(100);
+            entity.Property(e => e.Email).HasMaxLength(200);
+            entity.Property(e => e.PhotoUrl).HasMaxLength(1000);
         });
     }
 }
