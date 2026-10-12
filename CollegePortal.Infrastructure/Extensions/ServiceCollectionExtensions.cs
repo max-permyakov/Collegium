@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -40,13 +41,27 @@ public static class ServiceCollectionExtensions
                 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+" +
                 "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя";
             options.SignIn.RequireConfirmedEmail = false;
+
+            // Brute-force protection: lock the account after repeated failed logins.
+            options.Lockout.AllowedForNewUsers = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
         })
         .AddEntityFrameworkStores<CollegePortalDbContext>()
         .AddDefaultTokenProviders();
 
-        var jwtKey = configuration["Jwt:Key"] ?? "super-secret-key-change-in-production-min-32-chars";
+        var jwtKey = configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+        {
+            throw new InvalidOperationException(
+                "Jwt:Key is not configured or is too short (min 32 bytes). " +
+                "Set it via user secrets or environment variables, e.g. " +
+                "dotnet user-secrets set \"Jwt:Key\" \"<random-64-char-string>\".");
+        }
+
         var jwtIssuer = configuration["Jwt:Issuer"] ?? "CollegePortal";
         var jwtAudience = configuration["Jwt:Audience"] ?? "CollegePortalClient";
+        var authCookieName = configuration["Auth:CookieName"] ?? "cp_access";
 
         services.AddAuthentication(options =>
         {
@@ -66,6 +81,22 @@ public static class ServiceCollectionExtensions
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                 ClockSkew = TimeSpan.Zero
             };
+
+            // The access token is delivered as an HttpOnly cookie, so it can never
+            // be read by client-side JavaScript (mitigates token theft via XSS).
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    if (context.Request.Cookies.TryGetValue(authCookieName, out var cookieToken) &&
+                        !string.IsNullOrEmpty(cookieToken))
+                    {
+                        context.Token = cookieToken;
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
         });
 
         services.AddAuthorization(options =>
@@ -73,6 +104,21 @@ public static class ServiceCollectionExtensions
             options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
             options.AddPolicy("StudentOnly", policy => policy.RequireRole("Student"));
         });
+
+        // Persist Data Protection keys so that encrypted diary secrets (password
+        // hash / session cookies) survive application restarts and container
+        // recycles. On Windows the key ring is additionally protected with DPAPI.
+        var dataProtectionBuilder = services.AddDataProtection()
+            .SetApplicationName("CollegePortal");
+        var keysPath = configuration["DataProtection:KeysPath"];
+        if (!string.IsNullOrWhiteSpace(keysPath))
+        {
+            var keysDirectory = new DirectoryInfo(keysPath);
+            keysDirectory.Create();
+            dataProtectionBuilder.PersistKeysToFileSystem(keysDirectory);
+            if (OperatingSystem.IsWindows())
+                dataProtectionBuilder.ProtectKeysWithDpapi();
+        }
 
         services.Configure<DiaryApiOptions>(configuration.GetSection("ExternalApis:Diary"));
         services.Configure<ScheduleApiOptions>(configuration.GetSection("ExternalApis:Schedule"));

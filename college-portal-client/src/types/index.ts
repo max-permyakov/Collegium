@@ -31,13 +31,6 @@ export interface DiaryLoginRequestDto {
   passwordHash: string;
 }
 
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: string;
-  user: User;
-}
-
 export interface RegisterRequest {
   email: string;
   password: string;

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace CollegePortal.Application.DTOs;
 
 public record LoginRequestDto(
@@ -5,10 +7,11 @@ public record LoginRequestDto(
     string Password
 );
 
+// AccessToken/ExpiresAt are transport details delivered to the client as an
+// HttpOnly cookie, so they are never serialized into the JSON response body.
 public record LoginResponseDto(
-    string AccessToken,
-    string RefreshToken,
-    DateTime ExpiresAt,
+    [property: JsonIgnore] string AccessToken,
+    [property: JsonIgnore] DateTime ExpiresAt,
     UserDto User
 );
 

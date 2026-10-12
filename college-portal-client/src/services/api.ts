@@ -1,41 +1,38 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, LoginResponse, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
+// The access token is stored in an HttpOnly cookie set by the API, so it is
+// never exposed to JavaScript. Requests must send cookies cross-origin.
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
   timeout: 30000,
 });
 
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (token: string) => void;
+  resolve: () => void;
   reject: (error: Error) => void;
 }> = [];
 
-const processQueue = (error: Error | null, token: string | null = null) => {
+const processQueue = (error: Error | null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
       reject(error);
     } else {
-      resolve(token!);
+      resolve();
     }
   });
   failedQueue = [];
 };
 
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config: InternalAxiosRequestConfig) => config,
   (error) => Promise.reject(error)
 );
 
@@ -46,15 +43,10 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then((token) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            return api(originalRequest);
-          })
+          .then(() => api(originalRequest))
           .catch((err) => Promise.reject(err));
       }
 
@@ -62,28 +54,15 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Try diary relogin first
-        const diaryReloginResponse = await axios.post(`${API_BASE_URL}/auth/diary-relogin`, {}, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-        });
-        
-        const { accessToken, refreshToken } = diaryReloginResponse.data;
-        localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
+        // The access token cookie may still be valid while the diary session
+        // expired; re-establish it via a cookie-authenticated relogin.
+        await axios.post(`${API_BASE_URL}/auth/diary-relogin`, {}, { withCredentials: true });
 
-        processQueue(null, accessToken);
-
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        }
-
+        processQueue(null);
         return api(originalRequest);
       } catch (err) {
-        processQueue(err as Error, null);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        processQueue(err as Error);
+        window.dispatchEvent(new Event('auth:unauthorized'));
         return Promise.reject(err);
       } finally {
         isRefreshing = false;
@@ -95,9 +74,9 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  login: (data: LoginRequest) => api.post<LoginResponse>('/auth/login', data),
-  diaryLogin: (login: string, passwordHash: string) => api.post<LoginResponse>('/auth/diary-login', { login, passwordHash }),
-  diaryRelogin: () => api.post<LoginResponse>('/auth/diary-relogin'),
+  login: (data: LoginRequest) => api.post<User>('/auth/login', data),
+  diaryLogin: (login: string, passwordHash: string) => api.post<User>('/auth/diary-login', { login, passwordHash }),
+  diaryRelogin: () => api.post<User>('/auth/diary-relogin'),
   logout: () => api.post('/auth/logout'),
   me: () => api.get<User>('/auth/me'),
   assignProfile: (data: { userId: string; externalStudentId: number; studyGroupId: string }) =>

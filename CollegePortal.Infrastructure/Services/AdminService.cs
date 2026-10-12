@@ -156,6 +156,8 @@ public class AdminService : IAdminService
             return new AdminActionResult(true);
 
         target.Role = role;
+        // Revoke any token already issued to the affected account.
+        target.SecurityStamp = Guid.NewGuid().ToString();
         var updateResult = await _userManager.UpdateAsync(target);
         if (!updateResult.Succeeded)
             return new AdminActionResult(false, string.Join("; ", updateResult.Errors.Select(e => e.Description)));
@@ -185,6 +187,8 @@ public class AdminService : IAdminService
             return new AdminActionResult(true);
 
         target.IsActive = isActive;
+        // Revoke any token already issued to the affected account.
+        target.SecurityStamp = Guid.NewGuid().ToString();
         var updateResult = await _userManager.UpdateAsync(target);
         if (!updateResult.Succeeded)
             return new AdminActionResult(false, string.Join("; ", updateResult.Errors.Select(e => e.Description)));

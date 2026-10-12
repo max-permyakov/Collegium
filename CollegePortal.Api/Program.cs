@@ -1,8 +1,10 @@
+using System.Threading.RateLimiting;
 using CollegePortal.Api.Middleware;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure;
 using CollegePortal.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CollegePortal.Api;
 
@@ -17,14 +19,33 @@ public class Program
         builder.Services.AddSwaggerGen();
         builder.Services.AddMemoryCache();
 
-        // Allow the frontend (Vite dev server / any local origin) to call the API.
-        // Authenticated via Bearer tokens, so credentials/cookies are not required.
+        // CORS: only explicitly allowed frontend origins may call the API.
+        // Credentials are enabled because the access token travels in an HttpOnly cookie.
+        var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+            ?? new[] { "http://localhost:5173", "https://localhost:5173" };
+
         builder.Services.AddCors(options =>
         {
             options.AddPolicy("Client", policy =>
-                policy.AllowAnyOrigin()
+                policy.WithOrigins(allowedOrigins)
                       .AllowAnyMethod()
-                      .AllowAnyHeader());
+                      .AllowAnyHeader()
+                      .AllowCredentials());
+        });
+
+        // Rate limiting for authentication endpoints (per client IP).
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("auth", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
         });
 
         builder.Services.AddInfrastructure(builder.Configuration);
@@ -39,7 +60,16 @@ public class Program
 
         app.UseHttpsRedirection();
 
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseHsts();
+        }
+
+        app.UseMiddleware<SecurityHeadersMiddleware>();
+
         app.UseCors("Client");
+
+        app.UseRateLimiter();
 
         app.UseAuthentication();
         app.UseMiddleware<BannedUsersMiddleware>();
@@ -47,13 +77,12 @@ public class Program
 
         app.MapControllers();
 
-        // Seed admin user
+        // Seed roles and the bootstrap admin user.
         using (var scope = app.Services.CreateScope())
         {
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
 
-            // Ensure roles exist
             foreach (var roleName in new[] { "Student", "Admin" })
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
@@ -62,40 +91,53 @@ public class Program
                 }
             }
 
-            // Seed admin user
-            var adminEmail = builder.Configuration["Admin:Email"] ?? "admin@college.local";
-            var adminPassword = builder.Configuration["Admin:Password"] ?? "Admin123456!";
-            var adminName = builder.Configuration["Admin:DisplayName"] ?? "Administrator";
-
-            var adminUser = await userManager.FindByEmailAsync(adminEmail);
-            if (adminUser == null)
+            var adminEmail = builder.Configuration["Admin:Email"];
+            if (!string.IsNullOrWhiteSpace(adminEmail))
             {
-                adminUser = new ApplicationUser
+                var adminUser = await userManager.FindByEmailAsync(adminEmail);
+                if (adminUser == null)
                 {
-                    UserName = adminEmail,
-                    Email = adminEmail,
-                    DisplayName = adminName,
-                    Role = "Admin",
-                    IsActive = true,
-                    EmailConfirmed = true
-                };
+                    var adminPassword = builder.Configuration["Admin:Password"];
+                    if (string.IsNullOrWhiteSpace(adminPassword))
+                    {
+                        throw new InvalidOperationException(
+                            "Admin:Password is not configured but the bootstrap admin user does not exist. " +
+                            "Set it via user secrets or environment variables, e.g. " +
+                            "dotnet user-secrets set \"Admin:Password\" \"<strong-password>\".");
+                    }
 
-                var result = await userManager.CreateAsync(adminUser, adminPassword);
-                if (result.Succeeded)
+                    adminUser = new ApplicationUser
+                    {
+                        UserName = adminEmail,
+                        Email = adminEmail,
+                        DisplayName = builder.Configuration["Admin:DisplayName"] ?? "Administrator",
+                        Role = "Admin",
+                        IsActive = true,
+                        EmailConfirmed = true
+                    };
+
+                    var result = await userManager.CreateAsync(adminUser, adminPassword);
+                    if (!result.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            "Failed to create bootstrap admin: " +
+                            string.Join("; ", result.Errors.Select(e => e.Description)));
+                    }
+
+                    await userManager.AddToRoleAsync(adminUser, "Admin");
+                }
+                else if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
                 {
                     await userManager.AddToRoleAsync(adminUser, "Admin");
                 }
             }
-            else if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
-            {
-                await userManager.AddToRoleAsync(adminUser, "Admin");
-            }
 
-            // Seed / protect the primary admin (perмяков158) by login and by user id.
-            // This is idempotent and re-run on every startup, so the user is always admin.
-            var primaryLogins = (builder.Configuration["PrimaryAdmin:Logins"] ?? "пермяков158")
+            // Optional: promote configured accounts to protected admins. No defaults
+            // are baked into the code; these lists must be provided explicitly via
+            // configuration (PrimaryAdmin:Logins / PrimaryAdmin:UserIds).
+            var primaryLogins = (builder.Configuration["PrimaryAdmin:Logins"] ?? string.Empty)
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var primaryIds = (builder.Configuration["PrimaryAdmin:UserIds"] ?? "5ca44056-2418-43d8-39b4-08df27791252")
+            var primaryIds = (builder.Configuration["PrimaryAdmin:UserIds"] ?? string.Empty)
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             foreach (var login in primaryLogins)
