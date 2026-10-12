@@ -9,12 +9,14 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
+import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
 import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
 interface DashboardData {
   remainingToday?: Lesson[];
   kkepik?: KkepikScheduleResponse;
   grades?: SubjectGrade[];
+  recentMarks?: RecentMarkEntry[];
   news?: AnnouncementListItem[];
   assignments?: AssignmentListItem[];
 }
@@ -58,12 +60,13 @@ export function HomePage() {
       const weekStartStr = toDateInputValue(weekStart);
       const nowTime = now.toTimeString().slice(0, 8);
 
-      const [scheduleRes, kkepikRes, gradesRes, newsRes, assignmentsRes] = await Promise.allSettled([
+      const [scheduleRes, kkepikRes, gradesRes, newsRes, assignmentsRes, perfRes] = await Promise.allSettled([
         scheduleApi.getWeek(weekStartStr),
         scheduleApi.getKkepik(),
         gradesApi.getGrades(),
         newsApi.getNews(user.studentProfile?.studyGroupId),
         assignmentsApi.getMyAssignments(),
+        gradesApi.getPerformance(),
       ]);
 
       let remainingToday: Lesson[] = [];
@@ -80,6 +83,7 @@ export function HomePage() {
         remainingToday,
         kkepik: kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined,
         grades: gradesRes.status === 'fulfilled' ? gradesRes.value.data?.subjects?.slice(0, 4) : [],
+        recentMarks: getRecentMarks(perfRes.status === 'fulfilled' ? perfRes.value.data : null, 6),
         news: newsRes.status === 'fulfilled' ? newsRes.value.data?.slice(0, 3) : [],
         assignments: assignmentsRes.status === 'fulfilled' ? assignmentsRes.value.data?.slice(0, 3) : [],
       });
@@ -262,6 +266,38 @@ export function HomePage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card variant="hover">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Последние оценки</CardTitle>
+          <Link to="/performance">
+            <Button variant="ghost" size="sm">Подробнее</Button>
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {dashboardData.recentMarks && dashboardData.recentMarks.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {dashboardData.recentMarks.map((entry, i) => (
+                <Link key={i} to="/performance" className="block">
+                  <div className="h-full p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <p className="font-medium text-dark-text truncate">{entry.subjectName}</p>
+                      <span className="text-xs text-dark-textMuted shrink-0">{_formatDate(entry.day)}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {entry.markValues.map((mark, mi) => (
+                        <Badge key={mi} variant={getMarkVariant(mark)}>{getMarkValue(mark)}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-dark-textMuted text-center py-8">Нет оценок за последнее время</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card variant="hover">
         <CardHeader className="flex flex-row items-center justify-between">

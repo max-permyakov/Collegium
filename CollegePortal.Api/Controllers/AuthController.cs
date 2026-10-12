@@ -2,6 +2,7 @@ using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CollegePortal.Api.Controllers;
 
@@ -10,33 +11,43 @@ namespace CollegePortal.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IConfiguration configuration, IWebHostEnvironment environment)
     {
         _authService = authService;
+        _configuration = configuration;
+        _environment = environment;
     }
+
+    private string CookieName => _configuration["Auth:CookieName"] ?? "cp_access";
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
         var result = await _authService.LoginAsync(request.Email, request.Password);
         if (result == null)
             return Unauthorized(new { message = "Неверный email или пароль" });
 
-        return Ok(result);
+        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        return Ok(result.User);
     }
 
     [HttpPost("diary-login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> DiaryLogin([FromBody] DiaryLoginRequestDto request)
     {
-        // Client sends login and pre-computed SHA256 hash of login
+        // The diary API expects the password pre-hashed (SHA-256, base64) by the client.
         var result = await _authService.DiaryLoginAsync(request.Login, request.PasswordHash);
         if (result == null)
             return Unauthorized(new { message = "Неверный логин или пароль дневника" });
 
-        return Ok(result);
+        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        return Ok(result.User);
     }
 
     [HttpPost("diary-relogin")]
@@ -51,7 +62,8 @@ public class AuthController : ControllerBase
         if (result == null)
             return Unauthorized(new { message = "Сессия дневника истекла, требуется повторный вход" });
 
-        return Ok(result);
+        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        return Ok(result.User);
     }
 
     [HttpPost("logout")]
@@ -61,6 +73,8 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId.HasValue)
             await _authService.LogoutAsync(userId.Value);
+
+        ClearAuthCookie();
         return Ok(new { message = "Выход выполнен" });
     }
 
@@ -77,6 +91,32 @@ public class AuthController : ControllerBase
             return NotFound(new { message = "Пользователь не найден" });
 
         return Ok(user);
+    }
+
+    private void SetAuthCookie(string token, DateTime expiresAt)
+    {
+        var isDevelopment = _environment.IsDevelopment();
+
+        Response.Cookies.Append(CookieName, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !isDevelopment,
+            SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.Strict,
+            Path = "/",
+            Expires = expiresAt,
+            IsEssential = true
+        });
+    }
+
+    private void ClearAuthCookie()
+    {
+        Response.Cookies.Delete(CookieName, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !_environment.IsDevelopment(),
+            SameSite = _environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.Strict,
+            Path = "/"
+        });
     }
 
     private Guid? GetCurrentUserId()

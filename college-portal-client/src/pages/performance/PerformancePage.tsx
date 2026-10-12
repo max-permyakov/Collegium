@@ -3,33 +3,13 @@ import { gradesApi } from '../../services/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
+import { getMarkValue, getMarkVariant, getRecentMarks } from '../../utils/performance';
 import type { PerformanceResponse, SubjectPerformance } from '../../types';
-
-type MarkVariant = 'success' | 'warning' | 'danger' | 'default';
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-};
-
-const getMarkVariant = (mark: string): MarkVariant => {
-  switch (mark) {
-    case 'Five': return 'success';
-    case 'Four': return 'warning';
-    case 'Three':
-    case 'Two': return 'danger';
-    default: return 'default';
-  }
-};
-
-const getMarkValue = (mark: string) => {
-  switch (mark) {
-    case 'Five': return '5';
-    case 'Four': return '4';
-    case 'Three': return '3';
-    case 'Two': return '2';
-    default: return mark;
-  }
 };
 
 const averageClasses = (avg: number) => {
@@ -76,6 +56,8 @@ export function PerformancePage() {
     return found ?? subjectsWithData[0];
   }, [subjectsWithData, selectedSubject]);
 
+  const recentMarks = useMemo(() => getRecentMarks(performance, 12), [performance]);
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -117,88 +99,130 @@ export function PerformancePage() {
         <p className="text-dark-textMuted">Оценки по дням и предметам</p>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <div className="p-4 rounded-xl bg-primary-500/10 border border-primary-500/20 text-center">
-          <p className="text-3xl font-bold text-primary-400">{performance.subjects.length}</p>
-          <p className="text-sm text-dark-textMuted">Предметов всего</p>
-        </div>
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-          <p className="text-3xl font-bold text-emerald-400">{subjectsWithData.length}</p>
-          <p className="text-sm text-dark-textMuted">С оценками</p>
-        </div>
-        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-          <p className="text-3xl font-bold text-amber-400">{marksCount}</p>
-          <p className="text-sm text-dark-textMuted">Всего оценок</p>
-        </div>
-        <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-center">
-          <p className="text-3xl font-bold text-violet-400">{avgMark.toFixed(2)}</p>
-          <p className="text-sm text-dark-textMuted">Средний балл</p>
-        </div>
-      </div>
+      <Tabs defaultValue="detailed">
+        <TabsList>
+          <TabsTrigger value="detailed">Детальная успеваемость</TabsTrigger>
+          <TabsTrigger value="recent">Последние оценки</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Предметы</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {subjectsWithData.map((subject) => {
-              const isActive = activeSubject?.subjectName === subject.subjectName;
-              return (
-                <button
-                  key={subject.subjectName}
-                  type="button"
-                  onClick={() => setSelectedSubject(subject.subjectName)}
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
-                    isActive
-                      ? 'bg-primary-500/20 border-primary-500/40 text-primary-300'
-                      : 'bg-dark-bg border-dark-border text-dark-textMuted hover:border-primary-500/30 hover:text-dark-text'
-                  }`}
-                >
-                  <span className="font-medium max-w-[180px] truncate">{subject.subjectName}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${averageClasses(subject.averageMark)}`}>
-                    {subject.averageMark.toFixed(2)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="detailed">
+          <div className="space-y-6">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+              <div className="p-4 rounded-xl bg-primary-500/10 border border-primary-500/20 text-center">
+                <p className="text-3xl font-bold text-primary-400">{performance.subjects.length}</p>
+                <p className="text-sm text-dark-textMuted">Предметов всего</p>
+              </div>
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                <p className="text-3xl font-bold text-emerald-400">{subjectsWithData.length}</p>
+                <p className="text-sm text-dark-textMuted">С оценками</p>
+              </div>
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                <p className="text-3xl font-bold text-amber-400">{marksCount}</p>
+                <p className="text-sm text-dark-textMuted">Всего оценок</p>
+              </div>
+              <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20 text-center">
+                <p className="text-3xl font-bold text-violet-400">{avgMark.toFixed(2)}</p>
+                <p className="text-sm text-dark-textMuted">Средний балл</p>
+              </div>
+            </div>
 
-      {activeSubject && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-lg font-semibold text-dark-text">{activeSubject.subjectName}</h2>
-            <Badge variant="primary">Средний балл: {activeSubject.averageMark.toFixed(2)}</Badge>
-          </div>
-
-          {activeSubject.daysWithMarks.map((dayMarks, index) => (
-            <Card key={`${activeSubject.subjectName}-${index}`} variant="hover">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 mb-2">
-                <CardTitle className="text-base">{formatDate(dayMarks.day)}</CardTitle>
-                <div className="flex items-center gap-2 shrink-0">
-                  {dayMarks.absenceType && (
-                    <Badge variant="danger">
-                      {dayMarks.absenceType === 'IsAbsentByNotValidReason' ? 'Неявка (неув.)' : 'Неявка (ув.)'}
-                    </Badge>
-                  )}
-                  <Badge variant="primary">{dayMarks.markValues.length} оценок</Badge>
-                </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Предметы</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {dayMarks.markValues.map((mark, mi) => (
-                    <Badge key={`${index}-${mi}`} variant={getMarkVariant(mark)} className="px-3 py-1.5 text-base">
-                      {getMarkValue(mark)}
-                    </Badge>
-                  ))}
+                  {subjectsWithData.map((subject) => {
+                    const isActive = activeSubject?.subjectName === subject.subjectName;
+                    return (
+                      <button
+                        key={subject.subjectName}
+                        type="button"
+                        onClick={() => setSelectedSubject(subject.subjectName)}
+                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                          isActive
+                            ? 'bg-primary-500/20 border-primary-500/40 text-primary-300'
+                            : 'bg-dark-bg border-dark-border text-dark-textMuted hover:border-primary-500/30 hover:text-dark-text'
+                        }`}
+                      >
+                        <span className="font-medium max-w-[180px] truncate">{subject.subjectName}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${averageClasses(subject.averageMark)}`}>
+                          {subject.averageMark.toFixed(2)}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+
+            {activeSubject && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-lg font-semibold text-dark-text">{activeSubject.subjectName}</h2>
+                  <Badge variant="primary">Средний балл: {activeSubject.averageMark.toFixed(2)}</Badge>
+                </div>
+
+                {activeSubject.daysWithMarks.map((dayMarks, index) => (
+                  <Card key={`${activeSubject.subjectName}-${index}`} variant="hover">
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 mb-2">
+                      <CardTitle className="text-base">{formatDate(dayMarks.day)}</CardTitle>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {dayMarks.absenceType && (
+                          <Badge variant="danger">
+                            {dayMarks.absenceType === 'IsAbsentByNotValidReason' ? 'Неявка (неув.)' : 'Неявка (ув.)'}
+                          </Badge>
+                        )}
+                        <Badge variant="primary">{dayMarks.markValues.length} оценок</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-2">
+                        {dayMarks.markValues.map((mark, mi) => (
+                          <Badge key={`${index}-${mi}`} variant={getMarkVariant(mark)} className="px-3 py-1.5 text-base">
+                            {getMarkValue(mark)}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="recent">
+          <div className="space-y-3">
+            <p className="text-sm text-dark-textMuted px-1">Последние {recentMarks.length} оценок по всем предметам</p>
+
+            {recentMarks.map((entry, index) => (
+              <Card key={`${entry.subjectName}-${entry.day}-${index}`} variant="hover">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 mb-2">
+                  <CardTitle className="text-base">{entry.subjectName}</CardTitle>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {entry.absenceType && (
+                      <Badge variant="danger">
+                        {entry.absenceType === 'IsAbsentByNotValidReason' ? 'Неявка (неув.)' : 'Неявка (ув.)'}
+                      </Badge>
+                    )}
+                    <span className="text-sm text-dark-textMuted">{formatDate(entry.day)}</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {entry.markValues.map((mark, mi) => (
+                      <Badge key={`${index}-${mi}`} variant={getMarkVariant(mark)} className="px-3 py-1.5 text-base">
+                        {getMarkValue(mark)}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -16,6 +16,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// The diary API expects the password pre-hashed (SHA-256, base64) so the raw
+// diary password is never sent to (or stored by) the portal server.
+async function hashDiaryPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,67 +35,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.data);
     } catch {
       setUser(null);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
     }
   }, []);
 
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('accessToken');
-      const savedUser = localStorage.getItem('user');
-
-      if (token && savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-          await refreshUser();
-        } catch {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          setUser(null);
-        }
+      try {
+        // The session lives in an HttpOnly cookie; ask the server who we are.
+        await refreshUser();
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     initAuth();
   }, [refreshUser]);
 
-  // Hash password using SHA-256 (base64) for diary authentication
-  const hashDiaryPassword = async (password: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    return btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
-  };
+  // When the API rejects our session (expired / revoked), drop local state.
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser(null);
+      queryClient.clear();
+    };
+    window.addEventListener('auth:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
+  }, [queryClient]);
 
   const login = async (data: LoginRequest) => {
     const response = await authApi.login(data);
-    const { accessToken, refreshToken, user: userData } = response.data;
-
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(userData));
 
     queryClient.clear();
-    setUser(userData);
+    setUser(response.data);
   };
 
   const diaryLogin = async (login: string, password: string) => {
-    // The diary API expects the password pre-hashed (SHA-256, base64) on the client
     const passwordHash = await hashDiaryPassword(password);
-    
     const response = await authApi.diaryLogin(login, passwordHash);
-    const { accessToken, refreshToken, user: userData } = response.data;
-
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(userData));
 
     queryClient.clear();
-    setUser(userData);
+    setUser(response.data);
   };
 
   const logout = async () => {
@@ -96,9 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore logout errors
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
       queryClient.clear();
       setUser(null);
     }

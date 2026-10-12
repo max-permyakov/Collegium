@@ -1,21 +1,20 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using CollegePortal.Infrastructure.Data;
 
 namespace CollegePortal.Api.Middleware;
 
-// Rejects requests authenticated with the token of a banned (IsActive == false) user.
-// The active-state lookup is cached for a short period to avoid a DB hit per request.
+// Rejects requests whose token belongs to a banned (IsActive == false) user, or
+// whose security stamp no longer matches the user record. The latter provides
+// immediate server-side revocation on logout, ban and role changes.
 public class BannedUsersMiddleware
 {
-    private readonly RequestDelegate _next;
-    private readonly IMemoryCache _cache;
-    private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(1);
+    private const string SecurityStampClaim = "sstamp";
 
-    public BannedUsersMiddleware(RequestDelegate next, IMemoryCache cache)
+    private readonly RequestDelegate _next;
+
+    public BannedUsersMiddleware(RequestDelegate next)
     {
         _next = next;
-        _cache = cache;
     }
 
     public async Task InvokeAsync(HttpContext context, IServiceScopeFactory scopeFactory)
@@ -23,27 +22,38 @@ public class BannedUsersMiddleware
         var userIdClaim = context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
         {
-            var isActive = await _cache.GetOrCreateAsync(
-                $"user-active-{userId}",
-                async entry =>
-                {
-                    entry.AbsoluteExpirationRelativeToNow = CacheLifetime;
-                    using var scope = scopeFactory.CreateScope();
-                    var dbContext = scope.ServiceProvider.GetRequiredService<CollegePortalDbContext>();
-                    return await dbContext.Users
-                        .Where(u => u.Id == userId)
-                        .Select(u => (bool?)u.IsActive)
-                        .FirstOrDefaultAsync();
-                });
+            using var scope = scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<CollegePortalDbContext>();
+            var state = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.IsActive, u.SecurityStamp })
+                .FirstOrDefaultAsync();
 
-            if (isActive == false)
+            if (state != null)
             {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { message = "Пользователь заблокирован" });
-                return;
+                if (!state.IsActive)
+                {
+                    await WriteErrorAsync(context, StatusCodes.Status403Forbidden, "Пользователь заблокирован");
+                    return;
+                }
+
+                var tokenStamp = context.User?.FindFirst(SecurityStampClaim)?.Value;
+                if (!string.IsNullOrEmpty(tokenStamp) &&
+                    !string.Equals(tokenStamp, state.SecurityStamp, StringComparison.Ordinal))
+                {
+                    await WriteErrorAsync(context, StatusCodes.Status401Unauthorized, "Сессия недействительна, войдите заново");
+                    return;
+                }
             }
         }
 
         await _next(context);
+    }
+
+    private static async Task WriteErrorAsync(HttpContext context, int statusCode, string message)
+    {
+        context.Response.StatusCode = statusCode;
+        await context.Response.WriteAsJsonAsync(new { message });
     }
 }

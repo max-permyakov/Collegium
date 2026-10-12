@@ -29,6 +29,7 @@ public class DiaryApiClient : IDiaryApiClient
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly CollegePortalDbContext _dbContext;
     private readonly IDataProtector _dataProtector;
+    private readonly IDataProtector _cookieProtector;
 
     public DiaryApiClient(
         HttpClient httpClient,
@@ -44,11 +45,30 @@ public class DiaryApiClient : IDiaryApiClient
         _httpContextAccessor = httpContextAccessor;
         _dbContext = dbContext;
         _dataProtector = dataProtectionProvider.CreateProtector("DiaryIntegration");
+        _cookieProtector = dataProtectionProvider.CreateProtector("DiaryIntegration.Cookies");
 
         _httpClient.BaseAddress = new Uri(_options.BaseUrl);
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
         _httpClient.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
+    }
+
+    // Diary session cookies are encrypted at rest. Tolerates legacy plaintext rows.
+    private string ProtectCookies(string cookieData) => _cookieProtector.Protect(cookieData);
+
+    private string? UnprotectCookies(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return null;
+
+        try
+        {
+            return _cookieProtector.Unprotect(value);
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            return value;
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -75,7 +95,7 @@ public class DiaryApiClient : IDiaryApiClient
             .AsNoTracking()
             .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
 
-        return profile?.DiaryCookieData;
+        return UnprotectCookies(profile?.DiaryCookieData);
     }
 
     private static IReadOnlyList<string> ExtractSetCookies(HttpResponseMessage response)
@@ -133,7 +153,8 @@ public class DiaryApiClient : IDiaryApiClient
         if (profile == null)
             return;
 
-        profile.DiaryCookieData = MergeCookieData(profile.DiaryCookieData, setCookies);
+        var merged = MergeCookieData(UnprotectCookies(profile.DiaryCookieData), setCookies);
+        profile.DiaryCookieData = ProtectCookies(merged);
         await _dbContext.SaveChangesAsync(ct);
     }
 
@@ -207,7 +228,7 @@ public class DiaryApiClient : IDiaryApiClient
                 return false;
 
             if (!string.IsNullOrEmpty(result.CookieData))
-                profile.DiaryCookieData = result.CookieData;
+                profile.DiaryCookieData = ProtectCookies(result.CookieData);
             profile.DiaryLastSyncedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(ct);
             return true;

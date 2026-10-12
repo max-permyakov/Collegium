@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -27,35 +26,40 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
                 config.AddUserSecrets<CollegePortal.Api.Program>();
             });
         });
-        
-        _client = _factory.CreateClient();
+
+        _client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
         _configuration = _factory.Services.GetRequiredService<IConfiguration>();
     }
 
-    private async Task<HttpResponseMessage> SkipIfDiaryUnavailable(HttpResponseMessage response, string testName)
+    private async Task SkipIfDiaryUnavailable(HttpResponseMessage response, string testName)
     {
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            // Use Assert.True with false to effectively skip the test with a message
             throw new InvalidOperationException($"SKIP: Diary API returned 401 Unauthorized in {testName}. Diary API may not be accessible or credentials are invalid. Response: {await response.Content.ReadAsStringAsync()}");
         }
-        return response;
+        return;
     }
 
-    // The diary expects the SHA-256 (base64) hash of the password, not the raw password.
-    private static string HashPassword(string password)
+    private static string HashPassword(string password) =>
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(password)));
+
+    private static bool HasAuthCookie(HttpResponseMessage response)
     {
-        return Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(password)));
+        return response.Headers.TryGetValues("Set-Cookie", out var cookies)
+            && cookies.Any(c => c.StartsWith("cp_access=", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task DiaryLogin_WithValidCredentials_ReturnsToken()
+    public async Task DiaryLogin_WithValidCredentials_SetsAuthCookie()
     {
         // Arrange
         var login = _configuration["Diary:TestLogin"];
         var password = _configuration["Diary:TestPassword"];
-        
+
         login.Should().NotBeNullOrEmpty("Test login should be configured in user secrets");
         password.Should().NotBeNullOrEmpty("Test password should be configured in user secrets");
 
@@ -65,86 +69,69 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
         var response = await _client.PostAsJsonAsync("/api/auth/diary-login", request);
 
         // Assert - Handle diary API unavailability gracefully
-        await SkipIfDiaryUnavailable(response, "DiaryLogin_WithValidCredentials_ReturnsToken");
-        
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
-        var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
+        await SkipIfDiaryUnavailable(response, "DiaryLogin_WithValidCredentials_SetsAuthCookie");
 
-        loginResponse.Should().NotBeNull();
-        loginResponse!.AccessToken.Should().NotBeNullOrEmpty();
-        loginResponse.RefreshToken.Should().NotBeNullOrEmpty();
-        loginResponse.User.Should().NotBeNull();
-        loginResponse.User.Role.Should().Be("Student");
-        loginResponse.User.StudentProfile.Should().NotBeNull();
-        loginResponse.User.StudentProfile!.ExternalStudentId.Should().BeGreaterThan(0);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        HasAuthCookie(response).Should().BeTrue();
+
+        var user = await response.Content.ReadFromJsonAsync<UserDto>();
+
+        user.Should().NotBeNull();
+        user!.Role.Should().BeOneOf("Student", "Admin");
+
+        if (user.Role == "Student")
+        {
+            user.StudentProfile.Should().NotBeNull();
+            user.StudentProfile!.ExternalStudentId.Should().BeGreaterThan(0);
+        }
     }
 
     [Fact]
     public async Task DiaryLogin_WithInvalidCredentials_ReturnsUnauthorized()
     {
         // Arrange
-        var request = new DiaryLoginRequestDto("invalid_login", "invalid_password");
+        var request = new DiaryLoginRequestDto("invalid_login", HashPassword("invalid_password"));
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/diary-login", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        HasAuthCookie(response).Should().BeFalse();
     }
 
     [Fact]
-    public async Task DiaryRelogin_WithValidSession_ReturnsNewToken()
+    public async Task DiaryRelogin_WithValidSession_ReturnsOkWithCookie()
     {
-        // Arrange - First login to establish session
+        // Arrange - First login to establish the session cookie
         var login = _configuration["Diary:TestLogin"];
         var password = _configuration["Diary:TestPassword"];
-        
+
         if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
         {
             throw new InvalidOperationException("SKIP: Diary test credentials not configured in user secrets");
         }
-        
+
         var initialRequest = new DiaryLoginRequestDto(login!, HashPassword(password!));
-
         var initialResponse = await _client.PostAsJsonAsync("/api/auth/diary-login", initialRequest);
-        
-        await SkipIfDiaryUnavailable(initialResponse, "DiaryRelogin_WithValidSession_ReturnsNewToken");
-        
+
+        await SkipIfDiaryUnavailable(initialResponse, "DiaryRelogin_WithValidSession_ReturnsOkWithCookie");
+
         initialResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        HasAuthCookie(initialResponse).Should().BeTrue();
 
-        var initialLoginResponse = await initialResponse.Content.ReadFromJsonAsync<LoginResponseDto>();
-
-        initialLoginResponse.Should().NotBeNull();
-        initialLoginResponse!.AccessToken.Should().NotBeNullOrEmpty();
-
-        // Set authorization header
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", initialLoginResponse.AccessToken);
-
-        // Act - Call relogin
+        // Act - Call relogin (cookie is sent automatically)
         var reloginResponse = await _client.PostAsync("/api/auth/diary-relogin", null);
 
         // Assert
         reloginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        
-        var reloginResponseDto = await reloginResponse.Content.ReadFromJsonAsync<LoginResponseDto>();
-
-        reloginResponseDto.Should().NotBeNull();
-        reloginResponseDto!.AccessToken.Should().NotBeNullOrEmpty();
-        reloginResponseDto.AccessToken.Should().NotBe(initialLoginResponse.AccessToken); // Should be a new token
+        HasAuthCookie(reloginResponse).Should().BeTrue();
     }
 }
 
 public record DiaryLoginRequestDto(
     string Login,
     string PasswordHash
-);
-
-public record LoginResponseDto(
-    string AccessToken,
-    string RefreshToken,
-    DateTime ExpiresAt,
-    UserDto User
 );
 
 public record UserDto(

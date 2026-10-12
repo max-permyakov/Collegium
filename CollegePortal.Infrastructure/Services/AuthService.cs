@@ -24,6 +24,7 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly IDiaryApiClient _diaryApiClient;
     private readonly IDataProtector _dataProtector;
+    private readonly IDataProtector _cookieProtector;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -41,8 +42,14 @@ public class AuthService : IAuthService
         _configuration = configuration;
         _diaryApiClient = diaryApiClient;
         _dataProtector = dataProtectionProvider.CreateProtector("DiaryIntegration");
+        _cookieProtector = dataProtectionProvider.CreateProtector("DiaryIntegration.Cookies");
         _logger = logger;
     }
+
+    private TimeSpan AccessTokenLifetime =>
+        TimeSpan.FromMinutes(_configuration.GetValue("Auth:AccessTokenMinutes", 60));
+
+    private string ProtectCookies(string cookieData) => _cookieProtector.Protect(cookieData);
 
     public async Task<LoginResponseDto?> LoginAsync(string email, string password, CancellationToken ct = default)
     {
@@ -50,22 +57,21 @@ public class AuthService : IAuthService
         if (user == null || !user.IsActive)
             return null;
 
-        var result = await _signInManager.CheckPasswordSignInAsync(user, password, false);
+        var result = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
         if (!result.Succeeded)
             return null;
 
         await EnsurePrimaryAdminAsync(user);
 
+        // Rotate the security stamp before issuing the token so that any token
+        // issued previously for this account is immediately revoked.
         user.LastLoginAt = DateTime.UtcNow;
+        user.SecurityStamp = Guid.NewGuid().ToString();
         await _userManager.UpdateAsync(user);
 
         var roles = await _userManager.GetRolesAsync(user);
         var token = GenerateJwtToken(user, roles);
-        var refreshToken = GenerateRefreshToken();
-        var expiresAt = DateTime.UtcNow.AddHours(1);
-
-        user.SecurityStamp = Guid.NewGuid().ToString();
-        await _userManager.UpdateAsync(user);
+        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
 
         var studentProfile = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
@@ -73,7 +79,7 @@ public class AuthService : IAuthService
 
         var userDto = ToUserDto(user, roles, studentProfile);
 
-        return new LoginResponseDto(token, refreshToken, expiresAt, userDto);
+        return new LoginResponseDto(token, expiresAt, userDto);
     }
 
     public async Task LogoutAsync(Guid userId, CancellationToken ct = default)
@@ -132,10 +138,12 @@ public class AuthService : IAuthService
         return true;
     }
 
-    // Diary integration: login with diary credentials
+    // Diary integration: login with diary credentials. The diary API expects the
+    // password to be pre-hashed (SHA-256, base64) by the caller, so the raw diary
+    // password never reaches this server; the pre-hashed credential is encrypted
+    // before being stored.
     public async Task<LoginResponseDto?> DiaryLoginAsync(string login, string passwordHash, CancellationToken ct = default)
     {
-        // Login to diary with pre-computed hash (SHA256 of the password)
         var diaryResult = await _diaryApiClient.LoginWithPrecomputedHashAsync(login, passwordHash, ct);
         if (diaryResult == null)
             return null;
@@ -218,26 +226,25 @@ public class AuthService : IAuthService
         // даём роль админа и защиту от демоции/бана.
         await EnsurePrimaryAdminAsync(user);
 
-        // Persist the diary credentials and session cookies (encrypted hash, per-user cookies)
-        // so we can automatically re-login / continue the session later.
+        // Persist the diary credentials and session cookies (encrypted hash, encrypted
+        // per-user cookies) so we can automatically re-login / continue the session later.
         profile.DiaryPasswordHash = _dataProtector.Protect(passwordHash);
         if (!string.IsNullOrEmpty(diaryResult.CookieData))
-            profile.DiaryCookieData = diaryResult.CookieData;
+            profile.DiaryCookieData = ProtectCookies(diaryResult.CookieData);
         profile.DiaryLastSyncedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
 
         // Sync diary data (profile, schedule, grades)
         await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
 
-        // Generate JWT token
-        var roles = await _userManager.GetRolesAsync(user);
-        var token = GenerateJwtToken(user, roles);
-        var refreshToken = GenerateRefreshToken();
-        var expiresAt = DateTime.UtcNow.AddHours(1);
-
+        // Rotate the security stamp before issuing the token (revokes prior tokens).
         user.SecurityStamp = Guid.NewGuid().ToString();
         user.LastLoginAt = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = GenerateJwtToken(user, roles);
+        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
 
         var studentProfileAfterSync = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
@@ -245,7 +252,7 @@ public class AuthService : IAuthService
 
         var userDto = ToUserDto(user, roles, studentProfileAfterSync);
 
-        return new LoginResponseDto(token, GenerateRefreshToken(), expiresAt, userDto);
+        return new LoginResponseDto(token, expiresAt, userDto);
     }
 
     public async Task<LoginResponseDto?> DiaryReloginAsync(Guid userId, CancellationToken ct = default)
@@ -275,21 +282,21 @@ public class AuthService : IAuthService
 
         if (!string.IsNullOrEmpty(diaryResult.CookieData))
         {
-            studentProfile.DiaryCookieData = diaryResult.CookieData;
+            studentProfile.DiaryCookieData = ProtectCookies(diaryResult.CookieData);
             await _dbContext.SaveChangesAsync(ct);
         }
 
         // Sync data
         await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
 
-        var roles = await _userManager.GetRolesAsync(user);
-        var token = GenerateJwtToken(user, roles);
-        var refreshToken = GenerateRefreshToken();
-        var expiresAt = DateTime.UtcNow.AddHours(1);
-
+        // Rotate the security stamp before issuing the token (revokes prior tokens).
         user.SecurityStamp = Guid.NewGuid().ToString();
         user.LastLoginAt = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = GenerateJwtToken(user, roles);
+        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
 
         var studentProfileAfterSync = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
@@ -297,7 +304,7 @@ public class AuthService : IAuthService
 
         var userDto = ToUserDto(user, roles, studentProfileAfterSync);
 
-        return new LoginResponseDto(token, GenerateRefreshToken(), expiresAt, userDto);
+        return new LoginResponseDto(token, expiresAt, userDto);
     }
 
     public async Task<bool> UpdateDiaryDataAsync(Guid userId, int externalStudentId, string cookieData, string passwordHash, DateTime? cookiesExpiresAt, CancellationToken ct = default)
@@ -308,7 +315,7 @@ public class AuthService : IAuthService
         if (studentProfile == null)
             return false;
 
-        studentProfile.DiaryCookieData = cookieData;
+        studentProfile.DiaryCookieData = ProtectCookies(cookieData);
         studentProfile.DiaryPasswordHash = _dataProtector.Protect(passwordHash);
         studentProfile.DiaryCookiesExpiresAt = cookiesExpiresAt;
         studentProfile.DiaryLastSyncedAt = DateTime.UtcNow;
@@ -438,12 +445,16 @@ public class AuthService : IAuthService
 
     private async Task<bool> IsPrimaryAdminAsync(ApplicationUser user)
     {
-        var logins = (_configuration["PrimaryAdmin:Logins"] ?? "пермяков158")
+        // No default/magic values: primary admins are opt-in via configuration only.
+        var logins = (_configuration["PrimaryAdmin:Logins"] ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToHashSet(StringComparer.Ordinal);
-        var ids = (_configuration["PrimaryAdmin:UserIds"] ?? "5ca44056-2418-43d8-39b4-08df27791252")
+        var ids = (_configuration["PrimaryAdmin:UserIds"] ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (logins.Count == 0 && ids.Count == 0)
+            return false;
 
         return logins.Contains(user.UserName ?? "") || ids.Contains(user.Id.ToString());
     }
@@ -502,7 +513,10 @@ public class AuthService : IAuthService
 
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
     {
-        var jwtKey = _configuration["Jwt:Key"] ?? "super-secret-key-change-in-production-min-32-chars";
+        var jwtKey = _configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            throw new InvalidOperationException("Jwt:Key is not configured.");
+
         var jwtIssuer = _configuration["Jwt:Issuer"] ?? "CollegePortal";
         var jwtAudience = _configuration["Jwt:Audience"] ?? "CollegePortalClient";
 
@@ -514,7 +528,10 @@ public class AuthService : IAuthService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email ?? ""),
             new(ClaimTypes.Name, user.DisplayName),
-            new("role", user.Role)
+            new("role", user.Role),
+            // Enables immediate server-side revocation (logout / ban) by comparing
+            // the token's stamp with the current user record.
+            new("sstamp", user.SecurityStamp ?? "")
         };
 
         foreach (var role in roles)
@@ -526,15 +543,10 @@ public class AuthService : IAuthService
             issuer: jwtIssuer,
             audience: jwtAudience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(1),
+            expires: DateTime.UtcNow.Add(AccessTokenLifetime),
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    private string GenerateRefreshToken()
-    {
-        return Convert.ToBase64String(Guid.NewGuid().ToByteArray()) + Convert.ToBase64String(Guid.NewGuid().ToByteArray());
     }
 }
