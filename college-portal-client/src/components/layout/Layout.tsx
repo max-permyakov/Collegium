@@ -13,7 +13,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-dark-bg">
       <div className={`min-h-screen transition-[padding] duration-300 ${sidebarCollapsed ? 'lg:pr-16' : 'lg:pr-64'}`}>
-        <main className="page-container pb-24 lg:pb-4">
+        <main className="page-container pb-20 lg:pb-4">
           {children || <Outlet />}
         </main>
       </div>
