@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 interface NavItem {
@@ -97,6 +98,18 @@ const MapIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const MenuIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+  </svg>
+);
+
+const CloseIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
 const navItems: NavItem[] = [
   { path: '/', label: 'Главная', icon: <HomeIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/schedule', label: 'Расписание', icon: <CalendarIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
@@ -118,6 +131,16 @@ interface RightSidebarProps {
 
 export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
   const { user, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
 
   const isExact = (item: NavItem) => item.path === '/' || item.path === '/college-info';
 
@@ -208,41 +231,88 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
         </div>
       </aside>
 
-      {/* Mobile: icon-only bottom navigation bar */}
-      <nav
-        className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-dark-card/95 backdrop-blur border-t border-dark-border safe-bottom"
-        aria-label="Основная навигация"
+      {/* Mobile: floating button to open the menu */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="fixed bottom-5 right-4 z-30 lg:hidden w-12 h-12 rounded-full bg-primary-500 text-white shadow-lg shadow-primary-500/30 flex items-center justify-center active:scale-95 transition-transform"
+        aria-label="Открыть меню"
       >
-        <div className="flex items-stretch justify-around">
-          {filteredNavItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={isExact(item)}
-              className={({ isActive }) => `
-                relative flex flex-col flex-1 min-w-0 items-center justify-center gap-1.5 py-3 transition-colors
-                ${isActive ? 'text-primary-400' : 'text-dark-textMuted'}
-              `}
-              aria-label={item.label}
+        <MenuIcon className="w-6 h-6" />
+      </button>
+
+      {/* Mobile: slide-in side panel */}
+      <div className={`fixed inset-0 z-40 lg:hidden ${mobileOpen ? '' : 'pointer-events-none'}`}>
+        <div
+          className={`absolute inset-0 bg-black/60 transition-opacity duration-300 ${mobileOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+        <aside
+          className={`absolute top-0 right-0 h-full w-64 max-w-[80%] bg-dark-card border-l border-dark-border flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}`}
+          aria-label="Мобильная навигация"
+        >
+          <div className="flex items-center justify-between h-16 px-4 border-b border-dark-border flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
+                <CollegeLogo className="w-6 h-6 text-primary-400" />
+              </div>
+              <span className="text-lg font-semibold text-dark-text">KKEP.ka</span>
+            </div>
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="btn-ghost p-2"
+              aria-label="Закрыть меню"
             >
-              {({ isActive }) => (
-                <>
-                  <span className={`absolute top-0 h-0.5 w-8 rounded-full bg-primary-400 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0'}`} />
-                  <span className="w-5 h-5">{item.icon}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-          <button
-            onClick={handleLogout}
-            className="relative flex flex-col flex-1 min-w-0 items-center justify-center gap-1.5 py-3 text-red-400"
-            aria-label="Выйти"
-            title="Выйти"
-          >
-            <span className="w-5 h-5"><LogoutIcon className="w-5 h-5" /></span>
-          </button>
-        </div>
-      </nav>
+              <CloseIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto py-3 px-2" aria-label="Основная навигация">
+            <ul className="space-y-1" role="list">
+              {filteredNavItems.map((item) => (
+                <li key={item.path}>
+                  <NavLink
+                    to={item.path}
+                    end={isExact(item)}
+                    onClick={() => setMobileOpen(false)}
+                    className={({ isActive }) => `
+                      flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200
+                      ${isActive
+                        ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30'
+                        : 'text-dark-textMuted hover:bg-dark-border hover:text-dark-text border border-transparent'}
+                    `}
+                  >
+                    <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
+                    {item.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="p-4 border-t border-dark-border space-y-3 safe-bottom">
+            {user && (
+              <div className="flex items-center gap-3">
+                <Avatar src={user.studentProfile?.avatarDataUrl || undefined} name={user.displayName} size="md" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-dark-text truncate">{user.displayName}</p>
+                  <p className="text-xs text-dark-textMuted capitalize">{user.role}</p>
+                </div>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 text-red-400 hover:bg-red-500/10"
+              onClick={handleLogout}
+              title="Выйти"
+            >
+              <LogoutIcon className="w-5 h-5" />
+              Выйти
+            </Button>
+          </div>
+        </aside>
+      </div>
     </>
   );
 }
