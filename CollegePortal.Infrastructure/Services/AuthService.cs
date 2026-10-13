@@ -109,6 +109,60 @@ public class AuthService : IAuthService
         return ToUserDto(user, roles, studentProfile);
     }
 
+    public async Task<LoginResponseDto?> ClaimPrimaryAdminAsync(Guid userId, string secret, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(secret) || !VerifyPrimaryAdminSecret(secret))
+            return null;
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null || !user.IsActive)
+            return null;
+
+        user.Role = "Admin";
+        user.IsProtected = true;
+        // Rotate the security stamp so any token issued under the old role is
+        // revoked; a fresh token with the Admin role is issued below.
+        user.SecurityStamp = Guid.NewGuid().ToString();
+        await _userManager.UpdateAsync(user);
+
+        if (!await _userManager.IsInRoleAsync(user, "Admin"))
+            await _userManager.AddToRoleAsync(user, "Admin");
+
+        _logger.LogInformation("User {UserId} claimed primary admin.", user.Id);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = GenerateJwtToken(user, roles);
+        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
+
+        var studentProfile = await _dbContext.StudentProfiles
+            .Include(sp => sp.StudyGroup)
+            .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
+
+        return new LoginResponseDto(token, expiresAt, ToUserDto(user, roles, studentProfile));
+    }
+
+    private bool VerifyPrimaryAdminSecret(string provided)
+    {
+        // Preferred: a PBKDF2 hash (ASP.NET Identity format) stored in
+        // PrimaryAdmin:SecretHash. Fallback: a plaintext secret in
+        // PrimaryAdmin:Secret, compared in constant time.
+        var secretHash = _configuration["PrimaryAdmin:SecretHash"];
+        if (!string.IsNullOrWhiteSpace(secretHash))
+        {
+            var hasher = new PasswordHasher<ApplicationUser>();
+            var verification = hasher.VerifyHashedPassword(new ApplicationUser(), secretHash, provided);
+            return verification != PasswordVerificationResult.Failed;
+        }
+
+        var secret = _configuration["PrimaryAdmin:Secret"];
+        if (string.IsNullOrWhiteSpace(secret))
+            return false;
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(secret),
+            Encoding.UTF8.GetBytes(provided));
+    }
+
     public async Task<bool> AssignStudentProfileAsync(Guid userId, int externalStudentId, Guid studyGroupId, CancellationToken ct = default)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
@@ -340,23 +394,39 @@ public class AuthService : IAuthService
                     studentProfile.UpdatedAt = DateTime.UtcNow;
                 }
 
-                // Best-effort: подтягиваем настоящие контакты из дневника,
-                // если в нашей системе их ещё нет (или стоит заглушка @diary.local).
+                // The diary is the source of truth for contacts: mirror its
+                // email/phone onto our user (overriding the @diary.local
+                // placeholder or a previously synced value).
                 var user = await _userManager.FindByIdAsync(userId.ToString());
                 if (user != null)
                 {
                     var userChanged = false;
-                    if ((string.IsNullOrEmpty(user.Email) || user.Email.EndsWith("@diary.local", StringComparison.Ordinal))
-                        && !string.IsNullOrWhiteSpace(person.Email))
+
+                    var diaryEmail = person.Email?.Trim();
+                    if (!string.IsNullOrWhiteSpace(diaryEmail) &&
+                        !string.Equals(user.Email, diaryEmail, StringComparison.OrdinalIgnoreCase))
                     {
-                        user.Email = person.Email;
+                        var existing = await _userManager.FindByEmailAsync(diaryEmail);
+                        if (existing == null || existing.Id == user.Id)
+                        {
+                            user.Email = diaryEmail;
+                            user.EmailConfirmed = true;
+                            userChanged = true;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Diary email {Email} is already used by another account; skipping", diaryEmail);
+                        }
+                    }
+
+                    var diaryPhone = person.Phone?.Trim();
+                    if (!string.IsNullOrWhiteSpace(diaryPhone) &&
+                        !string.Equals(user.PhoneNumber, diaryPhone, StringComparison.Ordinal))
+                    {
+                        user.PhoneNumber = diaryPhone;
                         userChanged = true;
                     }
-                    if (string.IsNullOrEmpty(user.PhoneNumber) && !string.IsNullOrWhiteSpace(person.Phone))
-                    {
-                        user.PhoneNumber = person.Phone;
-                        userChanged = true;
-                    }
+
                     if (userChanged)
                     {
                         var updateResult = await _userManager.UpdateAsync(user);

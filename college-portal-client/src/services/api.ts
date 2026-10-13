@@ -79,6 +79,7 @@ export const authApi = {
   diaryRelogin: () => api.post<User>('/auth/diary-relogin'),
   logout: () => api.post('/auth/logout'),
   me: () => api.get<User>('/auth/me'),
+  claimPrimaryAdmin: (password: string) => api.post<User>('/auth/claim-primary-admin', { password }),
   assignProfile: (data: { userId: string; externalStudentId: number; studyGroupId: string }) =>
     api.post('/auth/assign-profile', data),
 };

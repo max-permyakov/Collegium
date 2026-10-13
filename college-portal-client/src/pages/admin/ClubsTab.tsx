@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { formatMoscowDateTime } from '../../utils/datetime';
 import type { ClubListDto } from '../../types';
 
 const getError = (err: unknown) => {
@@ -14,7 +15,7 @@ const getError = (err: unknown) => {
 };
 
 const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  formatMoscowDateTime(value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 export function ClubsTab() {
   const queryClient = useQueryClient();

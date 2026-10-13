@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../comp
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
+import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
 import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
 interface DashboardData {
@@ -20,13 +21,6 @@ interface DashboardData {
   news?: AnnouncementListItem[];
   assignments?: AssignmentListItem[];
 }
-
-const toDateInputValue = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
 
 const teacherShort = (teacher: Lesson['teacher']) => {
   if (!teacher) return '';
@@ -42,10 +36,8 @@ export function HomePage() {
   const [dashboardData, setDashboardData] = useState<DashboardData>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  const _formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
-  };
+  const _formatDate = (dateStr: string) =>
+    formatMoscowDate(dateStr, { day: 'numeric', month: 'short', weekday: 'short' });
 
   const _formatTime = (time: string) => time.slice(0, 5);
 
@@ -53,12 +45,9 @@ export function HomePage() {
     if (!user?.studentProfile) return;
 
     try {
-      const now = new Date();
-      const todayStr = toDateInputValue(now);
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
-      const weekStartStr = toDateInputValue(weekStart);
-      const nowTime = now.toTimeString().slice(0, 8);
+      const todayStr = moscowDateISO();
+      const weekStartStr = moscowWeekStartISO();
+      const nowTime = moscowNowTimeHMS();
 
       const [scheduleRes, kkepikRes, gradesRes, newsRes, assignmentsRes, perfRes] = await Promise.allSettled([
         scheduleApi.getWeek(weekStartStr),
@@ -198,7 +187,7 @@ export function HomePage() {
             <CardFooter>
               <p className="text-xs text-dark-textMuted flex items-center gap-3">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block flex-shrink-0" />
-                Обновлено от kkepik в {_formatTime(new Date(dashboardData.kkepik.updatedAt).toTimeString())}
+                Обновлено от kkepik в {formatMoscowTime(dashboardData.kkepik.updatedAt, { hour: '2-digit', minute: '2-digit' })}
               </p>
             </CardFooter>
           )}
@@ -208,30 +197,32 @@ export function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card variant="hover">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Оценки</CardTitle>
-            <Link to="/grades">
-              <Button variant="ghost" size="sm">Все оценки</Button>
+            <CardTitle>Последние оценки</CardTitle>
+            <Link to="/performance">
+              <Button variant="ghost" size="sm">Подробнее</Button>
             </Link>
           </CardHeader>
           <CardContent>
-            {dashboardData.grades && dashboardData.grades.length > 0 ? (
-              <div className="space-y-2">
-                {dashboardData.grades.map(subject => (
-                  <Link key={subject.id} to="/grades" className="block">
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
-                      <div>
-                        <p className="font-medium text-dark-text">{subject.name}</p>
-                        <p className="text-sm text-dark-textMuted">{subject.id} предмет</p>
+            {dashboardData.recentMarks && dashboardData.recentMarks.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {dashboardData.recentMarks.map((entry, i) => (
+                  <Link key={i} to="/performance" className="block">
+                    <div className="h-full p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <p className="font-medium text-dark-text truncate">{entry.subjectName}</p>
+                        <span className="text-xs text-dark-textMuted shrink-0">{_formatDate(entry.day)}</span>
                       </div>
-                      <Badge variant={subject.averageMark >= 4.5 ? 'success' : subject.averageMark >= 3.5 ? 'warning' : 'danger'}>
-                        {subject.averageMark.toFixed(2)}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1.5">
+                        {entry.markValues.map((mark, mi) => (
+                          <Badge key={mi} variant={getMarkVariant(mark)}>{getMarkValue(mark)}</Badge>
+                        ))}
+                      </div>
                     </div>
                   </Link>
                 ))}
               </div>
             ) : (
-              <p className="text-dark-textMuted text-center py-8">Нет данных об оценках</p>
+              <p className="text-dark-textMuted text-center py-8">Нет оценок за последнее время</p>
             )}
           </CardContent>
         </Card>
@@ -269,32 +260,30 @@ export function HomePage() {
 
       <Card variant="hover">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Последние оценки</CardTitle>
-          <Link to="/performance">
-            <Button variant="ghost" size="sm">Подробнее</Button>
+          <CardTitle>Оценки</CardTitle>
+          <Link to="/grades">
+            <Button variant="ghost" size="sm">Все оценки</Button>
           </Link>
         </CardHeader>
         <CardContent>
-          {dashboardData.recentMarks && dashboardData.recentMarks.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {dashboardData.recentMarks.map((entry, i) => (
-                <Link key={i} to="/performance" className="block">
-                  <div className="h-full p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <p className="font-medium text-dark-text truncate">{entry.subjectName}</p>
-                      <span className="text-xs text-dark-textMuted shrink-0">{_formatDate(entry.day)}</span>
+          {dashboardData.grades && dashboardData.grades.length > 0 ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {dashboardData.grades.map(subject => (
+                <Link key={subject.id} to="/grades" className="block">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
+                    <div>
+                      <p className="font-medium text-dark-text">{subject.name}</p>
+                      <p className="text-sm text-dark-textMuted">{subject.id} предмет</p>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {entry.markValues.map((mark, mi) => (
-                        <Badge key={mi} variant={getMarkVariant(mark)}>{getMarkValue(mark)}</Badge>
-                      ))}
-                    </div>
+                    <Badge variant={subject.averageMark >= 4.5 ? 'success' : subject.averageMark >= 3.5 ? 'warning' : 'danger'}>
+                      {subject.averageMark.toFixed(2)}
+                    </Badge>
                   </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="text-dark-textMuted text-center py-8">Нет оценок за последнее время</p>
+            <p className="text-dark-textMuted text-center py-8">Нет данных об оценках</p>
           )}
         </CardContent>
       </Card>

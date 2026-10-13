@@ -2,9 +2,12 @@ using System.Threading.RateLimiting;
 using CollegePortal.Api.Middleware;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure;
+using CollegePortal.Infrastructure.Data;
 using CollegePortal.Infrastructure.Extensions;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace CollegePortal.Api;
 
@@ -50,7 +53,20 @@ public class Program
 
         builder.Services.AddInfrastructure(builder.Configuration);
 
+        // Trust the reverse proxy (nginx/Caddy) in front of the app so that
+        // X-Forwarded-For / X-Forwarded-Proto are honoured. Clearing known
+        // networks/proxies is safe here because the app is only reachable
+        // through that proxy on the internal Docker network.
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
         var app = builder.Build();
+
+        app.UseForwardedHeaders();
 
         if (app.Environment.IsDevelopment())
         {
@@ -80,6 +96,14 @@ public class Program
         // Seed roles and the bootstrap admin user.
         using (var scope = app.Services.CreateScope())
         {
+            // Optionally apply EF migrations on startup (used by the container
+            // deployment). Waits for SQL Server to become available.
+            if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
+            {
+                var db = scope.ServiceProvider.GetRequiredService<CollegePortalDbContext>();
+                await MigrateWithRetryAsync(db, app.Logger);
+            }
+
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
 
@@ -156,6 +180,33 @@ public class Program
         }
 
         await app.RunAsync();
+    }
+
+    private static async Task MigrateWithRetryAsync(
+        CollegePortalDbContext db,
+        ILogger logger,
+        int attempts = 20,
+        int delaySeconds = 5)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await db.Database.MigrateAsync();
+                logger.LogInformation("Database migrations applied successfully.");
+                return;
+            }
+            catch (Exception ex) when (attempt < attempts)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Database is not ready yet (attempt {Attempt}/{Attempts}); retrying in {Delay}s...",
+                    attempt,
+                    attempts,
+                    delaySeconds);
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+            }
+        }
     }
 
     private static async Task ApplyPrimaryAdminAsync(UserManager<ApplicationUser> userManager, ApplicationUser user)

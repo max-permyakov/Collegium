@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { adminApi } from '../../services/api';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { formatMoscowDateTime } from '../../utils/datetime';
 import type { AuditLogDto } from '../../types/admin';
 
 const actionLabels: Record<string, string> = {
@@ -14,7 +15,7 @@ const actionLabels: Record<string, string> = {
 };
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('ru-RU', {
+  return formatMoscowDateTime(value, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

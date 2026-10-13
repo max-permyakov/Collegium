@@ -7,6 +7,12 @@ public record LoginRequestDto(
     string Password
 );
 
+// Password required to promote the current account to the primary (protected)
+// administrator. Checked against PrimaryAdmin:Secret / PrimaryAdmin:SecretHash.
+public record ClaimPrimaryAdminRequestDto(
+    string Password
+);
+
 // AccessToken/ExpiresAt are transport details delivered to the client as an
 // HttpOnly cookie, so they are never serialized into the JSON response body.
 public record LoginResponseDto(

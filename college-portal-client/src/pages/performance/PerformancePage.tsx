@@ -5,12 +5,11 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { getMarkValue, getMarkVariant, getRecentMarks } from '../../utils/performance';
+import { formatMoscowDate } from '../../utils/datetime';
 import type { PerformanceResponse, SubjectPerformance } from '../../types';
 
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-};
+const formatDate = (dateStr: string): string =>
+  formatMoscowDate(dateStr, { day: 'numeric', month: 'long', year: 'numeric' });
 
 const averageClasses = (avg: number) => {
   if (avg >= 4.5) return 'bg-green-500/20 text-green-400';

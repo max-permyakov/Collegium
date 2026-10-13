@@ -5,9 +5,9 @@ import { profileApi, adminApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { formatMoscowDate, formatMoscowDateTime } from '../../utils/datetime';
 import type { ProfileDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -175,16 +175,16 @@ export function ProfilePage() {
               <div className="grid gap-3 sm:grid-cols-2 text-sm text-dark-textMuted">
                 {profile.studyGroupName && (
                   <div>
-                    <span className="text-dark-text">Группа:</span> {profile.studyGroupName} {profile.course ? `(курс ${profile.course})` : ''}
+                    <span className="text-dark-text">Группа:</span> {profile.studyGroupName}
                   </div>
                 )}
                 {profile.email && <div><span className="text-dark-text">Email:</span> {profile.email}</div>}
                 {profile.phoneNumber && <div><span className="text-dark-text">Телефон:</span> {profile.phoneNumber}</div>}
                 {profile.averageMark != null && (
-                  <div><span className="text-dark-text">Средний балл:</span> {profile.averageMark.toFixed(2)} {profile.gradesCachedAt && `(кэш ${new Date(profile.gradesCachedAt).toLocaleDateString('ru-RU')})`}</div>
+                  <div><span className="text-dark-text">Средний балл:</span> {profile.averageMark.toFixed(2)} {profile.gradesCachedAt && `(кэш ${formatMoscowDate(profile.gradesCachedAt)})`}</div>
                 )}
-                {profile.lastLoginAt && <div><span className="text-dark-text">Последний вход:</span> {new Date(profile.lastLoginAt).toLocaleString('ru-RU')}</div>}
-                <div><span className="text-dark-text">Дата регистрации:</span> {new Date(profile.createdAt).toLocaleDateString('ru-RU')}</div>
+                {profile.lastLoginAt && <div><span className="text-dark-text">Последний вход:</span> {formatMoscowDateTime(profile.lastLoginAt)}</div>}
+                <div><span className="text-dark-text">Дата регистрации:</span> {formatMoscowDate(profile.createdAt)}</div>
               </div>
             </div>
           </div>
@@ -206,26 +206,9 @@ export function ProfilePage() {
                     }
                   }}
                 />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input
-                    defaultValue={profile.email || ''}
-                    placeholder="Email"
-                    onBlur={(e) => {
-                      if (e.target.value !== (profile.email || '')) {
-                        updateMutation.mutate({ email: e.target.value || null });
-                      }
-                    }}
-                  />
-                  <Input
-                    defaultValue={profile.phoneNumber || ''}
-                    placeholder="Телефон"
-                    onBlur={(e) => {
-                      if (e.target.value !== (profile.phoneNumber || '')) {
-                        updateMutation.mutate({ phoneNumber: e.target.value || null });
-                      }
-                    }}
-                  />
-                </div>
+                <p className="text-xs text-dark-textMuted">
+                  Email и телефон подтягиваются из электронного дневника и редактированию не подлежат.
+                </p>
               </div>
             )}
           </div>

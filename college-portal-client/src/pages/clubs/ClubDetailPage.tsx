@@ -9,6 +9,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { formatMoscowDateTime } from '../../utils/datetime';
 import type { ClubDetailDto, UpdateClubDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -19,7 +20,7 @@ const getError = (err: unknown) => {
 };
 
 const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  formatMoscowDateTime(value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 const toForm = (club: ClubDetailDto): UpdateClubDto => ({
   name: club.name,

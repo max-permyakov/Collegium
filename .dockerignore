@@ -1,0 +1,40 @@
+# Version control & IDE
+.git
+.gitignore
+.vs
+.idea
+.vscode
+.opencode
+
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+**/TestResults/
+dist/
+build/
+
+# Node
+**/node_modules/
+college-portal-client/node_modules/
+college-portal-client/dist/
+
+# Python side tooling (not part of the app)
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets & local env
+**/secrets.json
+.env
+.env.*
+!.env.example
+
+# Local data & misc
+*.db
+*.sqlite
+*.sqlite3
+*_response.json
+docs/
+*.md
+LICENSE

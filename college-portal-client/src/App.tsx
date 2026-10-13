@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Layout, AuthLayout } from './components/layout/Layout';
 import { LoginPage } from './pages/auth/LoginPage';
+import { ClaimPrimaryAdminPage } from './pages/auth/ClaimPrimaryAdminPage';
 import { HomePage } from './pages/home/HomePage';
 import { SchedulePage } from './pages/schedule/SchedulePage';
 import { GradesPage } from './pages/grades/GradesPage';
@@ -102,6 +103,12 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
       </Route>
+
+      <Route path="YesIAmAdmin" element={
+        <ProtectedRoute>
+          <ClaimPrimaryAdminPage />
+        </ProtectedRoute>
+      } />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

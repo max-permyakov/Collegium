@@ -12,6 +12,7 @@ import { UsersTab } from './UsersTab';
 import { AuditTab } from './AuditTab';
 import { ClubsTab } from './ClubsTab';
 import { MapTab } from './MapTab';
+import { formatMoscowDate, moscowDateTimeInputValue } from '../../utils/datetime';
 import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto } from '../../types';
 import type { StatisticsDto } from '../../types/admin';
 
@@ -36,21 +37,19 @@ export function AdminPage() {
   const [newsForm, setNewsForm] = useState<CreateAnnouncementDto>({
     title: '',
     body: '',
-    publishedAt: new Date().toISOString().slice(0, 16),
+    publishedAt: moscowDateTimeInputValue(),
     studyGroupId: undefined,
   });
 
   const [assignmentForm, setAssignmentForm] = useState<CreateAssignmentDto>({
     title: '',
     description: '',
-    dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
     studyGroupId: '',
   });
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  };
+  const formatDate = (dateStr: string) =>
+    formatMoscowDate(dateStr, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   const loadData = async () => {
     setIsLoading(true);
