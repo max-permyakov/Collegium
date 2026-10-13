@@ -10,6 +10,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (data: LoginRequest) => Promise<void>;
   diaryLogin: (login: string, password: string) => Promise<void>;
+  claimPrimaryAdmin: (password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -76,6 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.data);
   };
 
+  const claimPrimaryAdmin = async (password: string) => {
+    const response = await authApi.claimPrimaryAdmin(password);
+
+    queryClient.clear();
+    setUser(response.data);
+  };
+
   const logout = async () => {
     try {
       await authApi.logout();
@@ -88,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, diaryLogin, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, diaryLogin, claimPrimaryAdmin, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

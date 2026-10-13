@@ -4,6 +4,7 @@ import { assignmentsApi } from '../../services/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { formatMoscowDate } from '../../utils/datetime';
 import type { AssignmentListItem } from '../../types';
 
 export function AssignmentsPage() {
@@ -36,10 +37,8 @@ export function AssignmentsPage() {
     return true;
   });
 
-  const _formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
-  };
+  const _formatDate = (dateStr: string) =>
+    formatMoscowDate(dateStr, { day: 'numeric', month: 'short', weekday: 'short' });
 
   const _getDaysLeft = (dueAt: string) => {
     const due = new Date(dueAt);

@@ -93,6 +93,31 @@ public class AuthController : ControllerBase
         return Ok(user);
     }
 
+    [HttpPost("claim-primary-admin")]
+    [Authorize]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ClaimPrimaryAdmin([FromBody] ClaimPrimaryAdminRequestDto request)
+    {
+        var secretConfigured =
+            !string.IsNullOrWhiteSpace(_configuration["PrimaryAdmin:Secret"]) ||
+            !string.IsNullOrWhiteSpace(_configuration["PrimaryAdmin:SecretHash"]);
+
+        if (!secretConfigured)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new { message = "Повышение до главного администратора не настроено" });
+
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _authService.ClaimPrimaryAdminAsync(userId.Value, request.Password);
+        if (result == null)
+            return Unauthorized(new { message = "Неверный пароль" });
+
+        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        return Ok(result.User);
+    }
+
     private void SetAuthCookie(string token, DateTime expiresAt)
     {
         var isDevelopment = _environment.IsDevelopment();

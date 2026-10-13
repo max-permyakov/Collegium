@@ -1,0 +1,74 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cp-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env}
+      MSSQL_PID: ${MSSQL_PID:-Express}
+    volumes:
+      - mssql-data:/var/opt/mssql
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: CollegePortal.Api/Dockerfile
+    container_name: cp-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      TZ: Europe/Moscow
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CollegePortal;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env}
+      Admin__Email: ${ADMIN_EMAIL}
+      Admin__Password: ${ADMIN_PASSWORD}
+      Admin__DisplayName: ${ADMIN_DISPLAYNAME:-Administrator}
+      PrimaryAdmin__Secret: ${PRIMARY_ADMIN_SECRET:-}
+      PrimaryAdmin__SecretHash: ${PRIMARY_ADMIN_SECRET_HASH:-}
+      Cors__AllowedOrigins__0: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      DataProtection__KeysPath: /keys
+      Database__AutoMigrate: "true"
+    volumes:
+      - dpkeys:/keys
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./college-portal-client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: cp-web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Optional profile: automatic HTTPS + custom domain.
+  # Start with:  docker compose --profile tls up -d
+  caddy:
+    image: caddy:2-alpine
+    container_name: cp-caddy
+    profiles: ["tls"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN:?set CADDY_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  mssql-data:
+  dpkeys:
+  caddy-data:
+  caddy-config:

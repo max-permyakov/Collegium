@@ -1,0 +1,8 @@
+# Caddy configuration for automatic HTTPS.
+# The domain comes from the CADDY_DOMAIN environment variable (see .env).
+# Caddy will obtain and renew a Let's Encrypt certificate automatically once
+# the domain's DNS A/AAAA record points at this server and ports 80/443 are open.
+{$CADDY_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:80
+}

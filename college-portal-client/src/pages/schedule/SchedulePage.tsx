@@ -4,20 +4,15 @@ import { scheduleApi } from '../../services/api';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { addDaysISO, formatMoscowTime, moscowDateISO, moscowWeekStartISO } from '../../utils/datetime';
 import type { WeekScheduleResponse, KkepikScheduleResponse } from '../../types';
 
 const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const monthNames = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
 
-function _getWeekStart(date: Date) {
-  const d = new Date(date);
-  d.setDate(d.getDate() - d.getDay() + 1);
-  return d;
-}
-
 function _formatDate(dateStr: string) {
   const date = new Date(dateStr);
-  return `${dayNames[date.getDay()]}, ${date.getDate()} ${monthNames[date.getMonth()]}`;
+  return `${dayNames[date.getUTCDay()]}, ${date.getUTCDate()} ${monthNames[date.getUTCMonth()]}`;
 }
 
 function _formatTime(time: string) {
@@ -42,7 +37,7 @@ export function SchedulePage() {
   const loadSchedule = async () => {
     setIsLoading(true);
     try {
-      const startDate = searchParams.get('startDate') || _getWeekStart(new Date()).toISOString().split('T')[0];
+      const startDate = searchParams.get('startDate') || moscowWeekStartISO();
       const [scheduleRes, kkepikRes] = await Promise.allSettled([
         scheduleApi.getWeek(startDate),
         scheduleApi.getKkepik(),
@@ -66,12 +61,10 @@ export function SchedulePage() {
 
   const navigateWeek = (delta: number) => {
     if (!weekSchedule) return;
-    const currentStart = new Date(weekSchedule.startDate);
-    currentStart.setDate(currentStart.getDate() + delta * 7);
-    setSearchParams({ startDate: currentStart.toISOString().split('T')[0] });
+    setSearchParams({ startDate: addDaysISO(weekSchedule.startDate, delta * 7) });
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = moscowDateISO();
 
   if (isLoading) {
     return (
@@ -102,7 +95,7 @@ export function SchedulePage() {
           <Button variant="ghost" size="sm" onClick={() => navigateWeek(1)} aria-label="Следующая неделя">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setSearchParams({ startDate: _getWeekStart(new Date()).toISOString().split('T')[0] })}>
+          <Button variant="secondary" size="sm" onClick={() => setSearchParams({ startDate: moscowWeekStartISO() })}>
             Эта неделя
           </Button>
         </div>
@@ -114,7 +107,7 @@ export function SchedulePage() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
             <p className="text-sm text-dark-text truncate">
               {kkepik.updatedAt
-                ? `Расписание на завтра актуально: обновлено от kkepik в ${_formatTime(new Date(kkepik.updatedAt).toTimeString())}`
+                ? `Расписание на завтра актуально: обновлено от kkepik в ${formatMoscowTime(kkepik.updatedAt, { hour: '2-digit', minute: '2-digit' })}`
                 : 'Расписание на завтра актуально'}
             </p>
           </div>
