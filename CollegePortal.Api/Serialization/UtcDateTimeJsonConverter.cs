@@ -5,11 +5,11 @@ using System.Text.Json.Serialization;
 namespace CollegePortal.Api.Serialization;
 
 /// <summary>
-/// Serializes every DateTime as UTC with a trailing "Z". SQL Server's
-/// datetime2 column type drops the DateTimeKind, so EF materializes values
-/// that were written as UTC with Kind=Unspecified. Without this converter
-/// System.Text.Json would emit them without a timezone marker and the client
-/// would misinterpret them as local time.
+/// Serializes every DateTime as UTC with a trailing "Z". Database columns can
+/// round-trip a DateTime without preserving its kind (SQL Server's datetime2
+/// drops it, and Npgsql/BST reads may yield Unspecified/Local too). Without
+/// this converter System.Text.Json would emit such values without a timezone
+/// marker and the client would misinterpret them as local time.
 /// </summary>
 public sealed class UtcDateTimeJsonConverter : JsonConverterFactory
 {

@@ -1,13 +1,15 @@
 services:
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: postgres:16-alpine
     container_name: cp-db
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env}
-      MSSQL_PID: ${MSSQL_PID:-Express}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-CollegePortal}
+      TZ: Europe/Moscow
+      PGTZ: Europe/Moscow
     volumes:
-      - mssql-data:/var/opt/mssql
+      - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
   api:
@@ -19,7 +21,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       TZ: Europe/Moscow
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=CollegePortal;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-CollegePortal};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable"
       Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env}
       Admin__Email: ${ADMIN_EMAIL}
       Admin__Password: ${ADMIN_PASSWORD}
@@ -68,7 +70,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  mssql-data:
+  pgdata:
   dpkeys:
   caddy-data:
   caddy-config:

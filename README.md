@@ -7,7 +7,7 @@
 ### Backend
 - **ASP.NET Core 10** Web API
 - **C# 13** / .NET 10
-- **Entity Framework Core** с SQL Server (LocalDB для разработки)
+- **Entity Framework Core** с PostgreSQL (Npgsql)
 - **ASP.NET Core Identity** для авторизации
 - **Swagger / OpenAPI** для документации API
 - **xUnit** для тестирования
@@ -30,7 +30,7 @@ CollegePortal.sln
 ├── CollegePortal.Api           # ASP.NET Core Web API (endpoints, middleware)
 ├── CollegePortal.Application   # Бизнес-логика, интерфейсы сервисов, DTO
 ├── CollegePortal.Domain        # Сущности, доменные правила
-├── CollegePortal.Infrastructure # EF Core, SQL Server, внешние API клиенты
+├── CollegePortal.Infrastructure # EF Core, PostgreSQL, внешние API клиенты
 ├── CollegePortal.Tests         # Автоматические тесты (xUnit)
 └── college-portal-client       # React + TypeScript + Vite frontend
 ```
@@ -40,7 +40,7 @@ CollegePortal.sln
 ### Предварительные требования
 - .NET 10 SDK
 - Node.js 18+ и npm
-- SQL Server LocalDB (входит в состав Visual Studio / .NET workload)
+- PostgreSQL 16 (локально или через `docker compose up -d db`)
 
 ### Backend
 
@@ -76,7 +76,7 @@ Frontend будет доступен по адресу: `http://localhost:5173`
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=CollegePortal;Trusted_Connection=True;MultipleActiveResultSets=true"
+    "DefaultConnection": "Host=localhost;Database=CollegePortal;Username=postgres;Password=postgres"
   },
   "ExternalApis": {
     "Diary": {

@@ -24,10 +24,10 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Server=(localdb)\\mssqllocaldb;Database=CollegePortal;Trusted_Connection=True;MultipleActiveResultSets=true";
+            ?? "Host=localhost;Database=CollegePortal;Username=postgres;Password=postgres";
 
         services.AddDbContext<CollegePortalDbContext>(options =>
-            options.UseSqlServer(connectionString));
+            options.UseNpgsql(connectionString));
 
         services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
         {
