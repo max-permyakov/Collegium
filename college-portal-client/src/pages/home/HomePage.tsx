@@ -273,7 +273,7 @@ export function HomePage() {
                   <div className="flex items-center justify-between p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
                     <div>
                       <p className="font-medium text-dark-text">{subject.name}</p>
-                      <p className="text-sm text-dark-textMuted">{subject.id} предмет</p>
+                      {/* <p className="text-sm text-dark-textMuted">{subject.id} предмет</p> */}
                     </div>
                     <Badge variant={subject.averageMark >= 4.5 ? 'success' : subject.averageMark >= 3.5 ? 'warning' : 'danger'}>
                       {subject.averageMark.toFixed(2)}

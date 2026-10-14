@@ -120,7 +120,7 @@ export function SchedulePage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {weekSchedule?.days.map((day) => {
           const date = new Date(day.date);
-          const isToday = day.date === today;
+          const isToday = day.date.slice(0, 10) === today;
 
           return (
             <Card
