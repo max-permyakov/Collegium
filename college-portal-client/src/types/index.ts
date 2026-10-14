@@ -217,6 +217,23 @@ export interface KkepikScheduleResponse {
   updatedAt?: string | null;
 }
 
+export interface PublicClubDto {
+  id: string;
+  name: string;
+  avatarDataUrl?: string | null;
+  isPrivate: boolean;
+}
+
+export interface PublicProfileDto {
+  id: string;
+  displayName: string;
+  studyGroupName?: string | null;
+  headmanRole: string;
+  bio?: string | null;
+  avatarDataUrl?: string | null;
+  clubs: PublicClubDto[];
+}
+
 import type { AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole } from './admin';
 import type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto } from './clubs';
 import type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher } from './college';

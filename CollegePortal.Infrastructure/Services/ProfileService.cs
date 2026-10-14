@@ -82,6 +82,44 @@ public class ProfileService : IProfileService
         );
     }
 
+    public async Task<PublicProfileDto?> GetPublicProfileAsync(Guid viewerUserId, Guid targetUserId, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(targetUserId.ToString());
+        if (user == null)
+            return null;
+
+        var profile = await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .Include(sp => sp.StudyGroup)
+            .FirstOrDefaultAsync(sp => sp.UserId == targetUserId, ct);
+
+        var viewer = await _userManager.FindByIdAsync(viewerUserId.ToString());
+        var viewerIsAdmin = viewer != null && (await _userManager.GetRolesAsync(viewer)).Contains("Admin");
+
+        // Only expose clubs the viewer is allowed to see: public clubs, clubs the
+        // viewer shares, or anything when the viewer is an administrator.
+        var clubs = await _dbContext.ClubMembers
+            .AsNoTracking()
+            .Where(m => m.UserId == targetUserId)
+            .Select(m => m.Club)
+            .Where(c => viewerIsAdmin
+                || !c.IsPrivate
+                || c.Members.Any(x => x.UserId == viewerUserId))
+            .OrderBy(c => c.Name)
+            .Select(c => new PublicClubDto(c.Id, c.Name, c.AvatarDataUrl, c.IsPrivate))
+            .ToArrayAsync(ct);
+
+        return new PublicProfileDto(
+            user.Id,
+            user.DisplayName,
+            profile?.StudyGroup?.Name,
+            profile?.HeadmanRole.ToString() ?? "None",
+            profile?.Bio,
+            profile?.AvatarDataUrl,
+            clubs
+        );
+    }
+
     public async Task<ProfileUpdateResult> UpdateProfileAsync(Guid userId, UpdateProfileRequestDto request, CancellationToken ct = default)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());

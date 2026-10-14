@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -13,6 +13,7 @@ import { AssignmentsPage } from './pages/assignments/AssignmentsPage';
 import { NewsPage } from './pages/news/NewsPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { ProfilePage } from './pages/profile/ProfilePage';
+import { PublicProfilePage } from './pages/profile/PublicProfilePage';
 import { ClubsPage } from './pages/clubs/ClubsPage';
 import { ClubDetailPage } from './pages/clubs/ClubDetailPage';
 import { CollegeInfoPage } from './pages/college/CollegeInfoPage';
@@ -69,6 +70,19 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function UserProfileRoute() {
+  const { userId } = useParams<{ userId: string }>();
+  const { user } = useAuth();
+
+  // Administrators keep the full management view; everyone else sees the
+  // contact-free public profile.
+  if (userId && user && user.role !== 'Admin') {
+    return <PublicProfilePage userId={userId} />;
+  }
+
+  return <ProfilePage />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -96,7 +110,7 @@ function AppRoutes() {
         <Route path="college-info" element={<CollegeInfoPage />} />
         <Route path="college-info/map" element={<CollegeMapPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="users/:userId" element={<ProfilePage />} />
+        <Route path="users/:userId" element={<UserProfileRoute />} />
         <Route path="admin" element={
           <ProtectedRoute allowedRoles={['Admin']}>
             <AdminPage />
