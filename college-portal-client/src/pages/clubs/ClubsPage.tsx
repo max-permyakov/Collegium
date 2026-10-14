@@ -120,7 +120,7 @@ export function ClubsPage() {
                   label="Название"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Например, Шахматный клуб"
+                  placeholder="Мастеры дота ту"
                   required
                 />
                 <Textarea

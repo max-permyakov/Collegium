@@ -178,8 +178,8 @@ export function ProfilePage() {
                     <span className="text-dark-text">Группа:</span> {profile.studyGroupName}
                   </div>
                 )}
-                {profile.email && <div><span className="text-dark-text">Email:</span> {profile.email}</div>}
-                {profile.phoneNumber && <div><span className="text-dark-text">Телефон:</span> {profile.phoneNumber}</div>}
+                {/* {profile.email && <div><span className="text-dark-text">Email:</span> {profile.email}</div>}
+                {profile.phoneNumber && <div><span className="text-dark-text">Телефон:</span> {profile.phoneNumber}</div>} */}
                 {profile.averageMark != null && (
                   <div><span className="text-dark-text">Средний балл:</span> {profile.averageMark.toFixed(2)} {profile.gradesCachedAt && `(кэш ${formatMoscowDate(profile.gradesCachedAt)})`}</div>
                 )}
@@ -206,9 +206,7 @@ export function ProfilePage() {
                     }
                   }}
                 />
-                <p className="text-xs text-dark-textMuted">
-                  Email и телефон подтягиваются из электронного дневника и редактированию не подлежат.
-                </p>
+                
               </div>
             )}
           </div>

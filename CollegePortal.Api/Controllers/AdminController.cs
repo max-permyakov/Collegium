@@ -14,6 +14,9 @@ namespace CollegePortal.Api.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminController : ControllerBase
 {
+    // Moscow is UTC+3 all year round (no DST since 2014).
+    private const int MoscowUtcOffsetHours = 3;
+
     private readonly IAdminService _adminService;
     private readonly IProfileService _profileService;
     private readonly CollegePortalDbContext _dbContext;
@@ -131,7 +134,7 @@ public class AdminController : ControllerBase
                 u.IsActive ? "Активен" : "Заблокирован",
                 EscapeCsv(u.HeadmanRole),
                 u.AverageMark?.ToString("F2") ?? "",
-                u.LastLoginAt?.ToString("yyyy-MM-dd HH:mm") ?? ""
+                u.LastLoginAt?.AddHours(MoscowUtcOffsetHours).ToString("yyyy-MM-dd HH:mm") ?? ""
             );
             sb.AppendLine(line);
         }

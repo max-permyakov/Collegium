@@ -12,7 +12,7 @@ import { UsersTab } from './UsersTab';
 import { AuditTab } from './AuditTab';
 import { ClubsTab } from './ClubsTab';
 import { MapTab } from './MapTab';
-import { formatMoscowDate, moscowDateTimeInputValue } from '../../utils/datetime';
+import { formatMoscowDate, moscowDateTimeInputValue, moscowInputToUtc } from '../../utils/datetime';
 import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto } from '../../types';
 import type { StatisticsDto } from '../../types/admin';
 
@@ -96,9 +96,9 @@ export function AdminPage() {
     e.preventDefault();
     setError('');
     try {
-      await newsApi.create(newsForm);
+      await newsApi.create({ ...newsForm, publishedAt: moscowInputToUtc(newsForm.publishedAt) });
       setShowCreateNews(false);
-      setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
+      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined });
       loadData();
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
@@ -113,10 +113,11 @@ export function AdminPage() {
     try {
       await newsApi.update(editingNews.id, {
         ...newsForm,
+        publishedAt: moscowInputToUtc(newsForm.publishedAt),
         isPublished: editingNews.isPublished,
       });
       setEditingNews(null);
-      setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
+      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined });
       loadData();
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
@@ -151,9 +152,9 @@ export function AdminPage() {
     e.preventDefault();
     setError('');
     try {
-      await assignmentsApi.createAssignment(assignmentForm);
+      await assignmentsApi.createAssignment({ ...assignmentForm, dueAt: moscowInputToUtc(assignmentForm.dueAt) });
       setShowCreateAssignment(false);
-      setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
+      setAssignmentForm({ title: '', description: '', dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), studyGroupId: '' });
       loadData();
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
@@ -166,9 +167,9 @@ export function AdminPage() {
     if (!editingAssignment) return;
     setError('');
     try {
-      await assignmentsApi.updateAssignment(editingAssignment.id, assignmentForm);
+      await assignmentsApi.updateAssignment(editingAssignment.id, { ...assignmentForm, dueAt: moscowInputToUtc(assignmentForm.dueAt) });
       setEditingAssignment(null);
-      setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
+      setAssignmentForm({ title: '', description: '', dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), studyGroupId: '' });
       loadData();
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
@@ -189,11 +190,11 @@ export function AdminPage() {
   };
 
   const resetNewsForm = () => {
-    setNewsForm({ title: '', body: '', publishedAt: new Date().toISOString().slice(0, 16), studyGroupId: undefined });
+    setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined });
   };
 
   const resetAssignmentForm = () => {
-    setAssignmentForm({ title: '', description: '', dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16), studyGroupId: '' });
+    setAssignmentForm({ title: '', description: '', dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), studyGroupId: '' });
   };
 
   return (
@@ -299,7 +300,7 @@ export function AdminPage() {
                           <Button variant="ghost" size="sm" onClick={() => handleTogglePublished(item.id)}>
                             {item.isPublished ? 'Снять' : 'Опубликовать'}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setEditingNews(item); setNewsForm({ title: item.title, body: item.body, publishedAt: item.publishedAt.slice(0, 16), studyGroupId: item.studyGroupId }); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingNews(item); setNewsForm({ title: item.title, body: item.body, publishedAt: moscowDateTimeInputValue(new Date(item.publishedAt)), studyGroupId: item.studyGroupId }); }}>
                             ✏️
                           </Button>
                           <Button variant="danger" size="sm" onClick={() => handleDeleteNews(item.id)}>🗑️</Button>
@@ -376,7 +377,7 @@ export function AdminPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button variant="ghost" size="sm" onClick={() => { setEditingAssignment(item); setAssignmentForm({ title: item.title, description: item.description, dueAt: item.dueAt.slice(0, 16), studyGroupId: item.studyGroupId }); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingAssignment(item); setAssignmentForm({ title: item.title, description: item.description, dueAt: moscowDateTimeInputValue(new Date(item.dueAt)), studyGroupId: item.studyGroupId }); }}>
                             ✏️
                           </Button>
                           <Button variant="danger" size="sm" onClick={() => handleDeleteAssignment(item.id)}>🗑️</Button>

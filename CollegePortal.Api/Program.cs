@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using CollegePortal.Api.Middleware;
+using CollegePortal.Api.Serialization;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure;
 using CollegePortal.Infrastructure.Data;
@@ -17,7 +18,9 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddControllers();
+        builder.Services.AddControllers()
+            .AddJsonOptions(options =>
+                options.JsonSerializerOptions.Converters.Add(new UtcDateTimeJsonConverter()));
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddMemoryCache();

@@ -80,3 +80,12 @@ export function moscowDateTimeInputValue(value: Date = new Date()): string {
     .format(value)
     .replace(', ', 'T');
 }
+
+// Moscow is UTC+3 all year round (no DST since 2014), so a <input
+// type="datetime-local"> value can be converted to UTC by subtracting 3h.
+export function moscowInputToUtc(value: string): string {
+  const [datePart, timePart = '00:00'] = value.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [hh, mm] = timePart.split(':').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, hh - 3, mm)).toISOString();
+}
