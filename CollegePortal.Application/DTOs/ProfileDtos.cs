@@ -36,3 +36,21 @@ public record UpdateProfileRequestDto(
 public record SetAvatarRequestDto(
     string? DataUrl
 );
+
+// Limited, contact-free view of another user that any authenticated user may see.
+public record PublicProfileDto(
+    Guid Id,
+    string DisplayName,
+    string? StudyGroupName,
+    string HeadmanRole,
+    string? Bio,
+    string? AvatarDataUrl,
+    PublicClubDto[] Clubs
+);
+
+public record PublicClubDto(
+    Guid Id,
+    string Name,
+    string? AvatarDataUrl,
+    bool IsPrivate
+);

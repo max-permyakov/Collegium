@@ -29,6 +29,18 @@ public class ProfileController : ControllerBase
         return profile == null ? NotFound() : Ok(profile);
     }
 
+    // Contact-free profile of another user, available to any authenticated user.
+    [HttpGet("{userId:guid}")]
+    public async Task<IActionResult> GetUserProfile(Guid userId, CancellationToken ct)
+    {
+        var requesterId = GetCurrentUserId();
+        if (!requesterId.HasValue)
+            return Unauthorized();
+
+        var profile = await _profileService.GetPublicProfileAsync(requesterId.Value, userId, ct);
+        return profile == null ? NotFound() : Ok(profile);
+    }
+
     [HttpPut("me")]
     public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileRequestDto request, CancellationToken ct)
     {
