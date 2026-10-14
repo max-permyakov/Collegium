@@ -119,11 +119,13 @@ public class ScheduleService : IScheduleService
 
         if (date.HasValue)
         {
-            query = query.Where(s => s.Date == date.Value.Date);
+            query = query.Where(s => s.Date == DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc));
         }
         else
         {
-            var today = DateTime.Today;
+            // Moscow calendar date (fixed UTC+3, no DST) expressed as a UTC midnight,
+            // so it is comparable with the stored, UTC-backed schedule dates.
+            var today = DateTime.UtcNow.AddHours(3).Date;
             query = query.Where(s => s.Date >= today);
         }
 

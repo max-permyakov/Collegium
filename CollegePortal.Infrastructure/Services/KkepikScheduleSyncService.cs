@@ -82,7 +82,9 @@ public class KkepikScheduleSyncService : BackgroundService
             // смотрим сегодня+завтра, чтобы покрыть выходные и переносы.
             for (var offset = 1; offset <= 2; offset++)
             {
-                var targetDate = DateTime.Today.AddDays(offset).Date;
+                // Moscow calendar date (fixed UTC+3, no DST) stored as UTC midnight for
+                // consistency with the timestamp-with-time-zone column.
+                var targetDate = DateTime.UtcNow.AddHours(3).Date.AddDays(offset);
                 var schedule = await scheduleApi.GetGroupScheduleAsync(group, targetDate, ct);
                 if (schedule == null || schedule.ScheduleLines.Length == 0)
                     continue;

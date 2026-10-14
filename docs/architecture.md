@@ -92,7 +92,7 @@
 
 ## База данных
 
-- **SQL Server** (LocalDB для разработки)
+- **PostgreSQL** (Npgsql, локально через Docker)
 - EF Core Code First с миграциями
 - Таблицы:
   - `AspNetUsers` (ApplicationUser)

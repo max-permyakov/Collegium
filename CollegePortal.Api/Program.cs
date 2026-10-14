@@ -100,7 +100,7 @@ public class Program
         using (var scope = app.Services.CreateScope())
         {
             // Optionally apply EF migrations on startup (used by the container
-            // deployment). Waits for SQL Server to become available.
+            // deployment). Waits for the database to become available.
             if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
             {
                 var db = scope.ServiceProvider.GetRequiredService<CollegePortalDbContext>();

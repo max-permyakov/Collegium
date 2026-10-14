@@ -12,13 +12,13 @@
                 └──────┬────────┘
                        │  internal docker network
                 ┌──────▼────────┐        ┌──────────────┐
-                │   api (.NET)  │───────▶│  db (MSSQL)  │
+                │   api (.NET)  │───────▶│ db (Postgres)│
                 └───────────────┘        └──────────────┘
 ```
 
 - **web** — статически собранный React-SPA (nginx). Запросы к `/api/*` проксируются на **api**.
 - **api** — ASP.NET Core. При старте применяет EF-миграции (`Database__AutoMigrate=true`) и создаёт роли + администратора.
-- **db** — Microsoft SQL Server 2022.
+- **db** — PostgreSQL 16 (лёгкий, ~150 МБ RAM).
 - **caddy** — опционально: терминирует TLS и раздаёт HTTPS на вашем домене.
 
 Всё общение браузера с API идёт через тот же домен (`/api`), поэтому CORS и
@@ -27,7 +27,7 @@
 ## 1. Предпосылки
 
 - Docker Engine 24+ и Docker Compose v2 (`docker compose`).
-- Минимум ~2 ГБ RAM выделено под SQL Server.
+- Минимум ~512 МБ RAM (PostgreSQL потребляет немного).
 - Свободные порты (по умолчанию `8080` для web; `80`/`443` при включённом HTTPS).
 
 ## 2. Подготовка
@@ -44,7 +44,7 @@ cp .env.example .env
 
 | Переменная         | Назначение                                                        |
 |--------------------|-------------------------------------------------------------------|
-| `MSSQL_SA_PASSWORD`| Пароль SA для SQL Server (мин. 8 символов, сложный).             |
+| `POSTGRES_PASSWORD`| Пароль суперпользователя PostgreSQL (любая непустая строка).      |
 | `JWT_KEY`          | Ключ подписи JWT, **минимум 32 байта**. `openssl rand -base64 48`.|
 | `ADMIN_EMAIL`      | E-mail/логин bootstrap-администратора.                           |
 | `ADMIN_PASSWORD`   | Пароль администратора (мин. 8 символов).                         |
@@ -144,13 +144,19 @@ docker compose up -d --build
 
 ## 6. Резервное копирование
 
-Данные SQL Server лежат в томе `mssql-data`. Сделать дамп:
+Данные PostgreSQL лежат в томе `pgdata`. Сделать дамп:
 
 ```bash
-docker compose exec db /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C \
-  -Q "BACKUP DATABASE CollegePortal TO DISK='/var/opt/mssql/backup/collegeportal.bak'"
-docker compose cp db:/var/opt/mssql/backup/collegeportal.bak ./backup/
+docker compose exec db pg_dump -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-CollegePortal}" -F c \
+  -f /tmp/collegeportal.dump
+docker compose cp db:/tmp/collegeportal.dump ./backup/
+```
+
+Восстановление:
+
+```bash
+docker compose cp ./backup/collegeportal.dump db:/tmp/collegeportal.dump
+docker compose exec db pg_restore -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-CollegePortal}" --clean --if-exists /tmp/collegeportal.dump
 ```
 
 Ключи Data Protection лежат в томе `dpkeys` — без них после потери тома
