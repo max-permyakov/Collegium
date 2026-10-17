@@ -156,6 +156,7 @@ export interface CreateAnnouncementDto {
   body: string;
   publishedAt: string;
   studyGroupId?: string;
+  isPublished: boolean;
 }
 
 export interface UpdateAnnouncementDto {

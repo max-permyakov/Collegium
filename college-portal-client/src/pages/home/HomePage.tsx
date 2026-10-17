@@ -42,7 +42,10 @@ export function HomePage() {
   const _formatTime = (time: string) => time.slice(0, 5);
 
   const loadDashboard = async () => {
-    if (!user?.studentProfile) return;
+    if (!user?.studentProfile) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const todayStr = moscowDateISO();
@@ -217,9 +220,9 @@ export function HomePage() {
           </CardHeader>
           <CardContent>
             {dashboardData.recentMarks && dashboardData.recentMarks.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {dashboardData.recentMarks.map((entry, i) => (
-                  <Link key={i} to="/performance" className="block">
+                  <Link key={i} to="/performance" className="block min-w-0">
                     <div className="h-full p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <p className="font-medium text-dark-text truncate flex-1 min-w-0">{entry.subjectName}</p>
@@ -280,9 +283,9 @@ export function HomePage() {
         </CardHeader>
         <CardContent>
           {dashboardData.grades && dashboardData.grades.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {dashboardData.grades.map(subject => (
-                <Link key={subject.id} to="/grades" className="block">
+                <Link key={subject.id} to="/grades" className="block min-w-0">
                   <div className="flex items-center justify-between p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
                     <div>
                       <p className="font-medium text-dark-text">{subject.name}</p>

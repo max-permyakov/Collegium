@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { newsApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -11,6 +12,7 @@ import type { AnnouncementListItem, Announcement } from '../../types';
 export function NewsPage() {
   const params = useParams<{ id?: string }>();
   const isDetail = !!params.id;
+  const { user } = useAuth();
 
   const [news, setNews] = useState<AnnouncementListItem[]>([]);
   const [detail, setDetail] = useState<Announcement | null>(null);
@@ -28,7 +30,7 @@ export function NewsPage() {
         const response = await newsApi.getById(params.id);
         setDetail(response.data);
       } else {
-        const response = await newsApi.getNews();
+        const response = await newsApi.getNews(user?.studentProfile?.studyGroupId);
         setNews(response.data || []);
       }
     } catch (err: any) {

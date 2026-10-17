@@ -40,7 +40,7 @@ export function TabsList({ children, className = '' }: TabsListProps) {
     <div
       role="tablist"
       aria-orientation="horizontal"
-      className={`inline-flex items-center h-10 bg-dark-bg border border-dark-border rounded-xl p-1 ${className}`}
+      className={`inline-flex items-center bg-dark-bg border border-dark-border rounded-xl p-1 ${className}`}
     >
       {children}
     </div>

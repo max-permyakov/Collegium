@@ -18,6 +18,7 @@ public record CreateAnnouncementDto(
     string Title,
     string Body,
     DateTime PublishedAt,
+    bool IsPublished,
     Guid? StudyGroupId
 );
 

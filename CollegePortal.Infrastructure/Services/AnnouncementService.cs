@@ -30,10 +30,6 @@ public class AnnouncementService : IAnnouncementService
         {
             query = query.Where(a => a.StudyGroupId == null || a.StudyGroupId == studyGroupId.Value);
         }
-        else
-        {
-            query = query.Where(a => a.StudyGroupId == null);
-        }
 
         return await query
             .OrderByDescending(a => a.PublishedAt)
@@ -86,7 +82,7 @@ public class AnnouncementService : IAnnouncementService
             Body = dto.Body,
             PublishedAt = dto.PublishedAt,
             AuthorId = authorId,
-            IsPublished = false,
+            IsPublished = dto.IsPublished,
             StudyGroupId = dto.StudyGroupId,
             CreatedAt = DateTime.UtcNow
         };

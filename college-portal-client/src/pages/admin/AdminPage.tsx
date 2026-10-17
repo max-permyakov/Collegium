@@ -39,6 +39,7 @@ export function AdminPage() {
     body: '',
     publishedAt: moscowDateTimeInputValue(),
     studyGroupId: undefined,
+    isPublished: true,
   });
 
   const [assignmentForm, setAssignmentForm] = useState<CreateAssignmentDto>({
@@ -98,7 +99,7 @@ export function AdminPage() {
     try {
       await newsApi.create({ ...newsForm, publishedAt: moscowInputToUtc(newsForm.publishedAt) });
       setShowCreateNews(false);
-      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined });
+      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
       loadData();
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
@@ -114,10 +115,9 @@ export function AdminPage() {
       await newsApi.update(editingNews.id, {
         ...newsForm,
         publishedAt: moscowInputToUtc(newsForm.publishedAt),
-        isPublished: editingNews.isPublished,
       });
       setEditingNews(null);
-      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined });
+      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
       loadData();
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
@@ -190,7 +190,7 @@ export function AdminPage() {
   };
 
   const resetNewsForm = () => {
-    setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined });
+    setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
   };
 
   const resetAssignmentForm = () => {
@@ -225,7 +225,7 @@ export function AdminPage() {
       )}
 
       <Tabs defaultValue="statistics" className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-7 h-auto">
+        <TabsList className="w-full flex-wrap gap-1">
           <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>
           <TabsTrigger value="users">👥 Пользователи</TabsTrigger>
           <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>
@@ -271,6 +271,15 @@ export function AdminPage() {
                       ))}
                     </select>
                   </div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-dark-text cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newsForm.isPublished ?? false}
+                      onChange={e => setNewsForm({...newsForm, isPublished: e.target.checked})}
+                      className="w-4 h-4 accent-primary-500"
+                    />
+                    Опубликовать сразу
+                  </label>
                   <div className="flex gap-2">
                     <Button type="submit" className="flex-1">{editingNews ? 'Сохранить' : 'Опубликовать'}</Button>
                     <Button type="button" variant="secondary" onClick={() => { setShowCreateNews(false); setEditingNews(null); resetNewsForm(); }}>Отмена</Button>
@@ -300,7 +309,7 @@ export function AdminPage() {
                           <Button variant="ghost" size="sm" onClick={() => handleTogglePublished(item.id)}>
                             {item.isPublished ? 'Снять' : 'Опубликовать'}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setEditingNews(item); setNewsForm({ title: item.title, body: item.body, publishedAt: moscowDateTimeInputValue(new Date(item.publishedAt)), studyGroupId: item.studyGroupId }); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingNews(item); setNewsForm({ title: item.title, body: item.body, publishedAt: moscowDateTimeInputValue(new Date(item.publishedAt)), studyGroupId: item.studyGroupId, isPublished: item.isPublished }); }}>
                             ✏️
                           </Button>
                           <Button variant="danger" size="sm" onClick={() => handleDeleteNews(item.id)}>🗑️</Button>
