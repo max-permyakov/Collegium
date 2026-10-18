@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { shortName } from '../../utils/names';
 import type { ClubListDto, CreateClubDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -193,7 +194,7 @@ export function ClubsPage() {
                     <Link to={`/clubs/${club.id}`} className="font-semibold text-dark-text hover:text-primary-400 truncate block">
                       {club.name}
                     </Link>
-                    <p className="text-xs text-dark-textMuted">Глава: {club.ownerName}</p>
+                    <p className="text-xs text-dark-textMuted">Глава: {shortName(club.ownerName)}</p>
                   </div>
                 </div>
                 {club.description && (

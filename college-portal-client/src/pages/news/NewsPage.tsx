@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate } from '../../utils/datetime';
+import { shortName } from '../../utils/names';
 import type { AnnouncementListItem, Announcement } from '../../types';
 
 export function NewsPage() {
@@ -93,7 +94,7 @@ export function NewsPage() {
             </div>
             <h1 className="text-2xl font-bold text-dark-text">{detail.title}</h1>
             <div className="flex items-center gap-3 text-sm text-dark-textMuted mt-2">
-              <span>👤 {detail.authorName}</span>
+              <span>👤 {shortName(detail.authorName)}</span>
               <span>📅 {_formatDate(detail.publishedAt)}</span>
               {detail.updatedAt && <span>✏️ Обновлено {_formatDate(detail.updatedAt)}</span>}
             </div>
@@ -137,7 +138,7 @@ export function NewsPage() {
                     <div className="flex items-center gap-3 text-sm text-dark-textMuted shrink-0">
                       <Avatar src={item.authorAvatar || undefined} name={item.authorName} size="sm" />
                       <div>
-                        <p className="font-medium text-dark-text">{item.authorName}</p>
+                        <p className="font-medium text-dark-text">{shortName(item.authorName)}</p>
                         <p>{_formatDate(item.publishedAt)}</p>
                       </div>
                     </div>

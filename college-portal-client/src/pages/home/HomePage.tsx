@@ -12,6 +12,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
+import { shortName } from '../../utils/names';
 import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
 interface DashboardData {
@@ -328,7 +329,7 @@ export function HomePage() {
                     <p className="text-sm text-dark-textMuted mt-1 line-clamp-2">{news.body}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <Avatar src={news.authorAvatar || undefined} name={news.authorName} size="xs" />
-                      <span className="text-xs text-dark-textMuted truncate">{news.authorName}</span>
+                      <span className="text-xs text-dark-textMuted truncate">{shortName(news.authorName)}</span>
                       <span className="text-xs text-dark-textMuted ml-auto shrink-0">{_formatDate(news.publishedAt)}</span>
                     </div>
                   </div>

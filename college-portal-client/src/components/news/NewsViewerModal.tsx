@@ -8,6 +8,7 @@ import { Badge } from '../ui/Badge';
 import { Avatar } from '../ui/Avatar';
 import { Input } from '../ui/Input';
 import { formatMoscowDateTime } from '../../utils/datetime';
+import { shortName } from '../../utils/names';
 import type { AnnouncementListItem } from '../../types';
 
 interface NewsViewerModalProps {
@@ -101,7 +102,7 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
         >
           <Avatar src={announcement.authorAvatar || undefined} name={announcement.authorName} size="md" />
           <span className="text-sm font-medium text-dark-text group-hover:text-primary-400 transition-colors truncate">
-            {announcement.authorName}
+            {shortName(announcement.authorName)}
           </span>
         </Link>
         <p className="text-dark-text whitespace-pre-wrap break-words mt-4">{announcement.body}</p>
@@ -132,7 +133,7 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
                         onClick={onClose}
                         className="text-sm font-medium text-dark-text hover:text-primary-400 transition-colors truncate"
                       >
-                        {c.userName}
+                        {shortName(c.userName)}
                       </Link>
                       <span className="text-xs text-dark-textMuted">{formatDateTime(c.createdAt)}</span>
                       {(user?.id === c.userId || user?.role === 'Admin') && (

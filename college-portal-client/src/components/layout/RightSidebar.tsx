@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { shortName } from '../../utils/names';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -213,7 +214,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <Avatar src={user.studentProfile?.avatarDataUrl || undefined} name={user.displayName} size="md" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-dark-text truncate">{user.displayName}</p>
+                  <p className="text-sm font-medium text-dark-text truncate">{shortName(user.displayName)}</p>
                   <p className="text-xs text-dark-textMuted capitalize">{user.role}</p>
                 </div>
               </div>
@@ -296,7 +297,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <Avatar src={user.studentProfile?.avatarDataUrl || undefined} name={user.displayName} size="md" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-dark-text truncate">{user.displayName}</p>
+                  <p className="text-sm font-medium text-dark-text truncate">{shortName(user.displayName)}</p>
                   <p className="text-xs text-dark-textMuted capitalize">{user.role}</p>
                 </div>
               </div>

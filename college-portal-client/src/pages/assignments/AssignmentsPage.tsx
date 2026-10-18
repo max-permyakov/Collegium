@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { formatMoscowDate } from '../../utils/datetime';
+import { shortName } from '../../utils/names';
 import type { AssignmentListItem } from '../../types';
 
 export function AssignmentsPage() {
@@ -133,7 +134,7 @@ export function AssignmentsPage() {
                         <p className="text-sm text-dark-textMuted line-clamp-2">{assignment.description}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-dark-textMuted">
                           <span>📚 {assignment.studyGroupName}</span>
-                          <span>👨‍🏫 {assignment.createdByName}</span>
+                          <span>👨‍🏫 {shortName(assignment.createdByName)}</span>
                           <span>📅 {_formatDate(assignment.dueAt)}</span>
                         </div>
                       </div>

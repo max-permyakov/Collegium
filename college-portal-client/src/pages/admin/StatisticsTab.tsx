@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { adminApi } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { shortName } from '../../utils/names';
 import type { StatisticsDto } from '../../types/admin';
 
 interface StatCardProps {
@@ -99,7 +100,7 @@ export function StatisticsTab() {
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="w-6 text-center text-dark-textMuted shrink-0">{i + 1}</span>
                     <div className="min-w-0">
-                      <p className="text-dark-text truncate">{s.displayName}</p>
+                      <p className="text-dark-text truncate">{shortName(s.displayName)}</p>
                       <p className="text-xs text-dark-textMuted truncate">{s.groupName}</p>
                     </div>
                   </div>

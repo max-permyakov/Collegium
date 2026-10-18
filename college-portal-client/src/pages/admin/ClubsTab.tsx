@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
+import { shortName } from '../../utils/names';
 import type { ClubListDto } from '../../types';
 
 const getError = (err: unknown) => {
@@ -86,7 +87,7 @@ export function ClubsTab() {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-dark-text truncate">{club.name}</p>
-                    <p className="text-xs text-dark-textMuted truncate">{club.ownerName} · {club.memberCount} участн.</p>
+                    <p className="text-xs text-dark-textMuted truncate">{shortName(club.ownerName)} · {club.memberCount} участн.</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -124,7 +125,7 @@ export function ClubsTab() {
                       />
                       <div>
                         <CardTitle>{detail.name}</CardTitle>
-                        <p className="text-sm text-dark-textMuted">Группа: {detail.ownerName} · {detail.memberCount} участников</p>
+                        <p className="text-sm text-dark-textMuted">Группа: {shortName(detail.ownerName)} · {detail.memberCount} участников</p>
                       </div>
                     </div>
                     <Button
@@ -150,7 +151,7 @@ export function ClubsTab() {
                       {detail.members.map((m) => (
                         <div key={m.userId} className="flex items-center gap-2">
                           <Avatar src={m.avatarDataUrl || undefined} name={m.displayName} size="sm" />
-                          <span className="text-sm text-dark-text truncate">{m.displayName}</span>
+                          <span className="text-sm text-dark-text truncate">{shortName(m.displayName)}</span>
                           {m.isLeader && <Badge variant="primary" size="sm">Глава</Badge>}
                         </div>
                       ))}
@@ -170,7 +171,7 @@ export function ClubsTab() {
                         <Avatar src={m.userAvatar || undefined} name={m.userName} size="sm" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-dark-text">{m.userName}</span>
+                            <span className="text-sm font-medium text-dark-text">{shortName(m.userName)}</span>
                             <span className="text-xs text-dark-textMuted">{formatDateTime(m.createdAt)}</span>
                             <button
                               className="text-xs text-red-400 hover:underline"

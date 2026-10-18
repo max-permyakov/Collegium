@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { shortName } from '../../utils/names';
 import type { AdminUserDto } from '../../types/admin';
 
 const headmanLabel: Record<string, string> = {
@@ -121,7 +122,7 @@ export function UsersTab() {
                 <tr key={u.id} className="border-b border-dark-border hover:bg-dark-border/30 align-top">
                   <td className="py-3 px-3">
                     <Link to={`/users/${u.id}`} className="text-dark-text hover:text-primary-400 font-medium">
-                      {u.displayName}
+                      {shortName(u.displayName)}
                     </Link>
                     <div className="text-dark-textMuted text-xs">{u.login}</div>
                   </td>

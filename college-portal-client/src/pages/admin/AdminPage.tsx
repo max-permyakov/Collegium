@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
+import { shortName } from '../../utils/names';
 import { StatisticsTab } from './StatisticsTab';
 import { UsersTab } from './UsersTab';
 import { AuditTab } from './AuditTab';
@@ -381,7 +382,7 @@ export function AdminPage() {
                           <p className="text-sm text-dark-textMuted line-clamp-1 mt-1">{item.description}</p>
                           <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-dark-textMuted">
                             <span>📚 {item.studyGroupName}</span>
-                            <span>👨‍🏫 {item.createdByName}</span>
+                            <span>👨‍🏫 {shortName(item.createdByName)}</span>
                             <span>📅 {formatDate(item.dueAt)}</span>
                           </div>
                         </div>

@@ -10,6 +10,7 @@ import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
+import { shortName } from '../../utils/names';
 import type { ClubDetailDto, ClubMessageDto, UpdateClubDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
@@ -61,7 +62,7 @@ const MessageRow = memo(function MessageRow({
       />
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-x-2">
-          <Link to={`/users/${message.userId}`} className="text-sm font-medium text-dark-text hover:text-primary-400">{message.userName}</Link>
+          <Link to={`/users/${message.userId}`} className="text-sm font-medium text-dark-text hover:text-primary-400">{shortName(message.userName)}</Link>
           <span className="text-xs text-dark-textMuted">{formatDateTime(message.createdAt)}</span>
           {canDelete && (
             <button
@@ -335,7 +336,7 @@ export function ClubDetailPage() {
                 {club.joinByLink && <Badge variant="info">По ссылке</Badge>}
               </div>
               <p className="text-sm text-dark-textMuted">
-                Глава: <Link to={`/users/${club.ownerId}`} className="text-dark-text hover:text-primary-400">{club.ownerName}</Link> · Участников: {club.memberCount}
+                Глава: <Link to={`/users/${club.ownerId}`} className="text-dark-text hover:text-primary-400">{shortName(club.ownerName)}</Link> · Участников: {club.memberCount}
               </p>
               {club.description && <p className="text-dark-text whitespace-pre-wrap">{club.description}</p>}
             </div>
@@ -550,7 +551,7 @@ export function ClubDetailPage() {
                   onImageClick={() => m.avatarDataUrl && setPreviewImage(m.avatarDataUrl)}
                 />
                 <div className="flex-1 min-w-0">
-                  <Link to={`/users/${m.userId}`} className="block text-sm text-dark-text truncate hover:text-primary-400">{m.displayName}</Link>
+                  <Link to={`/users/${m.userId}`} className="block text-sm text-dark-text truncate hover:text-primary-400">{shortName(m.displayName)}</Link>
                   {m.isLeader && <span className="text-xs text-primary-400">Глава</span>}
                 </div>
                 {club.canManage && m.userId !== club.ownerId && (

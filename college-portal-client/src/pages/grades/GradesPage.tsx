@@ -66,12 +66,9 @@ export function GradesPage() {
           <p className="text-dark-textMuted">Средние баллы по предметам за текущий период</p>
         </div>
         <div className="flex items-center gap-4">
+          
           <div className="w-20 h-20 rounded-2xl bg-primary-500/20 flex items-center justify-center">
             <span className="text-3xl font-bold text-primary-400">{averageMark}</span>
-          </div>
-          <div>
-            <p className="text-sm text-dark-textMuted">Средний балл</p>
-            <p className="text-2xl font-bold text-dark-text">{averageMark}</p>
           </div>
         </div>
       </div>

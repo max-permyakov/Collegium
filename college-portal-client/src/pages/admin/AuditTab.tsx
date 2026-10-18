@@ -3,6 +3,7 @@ import { adminApi } from '../../services/api';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { formatMoscowDateTime } from '../../utils/datetime';
+import { shortName } from '../../utils/names';
 import type { AuditLogDto } from '../../types/admin';
 
 const actionLabels: Record<string, string> = {
@@ -64,11 +65,11 @@ export function AuditTab() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="info">{actionLabels[log.action] || log.action}</Badge>
-                <span className="text-sm text-dark-text">{log.adminName}</span>
+                <span className="text-sm text-dark-text">{shortName(log.adminName)}</span>
                 {log.targetName && (
                   <>
                     <span className="text-dark-textMuted">→</span>
-                    <span className="text-sm text-dark-text">{log.targetName}</span>
+                    <span className="text-sm text-dark-text">{shortName(log.targetName)}</span>
                   </>
                 )}
               </div>
