@@ -37,7 +37,7 @@ public class AdminClubsController : ControllerBase
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
         var userId = userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var uid) ? uid : Guid.Empty;
 
-        var messages = await _clubService.GetMessagesAsync(id, userId, isAdmin: true, ct);
+        var messages = await _clubService.GetMessagesAsync(id, userId, isAdmin: true, ct: ct);
         return messages == null ? NotFound() : Ok(messages);
     }
 

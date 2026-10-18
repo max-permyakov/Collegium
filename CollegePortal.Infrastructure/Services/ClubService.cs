@@ -1,3 +1,4 @@
+using System.Globalization;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
@@ -10,7 +11,11 @@ namespace CollegePortal.Infrastructure.Services;
 public class ClubService : IClubService
 {
     private const int MaxAvatarDataUrlLength = 3_000_000;
-    private const int MaxMessageLength = 2000;
+    private const int MaxClubNameLength = 20;
+    private const int MaxClubDescriptionLength = 200;
+    private const int MaxMessageLength = 1000;
+    private const int DefaultMessagesLimit = 100;
+    private const int MaxMessagesLimit = 500;
 
     private readonly CollegePortalDbContext _dbContext;
     private readonly ILogger<ClubService> _logger;
@@ -126,14 +131,19 @@ public class ClubService : IClubService
 
     public async Task<ClubDetailDto> CreateAsync(Guid userId, CreateClubDto dto, CancellationToken ct = default)
     {
-        ValidateName(dto.Name);
+        var name = TextSanitizer.Clean(dto.Name);
+        ValidateName(name);
         ValidateAvatar(dto.AvatarDataUrl);
+
+        var description = TextSanitizer.Clean(dto.Description);
+        if (description.Length > MaxClubDescriptionLength)
+            throw new ArgumentException($"Описание кружка — не более {MaxClubDescriptionLength} символов");
 
         var club = new Club
         {
             Id = Guid.NewGuid(),
-            Name = dto.Name.Trim(),
-            Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
+            Name = name,
+            Description = string.IsNullOrEmpty(description) ? null : description,
             AvatarDataUrl = string.IsNullOrWhiteSpace(dto.AvatarDataUrl) ? null : dto.AvatarDataUrl,
             IsPrivate = dto.IsPrivate,
             JoinByLink = dto.JoinByLink,
@@ -169,15 +179,22 @@ public class ClubService : IClubService
         if (!await CanManageAsync(club, userId, isAdmin, ct))
             return new ClubActionResult(false, "Недостаточно прав");
 
-        if (string.IsNullOrWhiteSpace(dto.Name))
+        var name = TextSanitizer.Clean(dto.Name);
+        if (string.IsNullOrEmpty(name))
             return new ClubActionResult(false, "Название обязательно");
+        if (name.Length > MaxClubNameLength)
+            return new ClubActionResult(false, $"Название кружка — не более {MaxClubNameLength} символов");
         if (dto.AvatarDataUrl != null && dto.AvatarDataUrl.Length > MaxAvatarDataUrlLength)
             return new ClubActionResult(false, "Фото превышает лимит 2 МБ");
         if (!string.IsNullOrEmpty(dto.AvatarDataUrl) && !dto.AvatarDataUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
             return new ClubActionResult(false, "Некорректное изображение");
 
-        club.Name = dto.Name.Trim();
-        club.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
+        var description = TextSanitizer.Clean(dto.Description);
+        if (description.Length > MaxClubDescriptionLength)
+            return new ClubActionResult(false, $"Описание кружка — не более {MaxClubDescriptionLength} символов");
+
+        club.Name = name;
+        club.Description = string.IsNullOrEmpty(description) ? null : description;
         club.AvatarDataUrl = string.IsNullOrWhiteSpace(dto.AvatarDataUrl) ? null : dto.AvatarDataUrl;
         club.IsPrivate = dto.IsPrivate;
         club.JoinByLink = dto.JoinByLink;
@@ -299,7 +316,7 @@ public class ClubService : IClubService
         return new ClubActionResult(true);
     }
 
-    public async Task<ClubMessageDto[]?> GetMessagesAsync(Guid clubId, Guid userId, bool isAdmin, CancellationToken ct = default)
+    public async Task<ClubMessageDto[]?> GetMessagesAsync(Guid clubId, Guid userId, bool isAdmin, string? after = null, string? before = null, int? latest = null, int? limit = null, CancellationToken ct = default)
     {
         var club = await _dbContext.Clubs
             .AsNoTracking()
@@ -312,20 +329,81 @@ public class ClubService : IClubService
         if (!isAdmin && !isMember)
             return null;
 
-        return await _dbContext.ClubMessages
+        var afterUtc = ParseUtc(after);
+        var beforeUtc = ParseUtc(before);
+
+        var query = _dbContext.ClubMessages
             .AsNoTracking()
-            .Where(m => m.ClubId == clubId)
-            .OrderBy(m => m.CreatedAt)
-            .Select(m => new ClubMessageDto(
-                m.Id,
-                m.ClubId,
-                m.UserId,
-                m.User.DisplayName,
-                m.User.StudentProfile != null ? m.User.StudentProfile.AvatarDataUrl : null,
-                m.Text,
-                m.CreatedAt
-            ))
-            .ToArrayAsync(ct);
+            .Include(m => m.User).ThenInclude(u => u.StudentProfile)
+            .Where(m => m.ClubId == clubId);
+
+        if (afterUtc != null)
+            query = query.Where(m => m.CreatedAt > afterUtc);
+        if (beforeUtc != null)
+            query = query.Where(m => m.CreatedAt < beforeUtc);
+
+        List<ClubMessage> rows;
+        if (latest is int takeLatest)
+        {
+            rows = await query
+                .OrderByDescending(m => m.CreatedAt)
+                .ThenByDescending(m => m.Id)
+                .Take(Math.Clamp(takeLatest, 1, MaxMessagesLimit))
+                .ToListAsync(ct);
+            rows.Reverse();
+        }
+        else if (limit.HasValue || afterUtc != null)
+        {
+            var take = Math.Clamp(limit ?? DefaultMessagesLimit, 1, MaxMessagesLimit);
+            if (beforeUtc != null)
+            {
+                rows = await query
+                    .OrderByDescending(m => m.CreatedAt)
+                    .ThenByDescending(m => m.Id)
+                    .Take(take)
+                    .ToListAsync(ct);
+                rows.Reverse();
+            }
+            else
+            {
+                rows = await query
+                    .OrderBy(m => m.CreatedAt)
+                    .ThenBy(m => m.Id)
+                    .Take(take)
+                    .ToListAsync(ct);
+            }
+        }
+        else
+        {
+            rows = await query
+                .OrderBy(m => m.CreatedAt)
+                .ThenBy(m => m.Id)
+                .ToListAsync(ct);
+        }
+
+        return rows.Select(m => new ClubMessageDto(
+            m.Id,
+            m.ClubId,
+            m.UserId,
+            m.User.DisplayName,
+            m.User.StudentProfile != null ? m.User.StudentProfile.AvatarDataUrl : null,
+            m.Text,
+            m.CreatedAt
+        )).ToArray();
+    }
+
+    private static DateTime? ParseUtc(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        if (!DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+            return null;
+        return parsed.Kind switch
+        {
+            DateTimeKind.Utc => parsed,
+            DateTimeKind.Local => parsed.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(parsed, DateTimeKind.Utc)
+        };
     }
 
     public async Task<ClubMessageDto?> PostMessageAsync(Guid clubId, Guid userId, string text, CancellationToken ct = default)
@@ -333,9 +411,9 @@ public class ClubService : IClubService
         if (string.IsNullOrWhiteSpace(text))
             return null;
 
-        var trimmed = text.Trim();
-        if (trimmed.Length > MaxMessageLength)
-            trimmed = trimmed[..MaxMessageLength];
+        var trimmed = TextSanitizer.Clean(text, MaxMessageLength);
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return null;
 
         var isMember = await _dbContext.ClubMembers
             .AnyAsync(m => m.ClubId == clubId && m.UserId == userId, ct);
@@ -411,6 +489,8 @@ public class ClubService : IClubService
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Название обязательно");
+        if (name.Length > MaxClubNameLength)
+            throw new ArgumentException($"Название кружка — не более {MaxClubNameLength} символов");
     }
 
     private static void ValidateAvatar(string? avatar)

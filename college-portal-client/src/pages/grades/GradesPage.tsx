@@ -84,7 +84,7 @@ export function GradesPage() {
           {grades.length > 0 ? (
             <div className="space-y-2">
               {grades.map((subject) => (
-                <Link key={subject.id} to="/performance" className="block">
+                <Link key={subject.id} to={`/performance?subject=${encodeURIComponent(subject.name)}`} className="block">
                   <div className="flex items-center justify-between p-4 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors group">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-dark-text truncate">{subject.name}</p>

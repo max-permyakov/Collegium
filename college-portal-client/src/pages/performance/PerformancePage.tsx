@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { gradesApi } from '../../services/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -21,8 +22,9 @@ const totalMarks = (subject: SubjectPerformance) =>
   subject.daysWithMarks.reduce((sum, d) => sum + d.markValues.length, 0);
 
 export function PerformancePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [performance, setPerformance] = useState<PerformanceResponse | null>(null);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(() => searchParams.get('subject'));
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -51,9 +53,15 @@ export function PerformancePage() {
 
   const activeSubject = useMemo(() => {
     if (subjectsWithData.length === 0) return null;
-    const found = subjectsWithData.find((s) => s.subjectName === selectedSubject);
+    const target = selectedSubject?.trim().toLowerCase();
+    const found = subjectsWithData.find((s) => s.subjectName.trim().toLowerCase() === target);
     return found ?? subjectsWithData[0];
   }, [subjectsWithData, selectedSubject]);
+
+  const selectSubject = (name: string) => {
+    setSelectedSubject(name);
+    setSearchParams({ subject: name }, { replace: true });
+  };
 
   const recentMarks = useMemo(() => getRecentMarks(performance, 12), [performance]);
 
@@ -137,7 +145,7 @@ export function PerformancePage() {
                       <button
                         key={subject.subjectName}
                         type="button"
-                        onClick={() => setSelectedSubject(subject.subjectName)}
+                        onClick={() => selectSubject(subject.subjectName)}
                         className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${
                           isActive
                             ? 'bg-primary-500/20 border-primary-500/40 text-primary-300'

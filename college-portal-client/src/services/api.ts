@@ -153,7 +153,8 @@ export const clubsApi = {
   leave: (id: string) => api.post(`/clubs/${id}/leave`),
   setLeader: (id: string, userId: string, isLeader: boolean) => api.post(`/clubs/${id}/members/${userId}/leader`, { isLeader }),
   removeMember: (id: string, userId: string) => api.delete(`/clubs/${id}/members/${userId}`),
-  getMessages: (id: string) => api.get<ClubMessageDto[]>(`/clubs/${id}/messages`),
+  getMessages: (id: string, params?: { after?: string; before?: string; latest?: number; limit?: number }) =>
+    api.get<ClubMessageDto[]>(`/clubs/${id}/messages`, { params }),
   postMessage: (id: string, text: string) => api.post<ClubMessageDto>(`/clubs/${id}/messages`, { text }),
   deleteMessage: (messageId: string) => api.delete(`/clubs/messages/${messageId}`),
 };

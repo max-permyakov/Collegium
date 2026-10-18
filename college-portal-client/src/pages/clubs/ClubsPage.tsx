@@ -11,6 +11,8 @@ import { Lightbox } from '../../components/ui/Lightbox';
 import type { ClubListDto, CreateClubDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+const MAX_CLUB_NAME_LENGTH = 20;
+const MAX_CLUB_DESCRIPTION_LENGTH = 200;
 
 const getError = (err: unknown) => {
   const e = err as { response?: { data?: { message?: string } } };
@@ -58,6 +60,14 @@ export function ClubsPage() {
     setError('');
     if (!form.name.trim()) {
       setError('Введите название группы');
+      return;
+    }
+    if (form.name.trim().length > MAX_CLUB_NAME_LENGTH) {
+      setError(`Название группы — не более ${MAX_CLUB_NAME_LENGTH} символов`);
+      return;
+    }
+    if ((form.description ?? '').trim().length > MAX_CLUB_DESCRIPTION_LENGTH) {
+      setError(`Описание группы — не более ${MAX_CLUB_DESCRIPTION_LENGTH} символов`);
       return;
     }
     createMutation.mutate(form);
@@ -121,6 +131,7 @@ export function ClubsPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="Мастеры дота ту"
+                  maxLength={MAX_CLUB_NAME_LENGTH}
                   required
                 />
                 <Textarea
@@ -128,6 +139,7 @@ export function ClubsPage() {
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="О группе"
+                  maxLength={MAX_CLUB_DESCRIPTION_LENGTH}
                   rows={3}
                 />
                 <div className="flex flex-col gap-2">

@@ -224,7 +224,7 @@ export function HomePage() {
             {dashboardData.recentMarks && dashboardData.recentMarks.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {dashboardData.recentMarks.map((entry, i) => (
-                  <Link key={i} to="/performance" className="block min-w-0">
+                  <Link key={i} to={`/performance?subject=${encodeURIComponent(entry.subjectName)}`} className="block min-w-0">
                     <div className="h-full p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <p className="font-medium text-dark-text truncate flex-1 min-w-0">{entry.subjectName}</p>

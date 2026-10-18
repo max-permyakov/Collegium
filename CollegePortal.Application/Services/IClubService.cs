@@ -22,7 +22,7 @@ public interface IClubService
 
     Task<ClubActionResult> RemoveMemberAsync(Guid clubId, Guid actorId, Guid targetUserId, bool isAdmin, CancellationToken ct = default);
 
-    Task<ClubMessageDto[]?> GetMessagesAsync(Guid clubId, Guid userId, bool isAdmin, CancellationToken ct = default);
+    Task<ClubMessageDto[]?> GetMessagesAsync(Guid clubId, Guid userId, bool isAdmin, string? after = null, string? before = null, int? latest = null, int? limit = null, CancellationToken ct = default);
 
     Task<ClubMessageDto?> PostMessageAsync(Guid clubId, Guid userId, string text, CancellationToken ct = default);
 

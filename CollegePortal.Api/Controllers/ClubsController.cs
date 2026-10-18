@@ -127,13 +127,13 @@ public class ClubsController : ControllerBase
     }
 
     [HttpGet("{id:guid}/messages")]
-    public async Task<IActionResult> GetMessages(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetMessages(Guid id, [FromQuery] string? after, [FromQuery] string? before, [FromQuery] int? latest, [FromQuery] int? limit, CancellationToken ct)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
             return Unauthorized();
 
-        var messages = await _clubService.GetMessagesAsync(id, userId.Value, IsAdmin, ct);
+        var messages = await _clubService.GetMessagesAsync(id, userId.Value, IsAdmin, after, before, latest, limit, ct);
         return messages == null ? Forbid() : Ok(messages);
     }
 
