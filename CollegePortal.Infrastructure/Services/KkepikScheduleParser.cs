@@ -5,28 +5,28 @@ namespace CollegePortal.Infrastructure.Services;
 
 public static class KkepikScheduleParser
 {
-    // Будние дни: перемена между парами 20 минут.
+    // Будни: пара 90 минут, перемена 20 минут.
     private static readonly Dictionary<int, (TimeSpan Start, TimeSpan End)> WeekdayPairTimes = new()
     {
-        [1] = (new TimeSpan(8, 35, 0), new TimeSpan(10, 5, 0)),
-        [2] = (new TimeSpan(10, 25, 0), new TimeSpan(11, 55, 0)),
-        [3] = (new TimeSpan(12, 15, 0), new TimeSpan(13, 45, 0)),
-        [4] = (new TimeSpan(14, 5, 0), new TimeSpan(15, 35, 0)),
-        [5] = (new TimeSpan(15, 55, 0), new TimeSpan(17, 25, 0)),
-        [6] = (new TimeSpan(17, 45, 0), new TimeSpan(19, 15, 0)),
-        [7] = (new TimeSpan(19, 35, 0), new TimeSpan(21, 5, 0))
+        [1] = (new TimeSpan(8, 45, 0), new TimeSpan(10, 5, 0)),
+        [2] = (new TimeSpan(10, 25, 0), new TimeSpan(11, 45, 0)),
+        [3] = (new TimeSpan(12, 5, 0), new TimeSpan(13, 25, 0)),
+        [4] = (new TimeSpan(13, 35, 0), new TimeSpan(14, 55, 0)),
+        [5] = (new TimeSpan(15, 5, 0), new TimeSpan(16, 25, 0)),
+        [6] = (new TimeSpan(16, 35, 0), new TimeSpan(17, 55, 0))
+      
     };
 
-    // Суббота: перемены короче — по 10 минут.
+    // Суббота: пара 90 минут, перемена 10 минут.
     private static readonly Dictionary<int, (TimeSpan Start, TimeSpan End)> SaturdayPairTimes = new()
     {
-        [1] = (new TimeSpan(8, 35, 0), new TimeSpan(10, 5, 0)),
-        [2] = (new TimeSpan(10, 15, 0), new TimeSpan(11, 45, 0)),
-        [3] = (new TimeSpan(11, 55, 0), new TimeSpan(13, 25, 0)),
-        [4] = (new TimeSpan(13, 35, 0), new TimeSpan(15, 5, 0)),
-        [5] = (new TimeSpan(15, 15, 0), new TimeSpan(16, 45, 0)),
-        [6] = (new TimeSpan(16, 55, 0), new TimeSpan(18, 25, 0)),
-        [7] = (new TimeSpan(18, 35, 0), new TimeSpan(20, 5, 0))
+        [1] = (new TimeSpan(8, 45, 0), new TimeSpan(10, 0, 0)),
+        [2] = (new TimeSpan(10, 10, 0), new TimeSpan(11, 25, 0)),
+        [3] = (new TimeSpan(11, 35, 0), new TimeSpan(12, 50, 0)),
+        [4] = (new TimeSpan(13, 0, 0), new TimeSpan(14, 15, 0)),
+        [5] = (new TimeSpan(15, 25, 0), new TimeSpan(16, 55, 0)),
+        [6] = (new TimeSpan(17, 5, 0), new TimeSpan(18, 35, 0)),
+        [7] = (new TimeSpan(18, 45, 0), new TimeSpan(20, 15, 0))
     };
 
     public static LessonDto[] Parse(string[] lines, DayOfWeek dayOfWeek)
