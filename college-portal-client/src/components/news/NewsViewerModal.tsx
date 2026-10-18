@@ -86,24 +86,25 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
       aria-modal="true"
       aria-label="Просмотр новости"
     >
-      <button
-        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-dark-card border border-dark-border text-dark-textMuted hover:text-dark-text hover:bg-dark-border transition-colors flex items-center justify-center text-lg"
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
-        aria-label="Закрыть"
-      >
-        ✕
-      </button>
-
       <div
-        className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-dark-card border border-dark-border p-4 sm:p-6 shadow-xl"
+        className="relative w-full max-w-2xl max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-dark-card border border-dark-border text-dark-textMuted hover:text-dark-text hover:bg-dark-border transition-colors flex items-center justify-center text-lg"
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          aria-label="Закрыть"
+        >
+          ✕
+        </button>
+
+        <div className="max-h-[85vh] overflow-y-auto rounded-2xl bg-dark-card border border-dark-border p-4 sm:p-6 shadow-xl">
         <div className="flex items-center gap-2 mb-3 flex-wrap pr-10">
           {announcement.studyGroupName && <Badge variant="primary">{announcement.studyGroupName}</Badge>}
           <Badge variant="info">{formatDateTime(announcement.publishedAt)}</Badge>
         </div>
 
-        <h2 className="text-xl font-bold text-dark-text">{announcement.title}</h2>
+        <h2 className="text-xl font-bold text-dark-text break-words">{announcement.title}</h2>
         <Link
           to={`/users/${announcement.authorId}`}
           onClick={onClose}
@@ -135,7 +136,7 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
                   <Link to={`/users/${c.userId}`} onClick={onClose} className="shrink-0">
                     <Avatar src={c.userAvatar || undefined} name={c.userName} size="sm" />
                   </Link>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 relative pr-9">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Link
                         to={`/users/${c.userId}`}
@@ -147,7 +148,9 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
                       <span className="text-xs text-dark-textMuted">
                         {formatDateTime(c.createdAt)}{c.updatedAt && ' (изм.)'}
                       </span>
-                      {(user?.id === c.userId || user?.role === 'Admin') && (
+                    </div>
+                    {(user?.id === c.userId || user?.role === 'Admin') && (
+                      <div className="absolute top-0 right-0">
                         <KebabMenu
                           ariaLabel="Действия с комментарием"
                           items={[
@@ -162,8 +165,8 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
                             },
                           ]}
                         />
-                      )}
-                    </div>
+                      </div>
+                    )}
                     {editingCommentId === c.id ? (
                       <div className="mt-1 space-y-2">
                         <textarea
@@ -224,6 +227,7 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
           ) : (
             <p className="text-sm text-dark-textMuted mt-4">Войдите, чтобы оставить комментарий</p>
           )}
+        </div>
         </div>
       </div>
     </div>

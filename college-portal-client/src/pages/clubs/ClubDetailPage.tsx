@@ -400,7 +400,7 @@ export function ClubDetailPage() {
               <p className="text-sm text-dark-textMuted">
                 Глава: <Link to={`/users/${club.ownerId}`} className="text-dark-text hover:text-primary-400">{shortName(club.ownerName)}</Link> · Участников: {club.memberCount}
               </p>
-              {club.description && <p className="text-dark-text whitespace-pre-wrap">{club.description}</p>}
+              {club.description && <p className="text-dark-text whitespace-pre-wrap break-words">{club.description}</p>}
             </div>
             {club.canManage && (
               <div className="absolute top-0 right-0">

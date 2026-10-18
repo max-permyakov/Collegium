@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { collegeMapApi } from '../../services/api';
 import { CollegeMap } from '../../components/college/CollegeMap';
 import { AuditoriumPanel } from '../../components/college/AuditoriumPanel';
@@ -9,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import type { AuditoriumDto, CollegeMapDto, MapSearchResultDto } from '../../types';
 
 export function CollegeMapPage() {
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [searchResult, setSearchResult] = useState<MapSearchResultDto | null>(null);
   const [searchError, setSearchError] = useState('');
@@ -22,6 +24,18 @@ export function CollegeMapPage() {
     queryFn: async () => (await collegeMapApi.getMap()).data,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Deep link (?auditorium=<id>) from the schedule or search engines:
+  // select the auditorium once the map has loaded.
+  const auditoriumParam = searchParams.get('auditorium');
+  useEffect(() => {
+    if (!map || !auditoriumParam) return;
+    if (map.auditoriums.some((a) => a.id === auditoriumParam)) {
+      setSelectedId(auditoriumParam);
+      setBuildingFilter(null);
+      setFloorFilter(null);
+    }
+  }, [map, auditoriumParam]);
 
   const selected = useMemo(
     () => map?.auditoriums.find((a) => a.id === selectedId) ?? null,

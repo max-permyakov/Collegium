@@ -14,6 +14,7 @@ import type { ClubListDto, CreateClubDto } from '../../types';
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_CLUB_NAME_LENGTH = 20;
 const MAX_CLUB_DESCRIPTION_LENGTH = 200;
+const MAX_CARD_DESCRIPTION_LENGTH = 30;
 
 const getError = (err: unknown) => {
   const e = err as { response?: { data?: { message?: string } } };
@@ -198,7 +199,11 @@ export function ClubsPage() {
                   </div>
                 </div>
                 {club.description && (
-                  <p className="text-sm text-dark-textMuted line-clamp-2">{club.description}</p>
+                  <p className="text-sm text-dark-textMuted break-words">
+                    {club.description.length > MAX_CARD_DESCRIPTION_LENGTH
+                      ? `${club.description.slice(0, MAX_CARD_DESCRIPTION_LENGTH)}...`
+                      : club.description}
+                  </p>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
                   {club.isPinned && <Badge variant="primary">📌 Закреплён</Badge>}
