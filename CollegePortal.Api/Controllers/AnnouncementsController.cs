@@ -40,7 +40,7 @@ public class AnnouncementsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Permission.NewsManage")]
     public async Task<IActionResult> Create([FromBody] CreateAnnouncementDto dto)
     {
         var userId = GetCurrentUserId();
@@ -52,7 +52,7 @@ public class AnnouncementsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Permission.NewsManage")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAnnouncementDto dto)
     {
         var userId = GetCurrentUserId();
@@ -67,7 +67,7 @@ public class AnnouncementsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Permission.NewsManage")]
     public async Task<IActionResult> Delete(Guid id)
     {
         var userId = GetCurrentUserId();
@@ -82,7 +82,7 @@ public class AnnouncementsController : ControllerBase
     }
 
     [HttpPatch("{id}/toggle-published")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Permission.NewsManage")]
     public async Task<IActionResult> TogglePublished(Guid id)
     {
         var userId = GetCurrentUserId();

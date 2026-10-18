@@ -16,7 +16,7 @@ import type { AnnouncementListItem, Announcement } from '../../types';
 export function NewsPage() {
   const params = useParams<{ id?: string }>();
   const isDetail = !!params.id;
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
 
   const [news, setNews] = useState<AnnouncementListItem[]>([]);
@@ -71,7 +71,7 @@ export function NewsPage() {
     );
   }
 
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = hasPermission('NewsManage');
 
   const saveNews = async () => {
     if (!detail) return;

@@ -7,7 +7,7 @@ namespace CollegePortal.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/clubs")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = "Permission.ClubsManage")]
 public class AdminClubsController : ControllerBase
 {
     private readonly IClubService _clubService;

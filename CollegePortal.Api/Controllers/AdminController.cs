@@ -11,7 +11,7 @@ namespace CollegePortal.Api.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class AdminController : ControllerBase
 {
     // Moscow is UTC+3 all year round (no DST since 2014).
@@ -29,6 +29,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("statistics")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> GetStatistics(CancellationToken ct)
     {
         var stats = await _adminService.GetStatisticsAsync(ct);
@@ -36,6 +37,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("users")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> GetUsers(CancellationToken ct)
     {
         var users = await _adminService.GetUsersAsync(ct);
@@ -43,6 +45,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("users/{id:guid}")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> GetUser(Guid id, CancellationToken ct)
     {
         var adminId = GetCurrentUserId();
@@ -54,6 +57,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("users/{id:guid}/role")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> SetRole(Guid id, [FromBody] UpdateRoleRequestDto request, CancellationToken ct)
     {
         var adminId = GetCurrentUserId();
@@ -65,6 +69,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("users/{id:guid}/is-active")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> SetIsActive(Guid id, [FromBody] UpdateIsActiveRequestDto request, CancellationToken ct)
     {
         var adminId = GetCurrentUserId();
@@ -76,6 +81,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("users/{id:guid}/headman")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> SetHeadman(Guid id, [FromBody] UpdateHeadmanRequestDto request, CancellationToken ct)
     {
         var adminId = GetCurrentUserId();
@@ -87,6 +93,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpPost("users/{id:guid}/recompute-grades")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> RecomputeGrades(Guid id, CancellationToken ct)
     {
         var adminId = GetCurrentUserId();
@@ -98,6 +105,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("audit")]
+    [Authorize(Policy = "Permission.AuditView")]
     public async Task<IActionResult> GetAudit([FromQuery] int limit = 100, CancellationToken ct = default)
     {
         var audit = await _adminService.GetAuditAsync(limit, ct);
@@ -105,6 +113,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("users.csv")]
+    [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> ExportUsers(CancellationToken ct)
     {
         var adminId = GetCurrentUserId();

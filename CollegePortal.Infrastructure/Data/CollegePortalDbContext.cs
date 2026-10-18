@@ -27,6 +27,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<Auditorium> Auditoriums => Set<Auditorium>();
     public DbSet<Discipline> Disciplines => Set<Discipline>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -199,6 +200,17 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.Property(e => e.TokenHash).HasMaxLength(64);
             entity.HasIndex(e => e.TokenHash).IsUnique();
             entity.HasIndex(e => e.UserId);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserPermission>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.UserId, e.Permission }).IsUnique();
+            entity.Property(e => e.Permission).HasConversion<int>();
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)

@@ -7,7 +7,7 @@ namespace CollegePortal.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/college-info")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = "Permission.CollegeInfoManage")]
 public class AdminCollegeInfoController : ControllerBase
 {
     private readonly ICollegeInfoService _collegeInfoService;

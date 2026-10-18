@@ -8,7 +8,7 @@ namespace CollegePortal.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/college-map")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = "Permission.MapManage")]
 public class AdminCollegeMapController : ControllerBase
 {
     private readonly ICollegeMapService _mapService;

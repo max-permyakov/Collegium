@@ -27,9 +27,9 @@ const typeLabels: Record<SearchType, string> = {
 const formatTime = (value: string) => (value ? value.slice(0, 5) : '');
 
 export function CollegeInfoPage() {
-  const { user } = useAuth();
+  const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
-  const isAdmin = user?.role === 'Admin';
+  const isAdmin = hasPermission('CollegeInfoManage');
 
   const [tab, setTab] = useState<'schedule' | 'teachers'>('schedule');
   const [searchType, setSearchType] = useState<SearchType>('group');

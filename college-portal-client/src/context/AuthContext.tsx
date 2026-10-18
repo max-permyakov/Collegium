@@ -1,13 +1,18 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { authApi } from '../services/api';
-import type { User, LoginRequest } from '../types';
+import { authApi, permissionsApi } from '../services/api';
+import type { User, LoginRequest, Permission } from '../types';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  // Effective admin rights of the signed-in user (empty for plain students).
+  // Full admins receive every permission from the API.
+  permissions: Permission[];
+  hasPermission: (permission: Permission) => boolean;
+  hasAnyPermission: boolean;
   // True when an active session was rejected by the API (expired / revoked);
   // lets the login page explain why the user landed there.
   sessionExpired: boolean;
@@ -30,18 +35,31 @@ async function hashDiaryPassword(password: string): Promise<string> {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
   const queryClient = useQueryClient();
 
-  const refreshUser = useCallback(async () => {
+  const loadPermissions = useCallback(async () => {
     try {
-      const response = await authApi.me();
-      setUser(response.data);
+      const perms = await permissionsApi.getMine();
+      setPermissions(perms.data.permissions ?? []);
     } catch {
-      setUser(null);
+      setPermissions([]);
     }
   }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      // The session lives in an HttpOnly cookie; ask the server who we are.
+      const response = await authApi.me();
+      setUser(response.data);
+      await loadPermissions();
+    } catch {
+      setUser(null);
+      setPermissions([]);
+    }
+  }, [loadPermissions]);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -65,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSessionExpired(true);
       }
       setUser(null);
+      setPermissions([]);
       queryClient.clear();
     };
     window.addEventListener('auth:unauthorized', onUnauthorized);
@@ -77,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     setUser(response.data);
     setSessionExpired(false);
+    await loadPermissions();
   };
 
   const diaryLogin = async (login: string, password: string) => {
@@ -86,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     setUser(response.data);
     setSessionExpired(false);
+    await loadPermissions();
   };
 
   const claimPrimaryAdmin = async (password: string) => {
@@ -94,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     setUser(response.data);
     setSessionExpired(false);
+    await loadPermissions();
   };
 
   const logout = async () => {
@@ -104,11 +126,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       queryClient.clear();
       setUser(null);
+      setPermissions([]);
     }
   };
 
+  const hasPermission = (permission: Permission) => permissions.includes(permission);
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, sessionExpired, login, diaryLogin, claimPrimaryAdmin, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isAuthenticated: !!user,
+        permissions,
+        hasPermission,
+        hasAnyPermission: permissions.length > 0,
+        sessionExpired,
+        login,
+        diaryLogin,
+        claimPrimaryAdmin,
+        logout,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

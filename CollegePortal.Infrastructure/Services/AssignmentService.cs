@@ -122,14 +122,8 @@ public class AssignmentService : IAssignmentService
 
         if (assignment.CreatedById != createdById)
         {
-            var user = await _dbContext.Users.FindAsync(createdById, ct);
-            var isAdmin = user != null && await _dbContext.UserRoles
-                .AnyAsync(ur => ur.UserId == createdById && ur.RoleId == _dbContext.Roles
-                    .Where(r => r.Name == "Admin")
-                    .Select(r => r.Id)
-                    .FirstOrDefault(), ct);
-            
-            if (!isAdmin)
+            var canModerate = await CanModerateAsync(createdById, ct);
+            if (!canModerate)
                 return null;
         }
 
@@ -167,19 +161,33 @@ public class AssignmentService : IAssignmentService
 
         if (assignment.CreatedById != createdById)
         {
-            var user = await _dbContext.Users.FindAsync(createdById, ct);
-            var isAdmin = user != null && await _dbContext.UserRoles
-                .AnyAsync(ur => ur.UserId == createdById && ur.RoleId == _dbContext.Roles
-                    .Where(r => r.Name == "Admin")
-                    .Select(r => r.Id)
-                    .FirstOrDefault(), ct);
-            
-            if (!isAdmin)
+            var canModerate = await CanModerateAsync(createdById, ct);
+            if (!canModerate)
                 return false;
         }
 
         _dbContext.Assignments.Remove(assignment);
         await _dbContext.SaveChangesAsync(ct);
         return true;
+    }
+
+    // Editing/deleting someone else's assignment is allowed for full admins
+    // and for users granted the AssignmentsManage permission.
+    private async Task<bool> CanModerateAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await _dbContext.Users.FindAsync(userId, ct);
+        if (user == null)
+            return false;
+
+        var isAdmin = await _dbContext.UserRoles.AnyAsync(
+            ur => ur.UserId == userId && ur.RoleId == _dbContext.Roles
+                .Where(r => r.Name == "Admin")
+                .Select(r => r.Id)
+                .FirstOrDefault(), ct);
+        if (isAdmin)
+            return true;
+
+        return await _dbContext.UserPermissions.AnyAsync(
+            up => up.UserId == userId && up.Permission == Domain.Enums.Permission.AssignmentsManage, ct);
     }
 }

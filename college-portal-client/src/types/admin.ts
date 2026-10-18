@@ -1,5 +1,42 @@
 export type HeadmanRole = 'None' | 'Headman' | 'Deputy';
 
+export type Permission =
+  | 'UsersManage'
+  | 'NewsManage'
+  | 'AssignmentsManage'
+  | 'ClubsManage'
+  | 'CollegeInfoManage'
+  | 'MapManage'
+  | 'AuditView';
+
+export const ALL_PERMISSIONS: Permission[] = [
+  'UsersManage',
+  'NewsManage',
+  'AssignmentsManage',
+  'ClubsManage',
+  'CollegeInfoManage',
+  'MapManage',
+  'AuditView',
+];
+
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  UsersManage: 'Пользователи и статистика',
+  NewsManage: 'Новости',
+  AssignmentsManage: 'Задания',
+  ClubsManage: 'Кружки',
+  CollegeInfoManage: 'Информация о колледже',
+  MapManage: 'Карта и аудитории',
+  AuditView: 'Журнал аудита',
+};
+
+export interface AdminPermissionsDto {
+  userId: string;
+  displayName: string;
+  email: string;
+  isAdmin: boolean;
+  permissions: Permission[];
+}
+
 export interface AdminUserDto {
   id: string;
   login: string;

@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminApi } from '../../services/api';
+import { adminApi, permissionsApi } from '../../services/api';
+import type { Permission } from '../../types';
+import { ALL_PERMISSIONS, PERMISSION_LABELS } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -22,6 +24,12 @@ export function UsersTab() {
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+
+  const [permTarget, setPermTarget] = useState<AdminUserDto | null>(null);
+  const [permValues, setPermValues] = useState<Permission[]>([]);
+  const [permLoading, setPermLoading] = useState(false);
+  const [permSaving, setPermSaving] = useState(false);
+  const [permError, setPermError] = useState('');
 
   const { data: users, isLoading, error } = useQuery<AdminUserDto[]>({
     queryKey: ['admin', 'users'],
@@ -57,6 +65,43 @@ export function UsersTab() {
       setActionError(err.response?.data?.message || 'Не удалось выполнить действие');
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const openPermissions = async (target: AdminUserDto) => {
+    setPermTarget(target);
+    setPermValues([]);
+    setPermError('');
+    setPermLoading(true);
+    try {
+      const res = await permissionsApi.getForUser(target.id);
+      setPermValues(res.data.permissions ?? []);
+    } catch {
+      setPermError('Не удалось загрузить права пользователя');
+    } finally {
+      setPermLoading(false);
+    }
+  };
+
+  const togglePermission = (permission: Permission, checked: boolean) => {
+    setPermValues((prev) =>
+      checked ? [...new Set([...prev, permission])] : prev.filter((p) => p !== permission)
+    );
+  };
+
+  const savePermissions = async () => {
+    if (!permTarget) return;
+    setPermSaving(true);
+    setPermError('');
+    try {
+      await permissionsApi.setForUser(permTarget.id, permValues);
+      setPermTarget(null);
+      afterChange();
+    } catch (e) {
+      const err = e as { response?: { data?: { message?: string } } };
+      setPermError(err.response?.data?.message || 'Не удалось сохранить права');
+    } finally {
+      setPermSaving(false);
     }
   };
 
@@ -178,6 +223,17 @@ export function UsersTab() {
                       >
                         {u.isActive ? 'Бан' : 'Разбан'}
                       </Button>
+                      {u.role !== 'Admin' && !u.isProtected && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy || !isPrimaryAdmin}
+                          title={!isPrimaryAdmin ? 'Выдавать права может только первичный админ' : 'Выдать права'}
+                          onClick={() => openPermissions(u)}
+                        >
+                          Права
+                        </Button>
+                      )}
                       {u.averageMark != null || u.studyGroupId ? (
                         <Button
                           variant="ghost"
@@ -201,6 +257,65 @@ export function UsersTab() {
         <Card variant="hover" className="text-center py-12">
           <p className="text-dark-textMuted">Пользователи не найдены</p>
         </Card>
+      )}
+
+      {permTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-black/85 backdrop-blur-sm"
+          onClick={() => (!permSaving ? setPermTarget(null) : undefined)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-dark-card border border-dark-border shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-dark-border">
+              <div>
+                <h3 className="text-lg font-semibold text-dark-text">Права администратора</h3>
+                <p className="text-sm text-dark-textMuted">{permTarget.displayName}</p>
+              </div>
+              <Button variant="ghost" size="sm" disabled={permSaving} onClick={() => setPermTarget(null)}>✕</Button>
+            </div>
+
+            <div className="p-4 space-y-2">
+              {permError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                  {permError}
+                </div>
+              )}
+              {permLoading ? (
+                <div className="skeleton h-40" />
+              ) : (
+                ALL_PERMISSIONS.map((permission) => (
+                  <label
+                    key={permission}
+                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-dark-border/50 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 accent-primary-500"
+                      checked={permValues.includes(permission)}
+                      disabled={permSaving}
+                      onChange={(e) => togglePermission(permission, e.target.checked)}
+                    />
+                    <span className="text-sm text-dark-text">{PERMISSION_LABELS[permission]}</span>
+                  </label>
+                ))
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 p-4 border-t border-dark-border">
+              <p className="text-xs text-dark-textMuted">Доступно только первичному администратору</p>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" disabled={permSaving} onClick={() => setPermTarget(null)}>
+                  Отмена
+                </Button>
+                <Button size="sm" loading={permSaving} onClick={savePermissions}>
+                  Сохранить
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

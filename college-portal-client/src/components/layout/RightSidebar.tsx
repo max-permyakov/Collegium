@@ -11,6 +11,8 @@ interface NavItem {
   label: string;
   icon: ReactNode;
   roles?: ('Student' | 'Admin')[];
+  // Shown for full admins and for users with at least one granted right.
+  adminSection?: boolean;
 }
 
 const HomeIcon = ({ className }: { className?: string }) => (
@@ -122,7 +124,7 @@ const navItems: NavItem[] = [
   { path: '/college-info', label: 'Колледж', icon: <InfoIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/college-info/map', label: 'Карта', icon: <MapIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/profile', label: 'Профиль', icon: <UserIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
-  { path: '/admin', label: 'Админка', icon: <SettingsIcon className="w-5 h-5" />, roles: ['Admin'] },
+  { path: '/admin', label: 'Админка', icon: <SettingsIcon className="w-5 h-5" />, adminSection: true },
 ];
 
 interface RightSidebarProps {
@@ -131,7 +133,7 @@ interface RightSidebarProps {
 }
 
 export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
-  const { user, logout } = useAuth();
+  const { user, hasAnyPermission, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -145,9 +147,12 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
 
   const isExact = (item: NavItem) => item.path === '/' || item.path === '/college-info';
 
-  const filteredNavItems = navItems.filter(item =>
-    !item.roles || (user && item.roles.includes(user.role))
-  );
+  const filteredNavItems = navItems.filter(item => {
+    if (item.adminSection) {
+      return user?.role === 'Admin' || hasAnyPermission;
+    }
+    return !item.roles || (user && item.roles.includes(user.role));
+  });
 
   const handleLogout = async () => {
     await logout();

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { newsApi, assignmentsApi, adminApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -18,6 +19,14 @@ import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, C
 import type { StatisticsDto } from '../../types/admin';
 
 export function AdminPage() {
+  const { hasPermission } = useAuth();
+  const canManageUsers = hasPermission('UsersManage');
+  const canManageNews = hasPermission('NewsManage');
+  const canManageAssignments = hasPermission('AssignmentsManage');
+  const canManageClubs = hasPermission('ClubsManage');
+  const canManageMap = hasPermission('MapManage');
+  const canViewAudit = hasPermission('AuditView');
+
   const [announcements, setAnnouncements] = useState<AnnouncementListItem[]>([]);
   const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,8 +41,21 @@ export function AdminPage() {
   const { data: statistics } = useQuery<StatisticsDto>({
     queryKey: ['admin', 'statistics'],
     queryFn: async () => (await adminApi.getStatistics()).data,
+    enabled: canManageUsers,
   });
   const groups = statistics?.groups ?? [];
+
+  const defaultTab = canManageUsers
+    ? 'statistics'
+    : canViewAudit
+      ? 'audit'
+      : canManageNews
+        ? 'news'
+        : canManageAssignments
+          ? 'assignments'
+          : canManageClubs
+            ? 'clubs'
+            : 'map';
 
   const [newsForm, setNewsForm] = useState<CreateAnnouncementDto>({
     title: '',
@@ -198,6 +220,21 @@ export function AdminPage() {
     setAssignmentForm({ title: '', description: '', dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), studyGroupId: '' });
   };
 
+  const hasDashboardTab = canManageUsers || canViewAudit || canManageNews || canManageAssignments || canManageClubs || canManageMap;
+
+  if (!hasDashboardTab) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-dark-text">Панель администратора</h1>
+        <Card variant="hover" className="text-center py-12">
+          <p className="text-dark-textMuted">
+            Вам выданы только права на раздел «Информация о колледже» — управляйте им на странице «Колледж».
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -206,15 +243,21 @@ export function AdminPage() {
           <p className="text-dark-textMuted">Пользователи, статистика, аудит, новости и задания</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); resetNewsForm(); }}>
-            + Новость
-          </Button>
-          <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); resetAssignmentForm(); }}>
-            + Задание
-          </Button>
-          <Button variant="secondary" loading={isExporting} onClick={handleExportCsv}>
-            Экспорт CSV
-          </Button>
+          {canManageNews && (
+            <Button onClick={() => { setShowCreateNews(true); setEditingNews(null); resetNewsForm(); }}>
+              + Новость
+            </Button>
+          )}
+          {canManageAssignments && (
+            <Button onClick={() => { setShowCreateAssignment(true); setEditingAssignment(null); resetAssignmentForm(); }}>
+              + Задание
+            </Button>
+          )}
+          {canManageUsers && (
+            <Button variant="secondary" loading={isExporting} onClick={handleExportCsv}>
+              Экспорт CSV
+            </Button>
+          )}
         </div>
       </div>
 
@@ -225,30 +268,37 @@ export function AdminPage() {
         </div>
       )}
 
-      <Tabs defaultValue="statistics" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="w-full flex-wrap gap-1">
-          <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>
-          <TabsTrigger value="users">👥 Пользователи</TabsTrigger>
-          <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>
-          <TabsTrigger value="news">📰 Новости</TabsTrigger>
-          <TabsTrigger value="assignments">📝 Задания</TabsTrigger>
-          <TabsTrigger value="clubs">🎓 Кружки</TabsTrigger>
-          <TabsTrigger value="map">🗺️ Карта</TabsTrigger>
+          {canManageUsers && <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>}
+          {canManageUsers && <TabsTrigger value="users">👥 Пользователи</TabsTrigger>}
+          {canViewAudit && <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>}
+          {canManageNews && <TabsTrigger value="news">📰 Новости</TabsTrigger>}
+          {canManageAssignments && <TabsTrigger value="assignments">📝 Задания</TabsTrigger>}
+          {canManageClubs && <TabsTrigger value="clubs">🎓 Кружки</TabsTrigger>}
+          {canManageMap && <TabsTrigger value="map">🗺️ Карта</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="statistics">
-          <StatisticsTab />
-        </TabsContent>
+        {canManageUsers && (
+          <TabsContent value="statistics">
+            <StatisticsTab />
+          </TabsContent>
+        )}
 
-        <TabsContent value="users">
-          <UsersTab />
-        </TabsContent>
+        {canManageUsers && (
+          <TabsContent value="users">
+            <UsersTab />
+          </TabsContent>
+        )}
 
-        <TabsContent value="audit">
-          <AuditTab />
-        </TabsContent>
+        {canViewAudit && (
+          <TabsContent value="audit">
+            <AuditTab />
+          </TabsContent>
+        )}
 
         <TabsContent value="news">
+          {canManageNews && (
           <div className="space-y-4">
             {(showCreateNews || editingNews) && (
               <Card variant="hover">
@@ -329,9 +379,11 @@ export function AdminPage() {
               </Card>
             )}
           </div>
+          )}
         </TabsContent>
 
         <TabsContent value="assignments">
+          {canManageAssignments && (
           <div className="space-y-4">
             {(showCreateAssignment || editingAssignment) && (
               <Card variant="hover">
@@ -406,14 +458,15 @@ export function AdminPage() {
               </Card>
             )}
           </div>
+          )}
         </TabsContent>
 
         <TabsContent value="clubs">
-          <ClubsTab />
+          {canManageClubs && <ClubsTab />}
         </TabsContent>
 
         <TabsContent value="map">
-          <MapTab />
+          {canManageMap && <MapTab />}
         </TabsContent>
       </Tabs>
     </div>

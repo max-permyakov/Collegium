@@ -52,6 +52,29 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading, isAuthenticated, hasAnyPermission } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Full admins and users with at least one granted admin right may enter.
+  if (user && user.role !== 'Admin' && !hasAnyPermission) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -112,9 +135,9 @@ function AppRoutes() {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="users/:userId" element={<UserProfileRoute />} />
         <Route path="admin" element={
-          <ProtectedRoute allowedRoles={['Admin']}>
+          <AdminRoute>
             <AdminPage />
-          </ProtectedRoute>
+          </AdminRoute>
         } />
       </Route>
 

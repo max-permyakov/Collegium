@@ -39,7 +39,7 @@ public class AssignmentsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Permission.AssignmentsManage")]
     public async Task<IActionResult> Create([FromBody] CreateAssignmentDto dto)
     {
         var userId = GetCurrentUserId();
@@ -51,7 +51,7 @@ public class AssignmentsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Permission.AssignmentsManage")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAssignmentDto dto)
     {
         var userId = GetCurrentUserId();
@@ -66,7 +66,7 @@ public class AssignmentsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Permission.AssignmentsManage")]
     public async Task<IActionResult> Delete(Guid id)
     {
         var userId = GetCurrentUserId();

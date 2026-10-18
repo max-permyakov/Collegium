@@ -7,10 +7,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authorization;
 using System.Net;
 using System.Text;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Application.Services;
+using CollegePortal.Infrastructure.Authorization;
 using CollegePortal.Infrastructure.Data;
 using CollegePortal.Infrastructure.ExternalApis.Diary;
 using CollegePortal.Infrastructure.ExternalApis.Gosuslugi;
@@ -105,7 +107,17 @@ public static class ServiceCollectionExtensions
         {
             options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
             options.AddPolicy("StudentOnly", policy => policy.RequireRole("Student"));
+
+            // Granular admin rights: a user either has the Admin role (which
+            // implies every permission) or an explicit UserPermission row.
+            foreach (var permission in Enum.GetValues<CollegePortal.Domain.Enums.Permission>())
+            {
+                options.AddPolicy($"Permission.{permission}",
+                    policy => policy.AddRequirements(new PermissionRequirement(permission)));
+            }
         });
+
+        services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
         // Persist Data Protection keys so that encrypted diary secrets (password
         // hash / session cookies) survive application restarts and container
@@ -177,6 +189,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IClubService, ClubService>();
         services.AddScoped<ICollegeInfoService, CollegeInfoService>();
         services.AddScoped<ICollegeMapService, CollegeMapService>();
+        services.AddScoped<IAdminPermissionService, AdminPermissionService>();
 
         services.AddHostedService<KkepikScheduleSyncService>();
 
