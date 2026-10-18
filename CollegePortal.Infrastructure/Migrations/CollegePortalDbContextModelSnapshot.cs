@@ -543,6 +543,35 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("KkepikSchedules");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.NewsComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AnnouncementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("AnnouncementId", "CreatedAt");
+
+                    b.ToTable("NewsComments");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.StudentProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -897,6 +926,25 @@ namespace CollegePortal.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Club");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.NewsComment", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.Announcement", "Announcement")
+                        .WithMany()
+                        .HasForeignKey("AnnouncementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Announcement");
 
                     b.Navigation("User");
                 });

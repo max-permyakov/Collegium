@@ -6,6 +6,7 @@ import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
+import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate } from '../../utils/datetime';
 import type { AnnouncementListItem, Announcement } from '../../types';
 
@@ -18,6 +19,7 @@ export function NewsPage() {
   const [detail, setDetail] = useState<Announcement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
 
   const _formatDate = (dateStr: string) =>
     formatMoscowDate(dateStr, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -119,7 +121,7 @@ export function NewsPage() {
         <div className="space-y-3">
           {news.map((item) => (
             <Card key={item.id} variant="hover" className="group">
-              <Link to={`/news/${item.id}`} className="block">
+              <button type="button" onClick={() => setViewNews(item)} className="block w-full text-left">
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -141,7 +143,7 @@ export function NewsPage() {
                     </div>
                   </div>
                 </CardContent>
-              </Link>
+              </button>
             </Card>
           ))}
         </div>
@@ -153,6 +155,8 @@ export function NewsPage() {
           <p className="text-dark-textMuted mb-4">Новостей пока нет</p>
         </Card>
       )}
+
+      <NewsViewerModal announcement={viewNews} onClose={() => setViewNews(null)} />
     </div>
   );
 }

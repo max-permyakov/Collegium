@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../comp
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
+import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
 import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
@@ -35,6 +36,7 @@ export function HomePage() {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
 
   const _formatDate = (dateStr: string) =>
     formatMoscowDate(dateStr, { day: 'numeric', month: 'short', weekday: 'short' });
@@ -315,13 +317,18 @@ export function HomePage() {
           {dashboardData.news && dashboardData.news.length > 0 ? (
             <div className="space-y-2">
               {dashboardData.news.map(news => (
-                <Link key={news.id} to={`/news/${news.id}`} className="block">
+                <button
+                  key={news.id}
+                  type="button"
+                  onClick={() => setViewNews(news)}
+                  className="block w-full text-left"
+                >
                   <div className="p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
                     <p className="font-medium text-dark-text line-clamp-1">{news.title}</p>
                     <p className="text-sm text-dark-textMuted mt-1 line-clamp-2">{news.body}</p>
                     <p className="text-xs text-dark-textMuted mt-2">{_formatDate(news.publishedAt)}</p>
                   </div>
-                </Link>
+                </button>
               ))}
             </div>
           ) : (
@@ -329,6 +336,8 @@ export function HomePage() {
           )}
         </CardContent>
       </Card>
+
+      <NewsViewerModal announcement={viewNews} onClose={() => setViewNews(null)} />
     </div>
   );
 }

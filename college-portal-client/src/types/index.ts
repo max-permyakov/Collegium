@@ -167,6 +167,16 @@ export interface UpdateAnnouncementDto {
   studyGroupId?: string;
 }
 
+export interface NewsCommentDto {
+  id: string;
+  announcementId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string | null;
+  text: string;
+  createdAt: string;
+}
+
 export interface Assignment {
   id: string;
   title: string;

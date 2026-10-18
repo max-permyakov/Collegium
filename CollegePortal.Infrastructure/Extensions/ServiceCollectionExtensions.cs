@@ -168,6 +168,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScheduleService, ScheduleService>();
         services.AddScoped<IGradesService, GradesService>();
         services.AddScoped<IAnnouncementService, AnnouncementService>();
+        services.AddScoped<INewsCommentService, NewsCommentService>();
         services.AddScoped<IAssignmentService, AssignmentService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IAdminService, AdminService>();

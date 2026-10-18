@@ -15,6 +15,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<StudentProfile> StudentProfiles => Set<StudentProfile>();
     public DbSet<StudyGroup> StudyGroups => Set<StudyGroup>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
+    public DbSet<NewsComment> NewsComments => Set<NewsComment>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<KkepikSchedule> KkepikSchedules => Set<KkepikSchedule>();
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
@@ -77,6 +78,21 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasOne(e => e.Author)
                 .WithMany()
                 .HasForeignKey(e => e.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<NewsComment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Text).HasMaxLength(2000);
+            entity.HasIndex(e => new { e.AnnouncementId, e.CreatedAt });
+            entity.HasOne(e => e.Announcement)
+                .WithMany()
+                .HasForeignKey(e => e.AnnouncementId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

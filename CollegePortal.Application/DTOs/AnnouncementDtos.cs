@@ -41,3 +41,15 @@ public record AnnouncementListDto(
     Guid? StudyGroupId,
     string? StudyGroupName
 );
+
+public record NewsCommentDto(
+    Guid Id,
+    Guid AnnouncementId,
+    Guid UserId,
+    string UserName,
+    string? UserAvatar,
+    string Text,
+    DateTime CreatedAt
+);
+
+public record CreateNewsCommentDto(string Text);
