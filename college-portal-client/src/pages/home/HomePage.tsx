@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
+import { RoomButton } from '../../components/college/RoomButton';
 import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
@@ -138,7 +139,12 @@ export function HomePage() {
                     </div>
                     <p className="font-medium text-dark-text">{lesson.name}</p>
                     {lesson.classroom && lesson.classroom.name && (
-                      <p className="text-sm text-dark-textMuted mt-1">Ауд. {lesson.classroom.name}</p>
+                      <RoomButton
+                        roomName={lesson.classroom.name}
+                        lessonName={lesson.name}
+                        teacherName={teacherShort(lesson.teacher)}
+                        className="block text-sm text-primary-400 hover:text-primary-300 hover:underline mt-1 disabled:opacity-60 text-left"
+                      />
                     )}
                     {lesson.teacher && (
                       <p className="text-sm text-dark-textMuted">{teacherShort(lesson.teacher)}</p>
@@ -190,7 +196,12 @@ export function HomePage() {
                     </div>
                     <p className="font-medium text-dark-text">{lesson.name}</p>
                     {lesson.classroom && lesson.classroom.name && (
-                      <p className="text-sm text-dark-textMuted mt-1">Ауд. {lesson.classroom.name}</p>
+                      <RoomButton
+                        roomName={lesson.classroom.name}
+                        lessonName={lesson.name}
+                        teacherName={teacherShort(lesson.teacher)}
+                        className="block text-sm text-primary-400 hover:text-primary-300 hover:underline mt-1 disabled:opacity-60 text-left"
+                      />
                     )}
                     {lesson.teacher && (
                       <p className="text-sm text-dark-textMuted">{teacherShort(lesson.teacher)}</p>

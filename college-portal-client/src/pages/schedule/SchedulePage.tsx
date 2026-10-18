@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { scheduleApi, collegeMapApi } from '../../services/api';
+import { useSearchParams } from 'react-router-dom';
+import { scheduleApi } from '../../services/api';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Modal } from '../../components/ui/Modal';
-import { AddAuditoriumModal } from '../../components/college/AddAuditoriumModal';
-import { useAuth } from '../../context/AuthContext';
+import { RoomButton } from '../../components/college/RoomButton';
 import { addDaysISO, formatMoscowTime, moscowDateISO, moscowWeekStartISO } from '../../utils/datetime';
-import type { WeekScheduleResponse, KkepikScheduleResponse, Lesson } from '../../types';
+import type { WeekScheduleResponse, KkepikScheduleResponse } from '../../types';
 
 const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const monthNames = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
@@ -33,43 +31,9 @@ const teacherShort = (teacher: WeekScheduleResponse['days'][number]['lessons'][n
 
 export function SchedulePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { hasPermission } = useAuth();
   const [weekSchedule, setWeekSchedule] = useState<WeekScheduleResponse | null>(null);
   const [kkepik, setKkepik] = useState<KkepikScheduleResponse | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
-  const [roomLookup, setRoomLookup] = useState<{ number: string; discipline?: string; teacherName?: string } | null>(null);
-  const [roomNotFound, setRoomNotFound] = useState<string | null>(null);
-  const [isLookingUpRoom, setIsLookingUpRoom] = useState(false);
-
-  const canManageMap = hasPermission('MapManage');
-
-  const normalizeRoom = (value: string) => value.replace(/\s+/g, '').toLowerCase();
-
-  const handleRoomClick = async (lesson: Lesson) => {
-    const number = lesson.classroom?.name?.trim();
-    if (!number || isLookingUpRoom) return;
-    setIsLookingUpRoom(true);
-    try {
-      const res = await collegeMapApi.search(number);
-      const match =
-        res.data.auditoriums.find((a) => normalizeRoom(a.number) === normalizeRoom(number)) ??
-        (res.data.auditoriums.length === 1 ? res.data.auditoriums[0] : null);
-      if (match) {
-        navigate(`/college-info/map?auditorium=${match.id}`);
-        return;
-      }
-    } catch {
-      // fall through to the not-found flow
-    } finally {
-      setIsLookingUpRoom(false);
-    }
-    if (canManageMap) {
-      setRoomLookup({ number, discipline: lesson.name, teacherName: teacherShort(lesson.teacher) });
-    } else {
-      setRoomNotFound(number);
-    }
-  };
 
   const loadSchedule = async () => {
     setIsLoading(true);
@@ -183,16 +147,11 @@ export function SchedulePage() {
                       </div>
                       <p className="font-medium text-dark-text line-clamp-1">{lesson.name}</p>
                       {lesson.classroom && lesson.classroom.name && (
-                        <button
-                          type="button"
-                          onClick={() => handleRoomClick(lesson)}
-                          disabled={isLookingUpRoom}
-                          className="block text-xs text-primary-400 hover:text-primary-300 hover:underline mt-1 disabled:opacity-60 text-left"
-                          title="Показать аудиторию на карте"
-                        >
-                          Ауд. {lesson.classroom.name}
-                          {isLookingUpRoom && ' …'}
-                        </button>
+                        <RoomButton
+                          roomName={lesson.classroom.name}
+                          lessonName={lesson.name}
+                          teacherName={teacherShort(lesson.teacher)}
+                        />
                       )}
                       {lesson.teacher && (
                         <p className="text-xs text-dark-textMuted">{teacherShort(lesson.teacher)}</p>
@@ -207,35 +166,6 @@ export function SchedulePage() {
           );
         })}
       </div>
-
-      {roomNotFound && (
-        <Modal title="Аудитория не найдена" onClose={() => setRoomNotFound(null)}>
-          <div className="space-y-3">
-            <p className="text-sm text-dark-text">
-              Не удалось найти аудиторию <span className="font-semibold">{'Ауд. '}{roomNotFound}</span> на карте колледжа.
-            </p>
-            <p className="text-sm text-dark-textMuted">
-              Добавить её на карту может администратор с правами доступа к карте.
-            </p>
-            <Button variant="secondary" size="sm" onClick={() => setRoomNotFound(null)}>
-              Закрыть
-            </Button>
-          </div>
-        </Modal>
-      )}
-
-      {roomLookup && (
-        <AddAuditoriumModal
-          number={roomLookup.number}
-          disciplineName={roomLookup.discipline}
-          teacherName={roomLookup.teacherName}
-          onClose={() => setRoomLookup(null)}
-          onCreated={(auditorium) => {
-            setRoomLookup(null);
-            navigate(`/college-info/map?auditorium=${auditorium.id}`);
-          }}
-        />
-      )}
     </div>
   );
 }
