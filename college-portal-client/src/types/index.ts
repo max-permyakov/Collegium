@@ -144,7 +144,9 @@ export interface AnnouncementListItem {
   title: string;
   body: string;
   publishedAt: string;
+  authorId: string;
   authorName: string;
+  authorAvatar?: string | null;
   isPublished: boolean;
   createdAt: string;
   studyGroupId?: string;

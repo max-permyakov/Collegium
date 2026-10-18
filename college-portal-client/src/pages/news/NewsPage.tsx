@@ -135,7 +135,7 @@ export function NewsPage() {
                       <p className="text-sm text-dark-textMuted line-clamp-2">{item.body}</p>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-dark-textMuted shrink-0">
-                      <Avatar name={item.authorName} size="sm" />
+                      <Avatar src={item.authorAvatar || undefined} name={item.authorName} size="sm" />
                       <div>
                         <p className="font-medium text-dark-text">{item.authorName}</p>
                         <p>{_formatDate(item.publishedAt)}</p>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { newsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -93,7 +94,16 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
         </div>
 
         <h2 className="text-xl font-bold text-dark-text">{announcement.title}</h2>
-        <p className="text-sm text-dark-textMuted mt-1">👤 {announcement.authorName}</p>
+        <Link
+          to={`/users/${announcement.authorId}`}
+          onClick={onClose}
+          className="flex items-center gap-3 mt-3 group min-w-0"
+        >
+          <Avatar src={announcement.authorAvatar || undefined} name={announcement.authorName} size="md" />
+          <span className="text-sm font-medium text-dark-text group-hover:text-primary-400 transition-colors truncate">
+            {announcement.authorName}
+          </span>
+        </Link>
         <p className="text-dark-text whitespace-pre-wrap break-words mt-4">{announcement.body}</p>
 
         <div className="border-t border-dark-border mt-5 pt-4">
@@ -112,10 +122,18 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
             ) : comments && comments.length > 0 ? (
               comments.map(c => (
                 <div key={c.id} className="flex gap-3">
-                  <Avatar src={c.userAvatar || undefined} name={c.userName} size="sm" />
+                  <Link to={`/users/${c.userId}`} onClick={onClose} className="shrink-0">
+                    <Avatar src={c.userAvatar || undefined} name={c.userName} size="sm" />
+                  </Link>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-dark-text">{c.userName}</span>
+                      <Link
+                        to={`/users/${c.userId}`}
+                        onClick={onClose}
+                        className="text-sm font-medium text-dark-text hover:text-primary-400 transition-colors truncate"
+                      >
+                        {c.userName}
+                      </Link>
                       <span className="text-xs text-dark-textMuted">{formatDateTime(c.createdAt)}</span>
                       {(user?.id === c.userId || user?.role === 'Admin') && (
                         <button

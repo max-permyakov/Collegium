@@ -326,7 +326,11 @@ export function HomePage() {
                   <div className="p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
                     <p className="font-medium text-dark-text line-clamp-1">{news.title}</p>
                     <p className="text-sm text-dark-textMuted mt-1 line-clamp-2">{news.body}</p>
-                    <p className="text-xs text-dark-textMuted mt-2">{_formatDate(news.publishedAt)}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Avatar src={news.authorAvatar || undefined} name={news.authorName} size="xs" />
+                      <span className="text-xs text-dark-textMuted truncate">{news.authorName}</span>
+                      <span className="text-xs text-dark-textMuted ml-auto shrink-0">{_formatDate(news.publishedAt)}</span>
+                    </div>
                   </div>
                 </button>
               ))}
