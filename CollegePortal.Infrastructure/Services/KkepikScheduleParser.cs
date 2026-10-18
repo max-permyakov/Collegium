@@ -5,31 +5,46 @@ namespace CollegePortal.Infrastructure.Services;
 
 public static class KkepikScheduleParser
 {
-    private static readonly Dictionary<int, (TimeSpan Start, TimeSpan End)> PairTimes = new()
+    // Будние дни: перемена между парами 20 минут.
+    private static readonly Dictionary<int, (TimeSpan Start, TimeSpan End)> WeekdayPairTimes = new()
     {
-        [1] = (new TimeSpan(8, 30, 0), new TimeSpan(10, 0, 0)),
-        [2] = (new TimeSpan(10, 10, 0), new TimeSpan(11, 40, 0)),
-        [3] = (new TimeSpan(11, 50, 0), new TimeSpan(13, 20, 0)),
-        [4] = (new TimeSpan(13, 30, 0), new TimeSpan(15, 0, 0)),
-        [5] = (new TimeSpan(15, 10, 0), new TimeSpan(16, 40, 0)),
-        [6] = (new TimeSpan(16, 50, 0), new TimeSpan(18, 20, 0)),
-        [7] = (new TimeSpan(18, 30, 0), new TimeSpan(20, 0, 0))
+        [1] = (new TimeSpan(8, 35, 0), new TimeSpan(10, 5, 0)),
+        [2] = (new TimeSpan(10, 25, 0), new TimeSpan(11, 55, 0)),
+        [3] = (new TimeSpan(12, 15, 0), new TimeSpan(13, 45, 0)),
+        [4] = (new TimeSpan(14, 5, 0), new TimeSpan(15, 35, 0)),
+        [5] = (new TimeSpan(15, 55, 0), new TimeSpan(17, 25, 0)),
+        [6] = (new TimeSpan(17, 45, 0), new TimeSpan(19, 15, 0)),
+        [7] = (new TimeSpan(19, 35, 0), new TimeSpan(21, 5, 0))
     };
 
-    public static LessonDto[] Parse(string[] lines)
+    // Суббота: перемены короче — по 10 минут.
+    private static readonly Dictionary<int, (TimeSpan Start, TimeSpan End)> SaturdayPairTimes = new()
     {
+        [1] = (new TimeSpan(8, 35, 0), new TimeSpan(10, 5, 0)),
+        [2] = (new TimeSpan(10, 15, 0), new TimeSpan(11, 45, 0)),
+        [3] = (new TimeSpan(11, 55, 0), new TimeSpan(13, 25, 0)),
+        [4] = (new TimeSpan(13, 35, 0), new TimeSpan(15, 5, 0)),
+        [5] = (new TimeSpan(15, 15, 0), new TimeSpan(16, 45, 0)),
+        [6] = (new TimeSpan(16, 55, 0), new TimeSpan(18, 25, 0)),
+        [7] = (new TimeSpan(18, 35, 0), new TimeSpan(20, 5, 0))
+    };
+
+    public static LessonDto[] Parse(string[] lines, DayOfWeek dayOfWeek)
+    {
+        var pairTimes = dayOfWeek == DayOfWeek.Saturday ? SaturdayPairTimes : WeekdayPairTimes;
         var lessons = new List<LessonDto>(lines.Length);
         foreach (var line in lines)
         {
             if (string.IsNullOrWhiteSpace(line))
                 continue;
-            lessons.Add(ParseLine(line));
+            lessons.Add(ParseLine(line, pairTimes));
         }
         return lessons.ToArray();
     }
 
-    public static LessonDto ParseLine(string raw)
+    public static LessonDto ParseLine(string raw, Dictionary<int, (TimeSpan Start, TimeSpan End)>? pairTimes = null)
     {
+        pairTimes ??= WeekdayPairTimes;
         // Trim leading marker glyphs (bullets, variation selectors, dashes, whitespace).
         var line = raw.Trim();
         line = Regex.Replace(line, @"^[^\p{L}\p{N}]+", "").Trim();
@@ -53,7 +68,7 @@ public static class KkepikScheduleParser
         var teacherText = parts.Length > 1 ? parts[1] : "";
         var audience = parts.Length > 2 ? parts[^1] : "";
 
-        PairTimes.TryGetValue(pairNumber, out var times);
+        pairTimes.TryGetValue(pairNumber, out var times);
 
         return new LessonDto(
             times.Start,

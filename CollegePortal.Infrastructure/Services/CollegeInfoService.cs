@@ -92,7 +92,7 @@ public class CollegeInfoService : ICollegeInfoService
         if (raw == null)
             return null;
 
-        var lessons = KkepikScheduleParser.Parse(raw.ScheduleLines)
+        var lessons = KkepikScheduleParser.Parse(raw.ScheduleLines, raw.Date.DayOfWeek)
             .Select(l => new CollegeLessonItemDto(
                 l.StartTime,
                 l.EndTime,
@@ -230,7 +230,7 @@ public class CollegeInfoService : ICollegeInfoService
                 continue;
             }
 
-            foreach (var lesson in KkepikScheduleParser.Parse(lines))
+            foreach (var lesson in KkepikScheduleParser.Parse(lines, snapshot.Date.DayOfWeek))
             {
                 var teacher = lesson.Teacher;
                 if (teacher == null || string.IsNullOrWhiteSpace(teacher.LastName))

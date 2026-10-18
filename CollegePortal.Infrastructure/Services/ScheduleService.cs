@@ -150,7 +150,7 @@ public class ScheduleService : IScheduleService
         return new KkepikScheduleResponseDto(
             snapshot.Date,
             groupName,
-            KkepikScheduleParser.Parse(lines),
+            KkepikScheduleParser.Parse(lines, snapshot.Date.DayOfWeek),
             snapshot.UpdatedAt
         );
     }
