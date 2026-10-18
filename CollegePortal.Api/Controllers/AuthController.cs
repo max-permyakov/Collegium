@@ -3,6 +3,7 @@ using CollegePortal.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Configuration;
 
 namespace CollegePortal.Api.Controllers;
 
@@ -21,7 +22,11 @@ public class AuthController : ControllerBase
         _environment = environment;
     }
 
-    private string CookieName => _configuration["Auth:CookieName"] ?? "cp_access";
+    private string AccessCookieName => _configuration["Auth:CookieName"] ?? "cp_access";
+    private string RefreshCookieName => _configuration["Auth:RefreshCookieName"] ?? "cp_refresh";
+
+    private TimeSpan ConfiguredRefreshLifetime =>
+        TimeSpan.FromDays(_configuration.GetValue("Auth:RefreshTokenDays", 30));
 
     [HttpPost("login")]
     [AllowAnonymous]
@@ -32,7 +37,7 @@ public class AuthController : ControllerBase
         if (result == null)
             return Unauthorized(new { message = "Неверный email или пароль" });
 
-        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        SetAuthCookies(result);
         return Ok(result.User);
     }
 
@@ -46,7 +51,32 @@ public class AuthController : ControllerBase
         if (result == null)
             return Unauthorized(new { message = "Неверный логин или пароль дневника" });
 
-        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        SetAuthCookies(result);
+        return Ok(result.User);
+    }
+
+    // Exchanges the long-lived refresh cookie for a fresh access token (and a
+    // rotated refresh token — sliding session). Anonymous: authentication for
+    // this endpoint comes from the refresh cookie itself.
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> Refresh()
+    {
+        if (!Request.Cookies.TryGetValue(RefreshCookieName, out var refreshToken) ||
+            string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return Unauthorized(new { message = "Требуется вход" });
+        }
+
+        var result = await _authService.RefreshSessionAsync(refreshToken);
+        if (result == null)
+        {
+            ClearAuthCookies();
+            return Unauthorized(new { message = "Сессия недействительна, войдите заново" });
+        }
+
+        SetAuthCookies(result);
         return Ok(result.User);
     }
 
@@ -58,11 +88,12 @@ public class AuthController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized();
 
-        var result = await _authService.DiaryReloginAsync(userId.Value);
+        Request.Cookies.TryGetValue(RefreshCookieName, out var refreshToken);
+        var result = await _authService.DiaryReloginAsync(userId.Value, refreshToken);
         if (result == null)
             return Unauthorized(new { message = "Сессия дневника истекла, требуется повторный вход" });
 
-        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        SetAuthCookies(result);
         return Ok(result.User);
     }
 
@@ -71,10 +102,11 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Logout()
     {
         var userId = GetCurrentUserId();
+        Request.Cookies.TryGetValue(RefreshCookieName, out var refreshToken);
         if (userId.HasValue)
-            await _authService.LogoutAsync(userId.Value);
+            await _authService.LogoutAsync(userId.Value, refreshToken);
 
-        ClearAuthCookie();
+        ClearAuthCookies();
         return Ok(new { message = "Выход выполнен" });
     }
 
@@ -114,33 +146,56 @@ public class AuthController : ControllerBase
         if (result == null)
             return Unauthorized(new { message = "Неверный пароль" });
 
-        SetAuthCookie(result.AccessToken, result.ExpiresAt);
+        SetAuthCookies(result);
         return Ok(result.User);
     }
 
-    private void SetAuthCookie(string token, DateTime expiresAt)
+    // Two cookies: a short-lived access token (readable by the API on every
+    // request) and a long-lived refresh token scoped to /api/auth so it is
+    // only ever sent to the auth endpoints.
+    private void SetAuthCookies(LoginResponseDto session)
     {
         var isDevelopment = _environment.IsDevelopment();
 
-        Response.Cookies.Append(CookieName, token, new CookieOptions
+        Response.Cookies.Append(AccessCookieName, session.AccessToken, new CookieOptions
         {
             HttpOnly = true,
             Secure = !isDevelopment,
             SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.Strict,
             Path = "/",
-            Expires = expiresAt,
+            Expires = session.ExpiresAt,
+            IsEssential = true
+        });
+
+        Response.Cookies.Append(RefreshCookieName, session.RefreshToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !isDevelopment,
+            SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.Strict,
+            Path = "/api/auth",
+            Expires = DateTime.UtcNow.Add(ConfiguredRefreshLifetime),
             IsEssential = true
         });
     }
 
-    private void ClearAuthCookie()
+    private void ClearAuthCookies()
     {
-        Response.Cookies.Delete(CookieName, new CookieOptions
+        var isDevelopment = _environment.IsDevelopment();
+        var sameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.Strict;
+
+        Response.Cookies.Delete(AccessCookieName, new CookieOptions
         {
             HttpOnly = true,
-            Secure = !_environment.IsDevelopment(),
-            SameSite = _environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.Strict,
+            Secure = !isDevelopment,
+            SameSite = sameSite,
             Path = "/"
+        });
+        Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !isDevelopment,
+            SameSite = sameSite,
+            Path = "/api/auth"
         });
     }
 

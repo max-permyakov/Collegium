@@ -53,6 +53,12 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
             && cookies.Any(c => c.StartsWith("cp_access=", StringComparison.Ordinal));
     }
 
+    private static bool HasRefreshCookie(HttpResponseMessage response)
+    {
+        return response.Headers.TryGetValues("Set-Cookie", out var cookies)
+            && cookies.Any(c => c.StartsWith("cp_refresh=", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task DiaryLogin_WithValidCredentials_SetsAuthCookie()
     {
@@ -73,6 +79,7 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         HasAuthCookie(response).Should().BeTrue();
+        HasRefreshCookie(response).Should().BeTrue("login must set both the access and the refresh cookie");
 
         var user = await response.Content.ReadFromJsonAsync<UserDto>();
 
@@ -126,6 +133,55 @@ public class AuthIntegrationTests : IClassFixture<WebApplicationFactory<CollegeP
         // Assert
         reloginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         HasAuthCookie(reloginResponse).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Refresh_WithValidSession_RotatesCookies()
+    {
+        // Arrange - First login to establish the session cookies
+        var login = _configuration["Diary:TestLogin"];
+        var password = _configuration["Diary:TestPassword"];
+
+        if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
+        {
+            throw new InvalidOperationException("SKIP: Diary test credentials not configured in user secrets");
+        }
+
+        var initialRequest = new DiaryLoginRequestDto(login!, HashPassword(password!));
+        var initialResponse = await _client.PostAsJsonAsync("/api/auth/diary-login", initialRequest);
+
+        await SkipIfDiaryUnavailable(initialResponse, "Refresh_WithValidSession_RotatesCookies");
+
+        initialResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        HasAuthCookie(initialResponse).Should().BeTrue();
+        HasRefreshCookie(initialResponse).Should().BeTrue();
+
+        // Act - Exchange the refresh cookie for a fresh pair (sent automatically)
+        var refreshResponse = await _client.PostAsync("/api/auth/refresh", null);
+
+        // Assert
+        refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        HasAuthCookie(refreshResponse).Should().BeTrue();
+        HasRefreshCookie(refreshResponse).Should().BeTrue();
+
+        // The rotated session must be usable: /me responds with the user.
+        var meResponse = await _client.GetAsync("/api/auth/me");
+        meResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Refresh_WithoutCookies_ReturnsUnauthorized()
+    {
+        // A cookie-less client (fresh browser) must not be able to refresh.
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+
+        var refreshResponse = await client.PostAsync("/api/auth/refresh", null);
+
+        refreshResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }
 

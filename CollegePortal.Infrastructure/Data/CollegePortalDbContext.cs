@@ -26,6 +26,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<Building> Buildings => Set<Building>();
     public DbSet<Auditorium> Auditoriums => Set<Auditorium>();
     public DbSet<Discipline> Disciplines => Set<Discipline>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -42,7 +43,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.UserId).IsUnique();
             entity.HasIndex(e => e.ExternalStudentId).IsUnique();
-            entity.Property(e => e.Bio).HasMaxLength(2000);
+            entity.Property(e => e.Bio).HasMaxLength(200);
             entity.Property(e => e.AvatarDataUrl).HasMaxLength(3_000_000);
             entity.Property(e => e.AverageMark).HasPrecision(5, 2);
             entity.HasOne(e => e.User)
@@ -127,7 +128,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(120);
-            entity.Property(e => e.Description).HasMaxLength(2000);
+            entity.Property(e => e.Description).HasMaxLength(200);
             entity.Property(e => e.AvatarDataUrl).HasMaxLength(3_000_000);
             entity.Property(e => e.InviteToken).HasMaxLength(64);
             entity.HasIndex(e => e.InviteToken).IsUnique();
@@ -188,8 +189,20 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
         builder.Entity<Discipline>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Name).IsUnique();
             entity.Property(e => e.Name).HasMaxLength(200);
+            entity.HasIndex(e => e.Name).IsUnique();
+        });
+
+        builder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TokenHash).HasMaxLength(64);
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Auditorium>(entity =>

@@ -8,6 +8,9 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  // True when an active session was rejected by the API (expired / revoked);
+  // lets the login page explain why the user landed there.
+  sessionExpired: boolean;
   login: (data: LoginRequest) => Promise<void>;
   diaryLogin: (login: string, password: string) => Promise<void>;
   claimPrimaryAdmin: (password: string) => Promise<void>;
@@ -28,6 +31,7 @@ async function hashDiaryPassword(password: string): Promise<string> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const queryClient = useQueryClient();
 
   const refreshUser = useCallback(async () => {
@@ -53,20 +57,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   // When the API rejects our session (expired / revoked), drop local state.
+  // The handler only flags "session expired" when a user was actually signed
+  // in, so a failed bootstrap check on a fresh visit stays silent.
   useEffect(() => {
     const onUnauthorized = () => {
+      if (user) {
+        setSessionExpired(true);
+      }
       setUser(null);
       queryClient.clear();
     };
     window.addEventListener('auth:unauthorized', onUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
-  }, [queryClient]);
+  }, [queryClient, user]);
 
   const login = async (data: LoginRequest) => {
     const response = await authApi.login(data);
 
     queryClient.clear();
     setUser(response.data);
+    setSessionExpired(false);
   };
 
   const diaryLogin = async (login: string, password: string) => {
@@ -75,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     queryClient.clear();
     setUser(response.data);
+    setSessionExpired(false);
   };
 
   const claimPrimaryAdmin = async (password: string) => {
@@ -82,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     queryClient.clear();
     setUser(response.data);
+    setSessionExpired(false);
   };
 
   const logout = async () => {
@@ -96,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, diaryLogin, claimPrimaryAdmin, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, sessionExpired, login, diaryLogin, claimPrimaryAdmin, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

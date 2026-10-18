@@ -79,7 +79,9 @@ public static class ServiceCollectionExtensions
                 ValidIssuer = jwtIssuer,
                 ValidAudience = jwtAudience,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-                ClockSkew = TimeSpan.Zero
+                // Small grace period so minor clock drift between replicas (or an
+                // NTP step) does not invalidate freshly issued tokens.
+                ClockSkew = TimeSpan.FromSeconds(30)
             };
 
             // The access token is delivered as an HttpOnly cookie, so it can never

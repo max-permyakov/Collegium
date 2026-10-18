@@ -13,10 +13,12 @@ public record ClaimPrimaryAdminRequestDto(
     string Password
 );
 
-// AccessToken/ExpiresAt are transport details delivered to the client as an
-// HttpOnly cookie, so they are never serialized into the JSON response body.
+// AccessToken/RefreshToken/ExpiresAt are transport details delivered to the
+// client as HttpOnly cookies, so they are never serialized into the JSON
+// response body.
 public record LoginResponseDto(
     [property: JsonIgnore] string AccessToken,
+    [property: JsonIgnore] string RefreshToken,
     [property: JsonIgnore] DateTime ExpiresAt,
     UserDto User
 );
@@ -42,8 +44,4 @@ public record StudentProfileDto(
     string HeadmanRole,
     decimal? AverageMark,
     DateTime? GradesCachedAt
-);
-
-public record RefreshTokenRequestDto(
-    string RefreshToken
 );

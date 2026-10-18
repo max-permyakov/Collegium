@@ -5,7 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/Card';
 
 export function LoginPage() {
-  const { diaryLogin } = useAuth();
+  const { diaryLogin, sessionExpired } = useAuth();
   const [formData, setFormData] = useState({
     login: '',
     password: '',
@@ -54,6 +54,11 @@ export function LoginPage() {
         </CardHeader>
 
       <CardContent>
+        {sessionExpired && (
+          <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm" role="status">
+            Сессия истекла, войдите заново
+          </div>
+        )}
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm" role="alert">
             {error}

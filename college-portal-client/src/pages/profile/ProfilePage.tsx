@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { profileApi, adminApi } from '../../services/api';
@@ -11,6 +11,7 @@ import { formatMoscowDate, formatMoscowDateTime } from '../../utils/datetime';
 import type { ProfileDto } from '../../types';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+const MAX_BIO_LENGTH = 200;
 
 export function ProfilePage() {
   const { userId } = useParams<{ userId?: string }>();
@@ -19,6 +20,15 @@ export function ProfilePage() {
   const isAdminView = Boolean(userId);
   const targetUserId = userId;
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [bioError, setBioError] = useState('');
+  const [bioValue, setBioValue] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const goBack = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate('/');
+  };
 
   const { data: profile, isLoading, error } = useQuery<ProfileDto | null>({
     queryKey: isAdminView ? ['admin', 'user', targetUserId] : ['profile', 'me', user?.id],
@@ -38,11 +48,16 @@ export function ProfilePage() {
   const updateMutation = useMutation({
     mutationFn: (data: { bio?: string | null; email?: string | null; phoneNumber?: string | null }) => profileApi.updateMe(data),
     onSuccess: () => {
+      setBioError('');
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
       if (isAdminView && targetUserId) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
       }
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+    onError: (err) => {
+      const e = err as { response?: { data?: { message?: string } } };
+      setBioError(e.response?.data?.message || 'Не удалось сохранить био');
     },
   });
 
@@ -107,6 +122,18 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      {isAdminView && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={goBack}
+            className="text-sm text-dark-textMuted hover:text-dark-text"
+          >
+            ← Назад
+          </button>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Профиль {isAdminView ? 'пользователя' : ''}</CardTitle>
@@ -200,13 +227,20 @@ export function ProfilePage() {
                   rows={4}
                   defaultValue={profile.bio || ''}
                   placeholder="Краткое био"
+                  maxLength={MAX_BIO_LENGTH}
+                  onChange={(e) => setBioValue(e.target.value)}
                   onBlur={(e) => {
                     if (e.target.value !== (profile.bio || '')) {
                       updateMutation.mutate({ bio: e.target.value || null });
                     }
                   }}
                 />
-                
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-dark-textMuted">
+                    {(bioValue ?? profile.bio ?? '').length}/{MAX_BIO_LENGTH}
+                  </span>
+                  {bioError && <span className="text-xs text-red-400">{bioError}</span>}
+                </div>
               </div>
             )}
           </div>

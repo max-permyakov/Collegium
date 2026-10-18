@@ -4,7 +4,10 @@ import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleRes
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
 // The access token is stored in an HttpOnly cookie set by the API, so it is
-// never exposed to JavaScript. Requests must send cookies cross-origin.
+// never exposed to JavaScript. It is short-lived; when it expires the 401
+// interceptor below silently exchanges the long-lived refresh cookie (scoped
+// to /api/auth) for a fresh pair via POST /auth/refresh. Requests must send
+// cookies cross-origin.
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -13,6 +16,17 @@ const api = axios.create({
   withCredentials: true,
   timeout: 30000,
 });
+
+// Auth endpoints whose 401 must not trigger a token refresh (wrong password,
+// failed refresh itself, ...), otherwise they would loop.
+const NO_REFRESH_PATHS = [
+  '/auth/login',
+  '/auth/diary-login',
+  '/auth/claim-primary-admin',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/diary-relogin',
+];
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -40,8 +54,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const url = originalRequest?.url ?? '';
+    const isNoRefreshPath = NO_REFRESH_PATHS.some((path) => url.includes(path));
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest?._retry && !isNoRefreshPath) {
       if (isRefreshing) {
         return new Promise<void>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -54,9 +70,10 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // The access token cookie may still be valid while the diary session
-        // expired; re-establish it via a cookie-authenticated relogin.
-        await axios.post(`${API_BASE_URL}/auth/diary-relogin`, {}, { withCredentials: true });
+        // The access-token cookie expired (or was revoked together with the
+        // refresh rotation). Exchange the refresh cookie for a fresh pair and
+        // retry the original request.
+        await axios.post(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
 
         processQueue(null);
         return api(originalRequest);

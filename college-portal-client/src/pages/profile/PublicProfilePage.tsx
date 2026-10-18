@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { profileApi } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -13,6 +13,13 @@ const headmanLabel = (role: string): string | null =>
 
 export function PublicProfilePage({ userId }: { userId: string }) {
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const goBack = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate('/');
+  };
 
   const { data: profile, isLoading, error } = useQuery<PublicProfileDto | null>({
     queryKey: ['user-public', userId],
@@ -37,6 +44,16 @@ export function PublicProfilePage({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={goBack}
+          className="text-sm text-dark-textMuted hover:text-dark-text"
+        >
+          ← Назад
+        </button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Профиль</CardTitle>

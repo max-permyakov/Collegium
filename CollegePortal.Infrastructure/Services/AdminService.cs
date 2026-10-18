@@ -156,11 +156,14 @@ public class AdminService : IAdminService
             return new AdminActionResult(true);
 
         target.Role = role;
-        // Revoke any token already issued to the affected account.
+        // Revoke any credential already issued to the affected account: the
+        // stamp invalidates access tokens, the refresh tokens are revoked below.
         target.SecurityStamp = Guid.NewGuid().ToString();
         var updateResult = await _userManager.UpdateAsync(target);
         if (!updateResult.Succeeded)
             return new AdminActionResult(false, string.Join("; ", updateResult.Errors.Select(e => e.Description)));
+
+        await RevokeAllRefreshTokensAsync(targetUserId, ct);
 
         if (role == "Admin" && !await _userManager.IsInRoleAsync(target, "Admin"))
             await _userManager.AddToRoleAsync(target, "Admin");
@@ -187,14 +190,33 @@ public class AdminService : IAdminService
             return new AdminActionResult(true);
 
         target.IsActive = isActive;
-        // Revoke any token already issued to the affected account.
+        // Revoke any credential already issued to the affected account: the
+        // stamp invalidates access tokens, the refresh tokens are revoked below.
         target.SecurityStamp = Guid.NewGuid().ToString();
         var updateResult = await _userManager.UpdateAsync(target);
         if (!updateResult.Succeeded)
             return new AdminActionResult(false, string.Join("; ", updateResult.Errors.Select(e => e.Description)));
 
+        await RevokeAllRefreshTokensAsync(targetUserId, ct);
+
         await WriteAuditAsync(adminUserId, targetUserId, "SetIsActive", isActive ? "Разблокирован" : "Заблокирован", ct);
         return new AdminActionResult(true);
+    }
+
+    // The security stamp only invalidates already-issued access tokens; the
+    // long-lived refresh cookies must be revoked explicitly as well.
+    private async Task RevokeAllRefreshTokensAsync(Guid userId, CancellationToken ct)
+    {
+        var tokens = await _dbContext.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ToListAsync(ct);
+        if (tokens.Count == 0)
+            return;
+
+        var now = DateTime.UtcNow;
+        foreach (var token in tokens)
+            token.RevokedAt = now;
+        await _dbContext.SaveChangesAsync(ct);
     }
 
     public async Task<AdminActionResult> SetHeadmanAsync(Guid adminUserId, Guid targetUserId, string headmanRole, CancellationToken ct = default)

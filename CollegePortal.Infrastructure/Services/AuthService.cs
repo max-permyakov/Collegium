@@ -47,7 +47,10 @@ public class AuthService : IAuthService
     }
 
     private TimeSpan AccessTokenLifetime =>
-        TimeSpan.FromMinutes(_configuration.GetValue("Auth:AccessTokenMinutes", 60));
+        TimeSpan.FromMinutes(_configuration.GetValue("Auth:AccessTokenMinutes", 15));
+
+    private TimeSpan RefreshTokenLifetime =>
+        TimeSpan.FromDays(_configuration.GetValue("Auth:RefreshTokenDays", 30));
 
     private string ProtectCookies(string cookieData) => _cookieProtector.Protect(cookieData);
 
@@ -63,34 +66,89 @@ public class AuthService : IAuthService
 
         await EnsurePrimaryAdminAsync(user);
 
-        // Rotate the security stamp before issuing the token so that any token
-        // issued previously for this account is immediately revoked.
+        // Multiple concurrent sessions are allowed: the security stamp is only
+        // rotated on ban / role change, never on login.
         user.LastLoginAt = DateTime.UtcNow;
-        user.SecurityStamp = Guid.NewGuid().ToString();
-        await _userManager.UpdateAsync(user);
+        await TryUpdateUserAsync(user);
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = GenerateJwtToken(user, roles);
-        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
-
         var studentProfile = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        var userDto = ToUserDto(user, roles, studentProfile);
-
-        return new LoginResponseDto(token, expiresAt, userDto);
+        return await IssueSessionAsync(user, roles, studentProfile, ct);
     }
 
-    public async Task LogoutAsync(Guid userId, CancellationToken ct = default)
+    // Signs out of the current device only: revokes the presented refresh
+    // token, leaving sessions on other devices intact. The short-lived access
+    // token of this device expires on its own within minutes.
+    public async Task LogoutAsync(Guid userId, string? refreshToken, CancellationToken ct = default)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user != null)
-        {
-            user.SecurityStamp = Guid.NewGuid().ToString();
-            await _userManager.UpdateAsync(user);
-        }
+        await RevokeRefreshTokenAsync(refreshToken, ct);
         await _signInManager.SignOutAsync();
+    }
+
+    public async Task RevokeAllRefreshTokensAsync(Guid userId, CancellationToken ct = default)
+    {
+        var tokens = await _dbContext.RefreshTokens
+            .Where(t => t.UserId == userId && t.RevokedAt == null)
+            .ToListAsync(ct);
+        if (tokens.Count == 0)
+            return;
+
+        var now = DateTime.UtcNow;
+        foreach (var token in tokens)
+            token.RevokedAt = now;
+        await _dbContext.SaveChangesAsync(ct);
+    }
+
+    public async Task<LoginResponseDto?> RefreshSessionAsync(string refreshToken, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return null;
+
+        var hash = HashRefreshToken(refreshToken);
+        var stored = await _dbContext.RefreshTokens
+            .FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
+
+        if (stored == null || !stored.IsActive)
+            return null;
+
+        var user = await _userManager.FindByIdAsync(stored.UserId.ToString());
+        if (user == null || !user.IsActive)
+        {
+            // Invalidate the dangling credential.
+            stored.RevokedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+            return null;
+        }
+
+        // Sliding session: revoke the presented token before issuing a new pair
+        // so a stolen cookie stops working after its first use.
+        stored.RevokedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var studentProfile = await _dbContext.StudentProfiles
+            .Include(sp => sp.StudyGroup)
+            .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
+
+        return await IssueSessionAsync(user, roles, studentProfile, ct);
+    }
+
+    private async Task RevokeRefreshTokenAsync(string? refreshToken, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return;
+
+        var hash = HashRefreshToken(refreshToken);
+        var stored = await _dbContext.RefreshTokens
+            .FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
+        if (stored == null || stored.RevokedAt != null)
+            return;
+
+        stored.RevokedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
     }
 
     public async Task<UserDto?> GetCurrentUserAsync(Guid userId, CancellationToken ct = default)
@@ -122,8 +180,20 @@ public class AuthService : IAuthService
         user.IsProtected = true;
         // Rotate the security stamp so any token issued under the old role is
         // revoked; a fresh token with the Admin role is issued below.
-        user.SecurityStamp = Guid.NewGuid().ToString();
-        await _userManager.UpdateAsync(user);
+        var newStamp = Guid.NewGuid().ToString();
+        user.SecurityStamp = newStamp;
+
+        // A silent concurrency failure here would mint a token whose stamp
+        // never reaches the database (every request would then 401), so retry
+        // against the freshly loaded row and fail loudly instead.
+        user = await UpdateUserWithConcurrencyRetryAsync(user, u =>
+        {
+            u.Role = "Admin";
+            u.IsProtected = true;
+            u.SecurityStamp = newStamp;
+        });
+        if (user == null)
+            return null;
 
         if (!await _userManager.IsInRoleAsync(user, "Admin"))
             await _userManager.AddToRoleAsync(user, "Admin");
@@ -131,14 +201,11 @@ public class AuthService : IAuthService
         _logger.LogInformation("User {UserId} claimed primary admin.", user.Id);
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = GenerateJwtToken(user, roles);
-        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
-
         var studentProfile = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        return new LoginResponseDto(token, expiresAt, ToUserDto(user, roles, studentProfile));
+        return await IssueSessionAsync(user, roles, studentProfile, ct);
     }
 
     private bool VerifyPrimaryAdminSecret(string provided)
@@ -291,25 +358,19 @@ public class AuthService : IAuthService
         // Sync diary data (profile, schedule, grades)
         await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
 
-        // Rotate the security stamp before issuing the token (revokes prior tokens).
-        user.SecurityStamp = Guid.NewGuid().ToString();
+        // Multiple concurrent sessions are allowed: no stamp rotation on login.
         user.LastLoginAt = DateTime.UtcNow;
-        await _userManager.UpdateAsync(user);
+        await TryUpdateUserAsync(user);
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = GenerateJwtToken(user, roles);
-        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
-
         var studentProfileAfterSync = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        var userDto = ToUserDto(user, roles, studentProfileAfterSync);
-
-        return new LoginResponseDto(token, expiresAt, userDto);
+        return await IssueSessionAsync(user, roles, studentProfileAfterSync, ct);
     }
 
-    public async Task<LoginResponseDto?> DiaryReloginAsync(Guid userId, CancellationToken ct = default)
+    public async Task<LoginResponseDto?> DiaryReloginAsync(Guid userId, string? currentRefreshToken = null, CancellationToken ct = default)
     {
         var studentProfile = await _dbContext.StudentProfiles
             .Include(sp => sp.User)
@@ -343,22 +404,21 @@ public class AuthService : IAuthService
         // Sync data
         await SyncDiaryDataAsync(user.Id, diaryResult.StudentId, ct);
 
-        // Rotate the security stamp before issuing the token (revokes prior tokens).
-        user.SecurityStamp = Guid.NewGuid().ToString();
+        // Refreshing the external diary session is not a security event: the
+        // security stamp stays untouched so other portal sessions keep working.
         user.LastLoginAt = DateTime.UtcNow;
-        await _userManager.UpdateAsync(user);
+        await TryUpdateUserAsync(user);
+
+        // Rotate the session credentials (sliding expiry): revoke the refresh
+        // token this request was authenticated with and issue a fresh pair.
+        await RevokeRefreshTokenAsync(currentRefreshToken, ct);
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = GenerateJwtToken(user, roles);
-        var expiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
-
         var studentProfileAfterSync = await _dbContext.StudentProfiles
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
 
-        var userDto = ToUserDto(user, roles, studentProfileAfterSync);
-
-        return new LoginResponseDto(token, expiresAt, userDto);
+        return await IssueSessionAsync(user, roles, studentProfileAfterSync, ct);
     }
 
     public async Task<bool> UpdateDiaryDataAsync(Guid userId, int externalStudentId, string cookieData, string passwordHash, DateTime? cookiesExpiresAt, CancellationToken ct = default)
@@ -581,6 +641,92 @@ public class AuthService : IAuthService
         );
     }
 
+    // Mints the access token + refresh token pair for the given user. Both
+    // cookies must be set by the caller; neither value is serialized to JSON.
+    private async Task<LoginResponseDto> IssueSessionAsync(
+        ApplicationUser user,
+        IList<string> roles,
+        StudentProfile? profile,
+        CancellationToken ct)
+    {
+        var accessToken = GenerateJwtToken(user, roles);
+        var accessExpiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
+        var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
+
+        return new LoginResponseDto(accessToken, refreshToken, accessExpiresAt, ToUserDto(user, roles, profile));
+    }
+
+    // Generates a cryptographically random opaque token, persists only its
+    // SHA-256 hash, and returns the raw value for the client cookie.
+    private async Task<string> CreateRefreshTokenAsync(Guid userId, CancellationToken ct)
+    {
+        var value = GenerateRefreshTokenValue();
+        _dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TokenHash = HashRefreshToken(value),
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.Add(RefreshTokenLifetime)
+        });
+        await _dbContext.SaveChangesAsync(ct);
+        return value;
+    }
+
+    private static string GenerateRefreshTokenValue()
+    {
+        var bytes = new byte[64];
+        RandomNumberGenerator.Fill(bytes);
+        return Base64UrlEncoder.Encode(bytes);
+    }
+
+    private static string HashRefreshToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    // Persists user changes and logs (instead of silently dropping) failures
+    // such as Identity concurrency conflicts. Used for cosmetic updates
+    // (LastLoginAt) where a lost write is harmless.
+    private async Task TryUpdateUserAsync(ApplicationUser user)
+    {
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            _logger.LogWarning("Failed to update user {UserId}: {Errors}",
+                user.Id, string.Join("; ", result.Errors.Select(e => e.Description)));
+        }
+    }
+
+    // Like TryUpdateUserAsync, but for changes that MUST reach the database
+    // (e.g. security-stamp rotation): on a concurrency conflict the latest row
+    // is reloaded, the changes are re-applied via `applyChanges`, and the
+    // update is retried. Returns null when the update could not be persisted.
+    private async Task<ApplicationUser?> UpdateUserWithConcurrencyRetryAsync(
+        ApplicationUser user,
+        Action<ApplicationUser> applyChanges)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            var result = await _userManager.UpdateAsync(user);
+            if (result.Succeeded)
+                return user;
+
+            var isConcurrency = result.Errors.Any(e => e.Code == "ConcurrencyFailure");
+            if (!isConcurrency || attempt >= 3)
+            {
+                _logger.LogError("Failed to update user {UserId} (attempt {Attempt}): {Errors}",
+                    user.Id, attempt, string.Join("; ", result.Errors.Select(e => e.Description)));
+                return null;
+            }
+
+            var fresh = await _userManager.FindByIdAsync(user.Id.ToString());
+            if (fresh == null)
+                return null;
+
+            applyChanges(fresh);
+            user = fresh;
+        }
+    }
+
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
     {
         var jwtKey = _configuration["Jwt:Key"];
@@ -599,8 +745,8 @@ public class AuthService : IAuthService
             new(ClaimTypes.Email, user.Email ?? ""),
             new(ClaimTypes.Name, user.DisplayName),
             new("role", user.Role),
-            // Enables immediate server-side revocation (logout / ban) by comparing
-            // the token's stamp with the current user record.
+            // Enables immediate server-side revocation (ban / role change) by
+            // comparing the token's stamp with the current user record.
             new("sstamp", user.SecurityStamp ?? "")
         };
 

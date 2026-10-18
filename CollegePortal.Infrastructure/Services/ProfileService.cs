@@ -11,6 +11,7 @@ namespace CollegePortal.Infrastructure.Services;
 public class ProfileService : IProfileService
 {
     private const int MaxAvatarDataUrlLength = 3_000_000;
+    private const int MaxBioLength = 200;
 
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly CollegePortalDbContext _dbContext;
@@ -126,8 +127,9 @@ public class ProfileService : IProfileService
         if (user == null)
             return new ProfileUpdateResult(false, "Пользователь не найден");
 
-        if (request.Bio?.Length > 2000)
-            return new ProfileUpdateResult(false, "Био слишком длинное (максимум 2000 символов)");
+        var bio = TextSanitizer.Clean(request.Bio);
+        if (bio.Length > MaxBioLength)
+            return new ProfileUpdateResult(false, $"Био слишком длинное (максимум {MaxBioLength} символов)");
 
         if (!string.IsNullOrWhiteSpace(request.Email) && request.Email.Length > 200)
             return new ProfileUpdateResult(false, "Email слишком длинный");
@@ -156,7 +158,7 @@ public class ProfileService : IProfileService
         var profile = await _dbContext.StudentProfiles.FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
         if (profile != null)
         {
-            profile.Bio = string.IsNullOrWhiteSpace(request.Bio) ? null : request.Bio.Trim();
+            profile.Bio = string.IsNullOrEmpty(bio) ? null : bio;
             profile.UpdatedAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync(ct);
         }
