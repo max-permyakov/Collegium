@@ -123,6 +123,7 @@ export const newsApi = {
   getComments: (id: string) => api.get<NewsCommentDto[]>(`/news/${id}/comments`),
   postComment: (id: string, text: string) => api.post<NewsCommentDto>(`/news/${id}/comments`, { text }),
   deleteComment: (commentId: string) => api.delete(`/news/comments/${commentId}`),
+  updateComment: (commentId: string, text: string) => api.put(`/news/comments/${commentId}`, { text }),
 };
 
 export const assignmentsApi = {
@@ -173,7 +174,9 @@ export const clubsApi = {
   getMessages: (id: string, params?: { after?: string; before?: string; latest?: number; limit?: number }) =>
     api.get<ClubMessageDto[]>(`/clubs/${id}/messages`, { params }),
   postMessage: (id: string, text: string) => api.post<ClubMessageDto>(`/clubs/${id}/messages`, { text }),
+  updateMessage: (messageId: string, text: string) => api.put<ClubMessageDto>(`/clubs/messages/${messageId}`, { text }),
   deleteMessage: (messageId: string) => api.delete(`/clubs/messages/${messageId}`),
+  setPinned: (id: string, isPinned: boolean) => api.post(`/clubs/${id}/pin`, { isPinned }),
 };
 
 export const collegeInfoApi = {

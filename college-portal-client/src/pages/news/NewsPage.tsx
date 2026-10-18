@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { newsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
+import { Input, Textarea } from '../../components/ui/Input';
+import { KebabMenu } from '../../components/ui/KebabMenu';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
@@ -15,12 +17,16 @@ export function NewsPage() {
   const params = useParams<{ id?: string }>();
   const isDetail = !!params.id;
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [news, setNews] = useState<AnnouncementListItem[]>([]);
   const [detail, setDetail] = useState<Announcement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
+  const [editingNews, setEditingNews] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', body: '' });
+  const [editError, setEditError] = useState('');
 
   const _formatDate = (dateStr: string) =>
     formatMoscowDate(dateStr, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -65,6 +71,41 @@ export function NewsPage() {
     );
   }
 
+  const isAdmin = user?.role === 'Admin';
+
+  const saveNews = async () => {
+    if (!detail) return;
+    const title = editForm.title.trim();
+    if (!title) {
+      setEditError('Введите заголовок');
+      return;
+    }
+    try {
+      const res = await newsApi.update(detail.id, {
+        title,
+        body: editForm.body,
+        publishedAt: detail.publishedAt,
+        isPublished: detail.isPublished,
+      });
+      setDetail(res.data);
+      setEditingNews(false);
+      setEditError('');
+    } catch (err: any) {
+      setEditError(err.response?.data?.message || 'Не удалось сохранить');
+    }
+  };
+
+  const deleteNews = async () => {
+    if (!detail) return;
+    if (!confirm('Удалить новость?')) return;
+    try {
+      await newsApi.delete(detail.id);
+      navigate('/news');
+    } catch (err: any) {
+      setEditError(err.response?.data?.message || 'Не удалось удалить новость');
+    }
+  };
+
   if (isDetail) {
     if (!detail) {
       return (
@@ -84,21 +125,59 @@ export function NewsPage() {
 
         <Card variant="hover">
           <CardHeader>
-            <div className="flex items-center gap-3 mb-3">
-              <Badge variant={detail.isPublished ? 'success' : 'default'}>
-                {detail.isPublished ? 'Опубликовано' : 'Черновик'}
-              </Badge>
-              {detail.studyGroupName && (
-                <Badge variant="primary">{detail.studyGroupName}</Badge>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-3 flex-wrap">
+                  <Badge variant={detail.isPublished ? 'success' : 'default'}>
+                    {detail.isPublished ? 'Опубликовано' : 'Черновик'}
+                  </Badge>
+                  {detail.studyGroupName && (
+                    <Badge variant="primary">{detail.studyGroupName}</Badge>
+                  )}
+                </div>
+                <h1 className="text-2xl font-bold text-dark-text">{detail.title}</h1>
+                <div className="flex items-center gap-3 text-sm text-dark-textMuted mt-2 flex-wrap">
+                  <span>👤 {shortName(detail.authorName)}</span>
+                  <span>📅 {_formatDate(detail.publishedAt)}</span>
+                  {detail.updatedAt && <span>✏️ Обновлено {_formatDate(detail.updatedAt)}</span>}
+                </div>
+              </div>
+              {isAdmin && (
+                <KebabMenu
+                  ariaLabel="Меню новости"
+                  items={[
+                    {
+                      label: editingNews ? 'Скрыть редактирование' : 'Редактировать',
+                      onClick: () => {
+                        setEditForm({ title: detail.title, body: detail.body });
+                        setEditError('');
+                        setEditingNews((v) => !v);
+                      },
+                    },
+                    { label: 'Удалить', danger: true, onClick: deleteNews },
+                  ]}
+                />
               )}
             </div>
-            <h1 className="text-2xl font-bold text-dark-text">{detail.title}</h1>
-            <div className="flex items-center gap-3 text-sm text-dark-textMuted mt-2">
-              <span>👤 {shortName(detail.authorName)}</span>
-              <span>📅 {_formatDate(detail.publishedAt)}</span>
-              {detail.updatedAt && <span>✏️ Обновлено {_formatDate(detail.updatedAt)}</span>}
-            </div>
           </CardHeader>
+          {editingNews && (
+            <CardContent className="border-t border-dark-border space-y-3">
+              {editError && <p className="text-sm text-red-400">{editError}</p>}
+              <Input
+                label="Заголовок"
+                value={editForm.title}
+                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                maxLength={200}
+              />
+              <Textarea
+                label="Текст"
+                value={editForm.body}
+                onChange={(e) => setEditForm({ ...editForm, body: e.target.value })}
+                rows={6}
+              />
+              <Button onClick={saveNews}>Сохранить</Button>
+            </CardContent>
+          )}
           <CardContent>
             <div className="prose prose-dark max-w-none">
               <p className="whitespace-pre-wrap text-dark-text">{detail.body}</p>

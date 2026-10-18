@@ -148,6 +148,28 @@ public class ClubsController : ControllerBase
         return message == null ? Forbid() : Ok(message);
     }
 
+    [HttpPost("{id:guid}/pin")]
+    public async Task<IActionResult> SetPinned(Guid id, [FromBody] SetClubPinDto dto, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _clubService.SetPinnedAsync(id, userId.Value, IsAdmin, dto.IsPinned, ct);
+        return result.Success ? Ok() : BadRequest(new { message = result.Error });
+    }
+
+    [HttpPut("messages/{messageId:guid}")]
+    public async Task<IActionResult> UpdateMessage(Guid messageId, [FromBody] CreateClubMessageDto dto, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var message = await _clubService.UpdateMessageAsync(messageId, userId.Value, IsAdmin, dto.Text, ct);
+        return message == null ? BadRequest(new { message = "Не удалось обновить сообщение" }) : Ok(message);
+    }
+
     [HttpDelete("messages/{messageId:guid}")]
     public async Task<IActionResult> DeleteMessage(Guid messageId, CancellationToken ct)
     {

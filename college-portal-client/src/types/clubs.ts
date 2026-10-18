@@ -5,6 +5,7 @@ export interface ClubListDto {
   avatarDataUrl?: string | null;
   isPrivate: boolean;
   joinByLink: boolean;
+  isPinned: boolean;
   ownerId: string;
   ownerName: string;
   memberCount: number;
@@ -29,6 +30,7 @@ export interface ClubMessageDto {
   userAvatar?: string | null;
   text: string;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface ClubDetailDto {
@@ -38,6 +40,7 @@ export interface ClubDetailDto {
   avatarDataUrl?: string | null;
   isPrivate: boolean;
   joinByLink: boolean;
+  isPinned: boolean;
   inviteToken?: string | null;
   ownerId: string;
   ownerName: string;

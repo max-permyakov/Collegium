@@ -41,6 +41,18 @@ public class NewsCommentsController : ControllerBase
             : Ok(comment);
     }
 
+    [HttpPut("comments/{commentId:guid}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateComment(Guid commentId, [FromBody] CreateNewsCommentDto dto, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var (success, error) = await _commentService.UpdateAsync(commentId, userId.Value, User.IsInRole("Admin"), dto.Text, ct);
+        return success ? Ok() : BadRequest(new { message = error ?? "Не удалось обновить комментарий" });
+    }
+
     [HttpDelete("comments/{commentId:guid}")]
     [Authorize]
     public async Task<IActionResult> DeleteComment(Guid commentId, CancellationToken ct)

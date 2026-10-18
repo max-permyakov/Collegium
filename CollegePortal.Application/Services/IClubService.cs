@@ -26,7 +26,11 @@ public interface IClubService
 
     Task<ClubMessageDto?> PostMessageAsync(Guid clubId, Guid userId, string text, CancellationToken ct = default);
 
+    Task<ClubMessageDto?> UpdateMessageAsync(Guid messageId, Guid userId, bool isAdmin, string text, CancellationToken ct = default);
+
     Task<ClubActionResult> DeleteMessageAsync(Guid messageId, Guid userId, bool isAdmin, CancellationToken ct = default);
+
+    Task<ClubActionResult> SetPinnedAsync(Guid clubId, Guid userId, bool isAdmin, bool isPinned, CancellationToken ct = default);
 
     // Admin control / censorship
     Task<ClubListDto[]> GetAllForAdminAsync(CancellationToken ct = default);

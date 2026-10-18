@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
+import { KebabMenu } from '../../components/ui/KebabMenu';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
@@ -40,6 +41,7 @@ interface MessageRowProps {
   canManage: boolean;
   currentUserId?: string;
   onDelete: (messageId: string) => void;
+  onEdit: (messageId: string, text: string) => void;
   onAvatarClick: (src: string) => void;
 }
 
@@ -48,9 +50,27 @@ const MessageRow = memo(function MessageRow({
   canManage,
   currentUserId,
   onDelete,
+  onEdit,
   onAvatarClick,
 }: MessageRowProps) {
-  const canDelete = canManage || message.userId === currentUserId;
+  const canManageMessage = canManage || message.userId === currentUserId;
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(message.text);
+
+  const startEdit = () => {
+    setEditText(message.text);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    const text = editText.trim();
+    if (!text || text === message.text) {
+      setEditing(false);
+      return;
+    }
+    onEdit(message.id, text);
+    setEditing(false);
+  };
 
   return (
     <div className="flex items-start gap-2">
@@ -63,17 +83,36 @@ const MessageRow = memo(function MessageRow({
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-x-2">
           <Link to={`/users/${message.userId}`} className="text-sm font-medium text-dark-text hover:text-primary-400">{shortName(message.userName)}</Link>
-          <span className="text-xs text-dark-textMuted">{formatDateTime(message.createdAt)}</span>
-          {canDelete && (
-            <button
-              className="text-xs text-red-400 hover:underline"
-              onClick={() => onDelete(message.id)}
-            >
-              удалить
-            </button>
+          <span className="text-xs text-dark-textMuted">
+            {formatDateTime(message.createdAt)}{message.updatedAt && ' (изм.)'}
+          </span>
+          {canManageMessage && (
+            <KebabMenu
+              ariaLabel="Действия с сообщением"
+              items={[
+                { label: 'Редактировать', onClick: startEdit },
+                { label: 'Удалить', danger: true, onClick: () => { if (confirm('Удалить сообщение?')) onDelete(message.id); } },
+              ]}
+            />
           )}
         </div>
-        <p className="text-sm text-dark-text whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
+        {editing ? (
+          <div className="mt-1 space-y-2">
+            <textarea
+              className="input h-20 resize-none text-sm"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              maxLength={MAX_MESSAGE_LENGTH}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={saveEdit} disabled={!editText.trim()}>Сохранить</Button>
+              <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Отмена</Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-dark-text whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
+        )}
       </div>
     </div>
   );
@@ -102,6 +141,7 @@ export function ClubDetailPage() {
   const sendingRef = useRef(false);
   const sendQueueRef = useRef<string[]>([]);
   const deleteMessageRef = useRef<(messageId: string) => void>(() => {});
+  const editMessageRef = useRef<(messageId: string, text: string) => void>(() => {});
 
   const { data: club, isLoading, error: loadError } = useQuery<ClubDetailDto>({
     queryKey: ['club', clubId, invite],
@@ -212,6 +252,22 @@ export function ClubDetailPage() {
     onError: (err) => setError(getError(err)),
   });
 
+  const editMessageMutation = useMutation({
+    mutationFn: ({ messageId, text }: { messageId: string; text: string }) => clubsApi.updateMessage(messageId, text),
+    onSuccess: (res) => {
+      queryClient.setQueryData<ClubMessageDto[]>(['club-messages', clubId], (old) =>
+        old ? old.map((m) => (m.id === res.data.id ? res.data : m)) : old
+      );
+    },
+    onError: (err) => setError(getError(err)),
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: (isPinned: boolean) => clubsApi.setPinned(clubId!, isPinned),
+    onSuccess: invalidateClub,
+    onError: (err) => setError(getError(err)),
+  });
+
   const drainQueue = () => {
     if (sendingRef.current) return;
     const next = sendQueueRef.current.shift();
@@ -233,7 +289,12 @@ export function ClubDetailPage() {
     deleteMessageRef.current = (messageId: string) => deleteMessageMutation.mutate(messageId);
   }, [deleteMessageMutation]);
 
+  useEffect(() => {
+    editMessageRef.current = (messageId: string, text: string) => editMessageMutation.mutate({ messageId, text });
+  }, [editMessageMutation]);
+
   const handleDeleteMessage = useCallback((messageId: string) => deleteMessageRef.current(messageId), []);
+  const handleEditMessage = useCallback((messageId: string, text: string) => editMessageRef.current(messageId, text), []);
   const handleAvatarClick = useCallback((src: string) => setPreviewImage(src), []);
 
   const loadOlder = async () => {
@@ -321,7 +382,7 @@ export function ClubDetailPage() {
 
       <Card>
         <CardContent className="p-4 sm:p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex flex-col sm:flex-row gap-4 pr-10">
             <Avatar
               src={club.avatarDataUrl || undefined}
               name={club.name}
@@ -334,12 +395,27 @@ export function ClubDetailPage() {
                 <h1 className="text-2xl font-bold text-dark-text">{club.name}</h1>
                 <Badge variant={club.isPrivate ? 'warning' : 'success'}>{club.isPrivate ? 'Приватная' : 'Публичная'}</Badge>
                 {club.joinByLink && <Badge variant="info">По ссылке</Badge>}
+                {club.isPinned && <Badge variant="primary">📌 Закреплён</Badge>}
               </div>
               <p className="text-sm text-dark-textMuted">
                 Глава: <Link to={`/users/${club.ownerId}`} className="text-dark-text hover:text-primary-400">{shortName(club.ownerName)}</Link> · Участников: {club.memberCount}
               </p>
               {club.description && <p className="text-dark-text whitespace-pre-wrap">{club.description}</p>}
             </div>
+            {club.canManage && (
+              <div className="absolute top-0 right-0">
+                <KebabMenu
+                  ariaLabel="Меню группы"
+                  items={[
+                    { label: editing ? 'Скрыть редактирование' : 'Редактировать', onClick: () => { setForm(toForm(club)); setEditing((v) => !v); } },
+                    { label: club.isPinned ? 'Открепить сверху' : 'Закрепить сверху', onClick: () => pinMutation.mutate(!club.isPinned) },
+                    ...((club.ownerId === user?.id || user?.role === 'Admin')
+                      ? [{ label: 'Удалить группу', danger: true, onClick: () => { if (confirm('Удалить группу со всеми сообщениями?')) deleteMutation.mutate(); } }]
+                      : []),
+                  ]}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -354,18 +430,6 @@ export function ClubDetailPage() {
               <Button variant="secondary" loading={leaveMutation.isPending} onClick={() => leaveMutation.mutate()}>
                 Покинуть
               </Button>
-            )}
-            {club.canManage && (
-              <>
-                <Button variant="secondary" onClick={() => { setForm(toForm(club)); setEditing((v) => !v); }}>
-                  {editing ? 'Отменить редактирование' : 'Редактировать'}
-                </Button>
-                <Button variant="danger" loading={deleteMutation.isPending} onClick={() => {
-                  if (confirm('Удалить группу со всеми сообщениями?')) deleteMutation.mutate();
-                }}>
-                  Удалить
-                </Button>
-              </>
             )}
             {inviteLink && (
               <Button variant="ghost" onClick={copyInvite}>Скопировать ссылку-приглашение</Button>
@@ -479,6 +543,7 @@ export function ClubDetailPage() {
                         canManage={club.canManage}
                         currentUserId={user?.id}
                         onDelete={handleDeleteMessage}
+                        onEdit={handleEditMessage}
                         onAvatarClick={handleAvatarClick}
                       />
                     ))

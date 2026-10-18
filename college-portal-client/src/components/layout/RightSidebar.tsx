@@ -160,7 +160,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
         className={`fixed right-0 top-0 h-full z-40 hidden lg:flex flex-col bg-dark-card border-l border-dark-border transition-[width] duration-300 ${collapsed ? 'w-16' : 'w-64'}`}
         aria-label="Навигация"
       >
-        <div className={`flex items-center h-16 border-b border-dark-border flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'justify-between px-4'}`}>
+        <div className={`flex border-b border-dark-border flex-shrink-0 ${collapsed ? 'flex-col items-center justify-center gap-1 py-2' : 'items-center justify-between h-16 px-4'}`}>
           <div className={`flex items-center gap-3 ${collapsed ? 'hidden' : ''}`}>
             <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
               <CollegeLogo className="w-6 h-6 text-primary-400" />
@@ -168,13 +168,13 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
             <span className="text-lg font-semibold text-dark-text">KKEP.ka</span>
           </div>
           {collapsed && (
-            <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
-              <CollegeLogo className="w-6 h-6 text-primary-400" />
+            <div className="w-9 h-9 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
+              <CollegeLogo className="w-5 h-5 text-primary-400" />
             </div>
           )}
           <button
             onClick={onToggle}
-            className="btn-ghost p-2"
+            className={`btn-ghost ${collapsed ? 'p-1' : 'p-2'}`}
             aria-label={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
             title={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
           >

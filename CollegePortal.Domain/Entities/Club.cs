@@ -13,6 +13,9 @@ public class Club
     // When true, joining requires the invite link/token.
     public bool JoinByLink { get; set; }
 
+    // Pinned clubs are shown at the top of the list.
+    public bool IsPinned { get; set; }
+
     public string InviteToken { get; set; } = string.Empty;
 
     public Guid OwnerId { get; set; }

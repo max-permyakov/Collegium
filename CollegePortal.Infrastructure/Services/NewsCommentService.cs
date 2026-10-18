@@ -39,7 +39,8 @@ public class NewsCommentService : INewsCommentService
                 c.User.DisplayName,
                 c.User.StudentProfile != null ? c.User.StudentProfile.AvatarDataUrl : null,
                 c.Text,
-                c.CreatedAt
+                c.CreatedAt,
+                c.UpdatedAt
             ))
             .ToArrayAsync(ct);
     }
@@ -83,8 +84,31 @@ public class NewsCommentService : INewsCommentService
             user?.DisplayName ?? "",
             user?.StudentProfile?.AvatarDataUrl,
             comment.Text,
-            comment.CreatedAt
+            comment.CreatedAt,
+            comment.UpdatedAt
         );
+    }
+
+    public async Task<(bool Success, string? Error)> UpdateAsync(Guid commentId, Guid userId, bool isAdmin, string text, CancellationToken ct = default)
+    {
+        var comment = await _dbContext.NewsComments
+            .FirstOrDefaultAsync(c => c.Id == commentId, ct);
+        if (comment == null)
+            return (false, "Комментарий не найден");
+
+        if (!isAdmin && comment.UserId != userId)
+            return (false, "Недостаточно прав");
+
+        var trimmed = text.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            return (false, "Комментарий не может быть пустым");
+        if (trimmed.Length > MaxCommentLength)
+            trimmed = trimmed[..MaxCommentLength];
+
+        comment.Text = trimmed;
+        comment.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+        return (true, null);
     }
 
     public async Task<(bool Success, string? Error)> DeleteAsync(Guid commentId, Guid userId, bool isAdmin, CancellationToken ct = default)

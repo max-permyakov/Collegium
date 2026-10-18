@@ -201,6 +201,7 @@ export function ClubsPage() {
                   <p className="text-sm text-dark-textMuted line-clamp-2">{club.description}</p>
                 )}
                 <div className="flex flex-wrap items-center gap-2">
+                  {club.isPinned && <Badge variant="primary">📌 Закреплён</Badge>}
                   <Badge variant={club.isPrivate ? 'warning' : 'success'}>
                     {club.isPrivate ? 'Приватная' : 'Публичная'}
                   </Badge>

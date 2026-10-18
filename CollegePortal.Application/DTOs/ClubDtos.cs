@@ -7,6 +7,7 @@ public record ClubListDto(
     string? AvatarDataUrl,
     bool IsPrivate,
     bool JoinByLink,
+    bool IsPinned,
     Guid OwnerId,
     string OwnerName,
     int MemberCount,
@@ -30,7 +31,8 @@ public record ClubMessageDto(
     string UserName,
     string? UserAvatar,
     string Text,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
 );
 
 public record ClubDetailDto(
@@ -40,6 +42,7 @@ public record ClubDetailDto(
     string? AvatarDataUrl,
     bool IsPrivate,
     bool JoinByLink,
+    bool IsPinned,
     string? InviteToken,
     Guid OwnerId,
     string OwnerName,
@@ -74,6 +77,10 @@ public record CreateClubMessageDto(
 
 public record SetClubLeaderDto(
     bool IsLeader
+);
+
+public record SetClubPinDto(
+    bool IsPinned
 );
 
 public record JoinClubDto(

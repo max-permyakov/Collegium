@@ -177,6 +177,7 @@ export interface NewsCommentDto {
   userAvatar?: string | null;
   text: string;
   createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface Assignment {

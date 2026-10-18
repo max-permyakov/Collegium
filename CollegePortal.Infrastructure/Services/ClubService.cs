@@ -36,7 +36,8 @@ public class ClubService : IClubService
         }
 
         var rows = await query
-            .OrderByDescending(c => c.CreatedAt)
+            .OrderByDescending(c => c.IsPinned)
+            .ThenByDescending(c => c.CreatedAt)
             .Select(c => new
             {
                 c.Id,
@@ -45,6 +46,7 @@ public class ClubService : IClubService
                 c.AvatarDataUrl,
                 c.IsPrivate,
                 c.JoinByLink,
+                c.IsPinned,
                 c.OwnerId,
                 OwnerName = c.Owner.DisplayName,
                 MemberCount = c.Members.Count,
@@ -55,7 +57,7 @@ public class ClubService : IClubService
             .ToListAsync(ct);
 
         return rows.Select(c => new ClubListDto(
-            c.Id, c.Name, c.Description, c.AvatarDataUrl, c.IsPrivate, c.JoinByLink,
+            c.Id, c.Name, c.Description, c.AvatarDataUrl, c.IsPrivate, c.JoinByLink, c.IsPinned,
             c.OwnerId, c.OwnerName, c.MemberCount, c.IsMember, c.IsLeader, c.CreatedAt
         )).ToArray();
     }
@@ -116,6 +118,7 @@ public class ClubService : IClubService
             club.AvatarDataUrl,
             club.IsPrivate,
             club.JoinByLink,
+            club.IsPinned,
             canManage ? club.InviteToken : null,
             club.OwnerId,
             club.Owner.DisplayName,
@@ -388,7 +391,8 @@ public class ClubService : IClubService
             m.User.DisplayName,
             m.User.StudentProfile != null ? m.User.StudentProfile.AvatarDataUrl : null,
             m.Text,
-            m.CreatedAt
+            m.CreatedAt,
+            m.UpdatedAt
         )).ToArray();
     }
 
@@ -444,8 +448,69 @@ public class ClubService : IClubService
             user?.DisplayName ?? "",
             user?.StudentProfile?.AvatarDataUrl,
             message.Text,
-            message.CreatedAt
+            message.CreatedAt,
+            message.UpdatedAt
         );
+    }
+
+    public async Task<ClubMessageDto?> UpdateMessageAsync(Guid messageId, Guid userId, bool isAdmin, string text, CancellationToken ct = default)
+    {
+        var message = await _dbContext.ClubMessages
+            .FirstOrDefaultAsync(m => m.Id == messageId, ct);
+        if (message == null)
+            return null;
+
+        if (!isAdmin && message.UserId != userId)
+        {
+            var club = await _dbContext.Clubs
+                .AsNoTracking()
+                .Include(c => c.Members)
+                .FirstOrDefaultAsync(c => c.Id == message.ClubId, ct);
+            var isLeader = club != null && await CanManageAsync(club, userId, isAdmin: false, ct);
+            if (!isLeader)
+                return null;
+        }
+
+        var trimmed = TextSanitizer.Clean(text, MaxMessageLength);
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return null;
+
+        message.Text = trimmed;
+        message.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .Include(u => u.StudentProfile)
+            .FirstOrDefaultAsync(u => u.Id == message.UserId, ct);
+
+        return new ClubMessageDto(
+            message.Id,
+            message.ClubId,
+            message.UserId,
+            user?.DisplayName ?? "",
+            user?.StudentProfile?.AvatarDataUrl,
+            message.Text,
+            message.CreatedAt,
+            message.UpdatedAt
+        );
+    }
+
+    public async Task<ClubActionResult> SetPinnedAsync(Guid clubId, Guid userId, bool isAdmin, bool isPinned, CancellationToken ct = default)
+    {
+        var club = await _dbContext.Clubs
+            .Include(c => c.Members)
+            .FirstOrDefaultAsync(c => c.Id == clubId, ct);
+        if (club == null)
+            return new ClubActionResult(false, "Группа не найдена");
+
+        if (!await CanManageAsync(club, userId, isAdmin, ct))
+            return new ClubActionResult(false, "Недостаточно прав");
+
+        club.IsPinned = isPinned;
+        club.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+        return new ClubActionResult(true);
     }
 
     public async Task<ClubActionResult> DeleteMessageAsync(Guid messageId, Guid userId, bool isAdmin, CancellationToken ct = default)

@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Avatar } from '../ui/Avatar';
 import { Input } from '../ui/Input';
+import { KebabMenu } from '../ui/KebabMenu';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
 import type { AnnouncementListItem } from '../../types';
@@ -29,6 +30,8 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState('');
   const [error, setError] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
   const newsId = announcement?.id ?? null;
 
   useEffect(() => {
@@ -57,7 +60,13 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
 
   const deleteMutation = useMutation({
     mutationFn: (commentId: string) => newsApi.deleteComment(commentId),
-    onSuccess: invalidateComments,
+    onSuccess: () => { setEditingCommentId(null); invalidateComments(); },
+    onError: (err) => setError(getError(err)),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ commentId, text }: { commentId: string; text: string }) => newsApi.updateComment(commentId, text),
+    onSuccess: () => { setEditingCommentId(null); setError(''); invalidateComments(); },
     onError: (err) => setError(getError(err)),
   });
 
@@ -135,18 +144,53 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
                       >
                         {shortName(c.userName)}
                       </Link>
-                      <span className="text-xs text-dark-textMuted">{formatDateTime(c.createdAt)}</span>
+                      <span className="text-xs text-dark-textMuted">
+                        {formatDateTime(c.createdAt)}{c.updatedAt && ' (изм.)'}
+                      </span>
                       {(user?.id === c.userId || user?.role === 'Admin') && (
-                        <button
-                          className="text-xs text-dark-textMuted hover:text-red-400 transition-colors"
-                          onClick={() => deleteMutation.mutate(c.id)}
-                          aria-label="Удалить комментарий"
-                        >
-                          Удалить
-                        </button>
+                        <KebabMenu
+                          ariaLabel="Действия с комментарием"
+                          items={[
+                            {
+                              label: 'Редактировать',
+                              onClick: () => { setEditCommentText(c.text); setEditingCommentId(c.id); },
+                            },
+                            {
+                              label: 'Удалить',
+                              danger: true,
+                              onClick: () => { if (confirm('Удалить комментарий?')) deleteMutation.mutate(c.id); },
+                            },
+                          ]}
+                        />
                       )}
                     </div>
-                    <p className="text-sm text-dark-text whitespace-pre-wrap break-words">{c.text}</p>
+                    {editingCommentId === c.id ? (
+                      <div className="mt-1 space-y-2">
+                        <textarea
+                          className="input h-20 resize-none text-sm"
+                          value={editCommentText}
+                          onChange={(e) => setEditCommentText(e.target.value)}
+                          maxLength={2000}
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            disabled={!editCommentText.trim() || updateMutation.isPending}
+                            loading={updateMutation.isPending}
+                            onClick={() => {
+                              const text = editCommentText.trim();
+                              if (text) updateMutation.mutate({ commentId: c.id, text });
+                            }}
+                          >
+                            Сохранить
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => setEditingCommentId(null)}>Отмена</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-dark-text whitespace-pre-wrap break-words">{c.text}</p>
+                    )}
                   </div>
                 </div>
               ))
