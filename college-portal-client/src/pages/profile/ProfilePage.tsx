@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import { formatMoscowDate, formatMoscowDateTime } from '../../utils/datetime';
 import type { ProfileDto } from '../../types';
 
@@ -22,6 +23,7 @@ export function ProfilePage() {
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
   const [bioError, setBioError] = useState('');
   const [bioValue, setBioValue] = useState<string | null>(null);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -301,8 +303,31 @@ export function ProfilePage() {
             >
               Пересчитать средний балл
             </Button>
+            {profile.role !== 'Admin' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={user?.isProtected !== true}
+                title={user?.isProtected ? 'Настроить права администратора' : 'Выдавать права может только первичный админ'}
+                onClick={() => setPermissionsOpen(true)}
+              >
+                Управлять правами
+              </Button>
+            )}
           </CardContent>
         </Card>
+      )}
+
+      {isAdminView && targetUserId && permissionsOpen && profile && (
+        <PermissionsModal
+          userId={targetUserId}
+          displayName={profile.displayName}
+          onClose={() => setPermissionsOpen(false)}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
+            queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+          }}
+        />
       )}
 
       <Lightbox src={previewAvatar} alt="Фото профиля" onClose={() => setPreviewAvatar(null)} />

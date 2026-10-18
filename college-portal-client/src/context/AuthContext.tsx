@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi, permissionsApi } from '../services/api';
 import type { User, LoginRequest, Permission } from '../types';
+import { ALL_PERMISSIONS } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -130,7 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const hasPermission = (permission: Permission) => permissions.includes(permission);
+  // Full admins implicitly hold every permission (mirrors the server), and we
+  // keep that fallback client-side so the admin UI never depends on a fragile
+  // extra request succeeding.
+  const effectivePermissions = user?.role === 'Admin' ? ALL_PERMISSIONS : permissions;
+  const hasPermission = (permission: Permission) => effectivePermissions.includes(permission);
 
   return (
     <AuthContext.Provider
@@ -138,9 +143,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
-        permissions,
+        permissions: effectivePermissions,
         hasPermission,
-        hasAnyPermission: permissions.length > 0,
+        hasAnyPermission: effectivePermissions.length > 0,
         sessionExpired,
         login,
         diaryLogin,
