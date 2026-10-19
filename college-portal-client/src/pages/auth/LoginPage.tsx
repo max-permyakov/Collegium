@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/Card';
+import logo from '../../assets/logo.png';
 
 export function LoginPage() {
   const { diaryLogin, sessionExpired } = useAuth();
@@ -33,17 +34,13 @@ export function LoginPage() {
   };
 
   return (
-    <div className="w-full">
+    
       <div className="text-center mb-6">
-        <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-primary-500/20 flex items-center justify-center">
-          <svg className="w-10 h-10 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v4m-4 4h8" />
-          </svg>
-        </div>
-        <h1 className="text-3xl font-bold text-dark-text">KKEP.ka</h1>
-        <p className="text-sm text-dark-textMuted mt-1">Портал студента колледжа</p>
-      </div>
+        <img src={logo} alt="KKEP.ka" className="w-72 h-72 max-w-full mx-auto mb-3 block object-contain" />
+                {/* <p className="text-sm text-dark-textMuted ">Портал студента колледжа</p>  */}
+
+        {/* { <h1 className="text-3xl font-bold text-dark-text">KKEP.ka</h1> */}
+      
 
       <Card variant="hover" className="w-full">
         <CardHeader className="text-center">

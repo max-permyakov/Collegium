@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { shortName } from '../../utils/names';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import logo from '../../assets/logo.png';
 
 interface NavItem {
   path: string;
@@ -67,13 +68,6 @@ const LogoutIcon = ({ className }: { className?: string }) => (
 const ChevronIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-  </svg>
-);
-
-const CollegeLogo = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14v4m-4 4h8" />
   </svg>
 );
 
@@ -167,15 +161,11 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
       >
         <div className={`flex border-b border-dark-border flex-shrink-0 ${collapsed ? 'flex-col items-center justify-center gap-1 py-2' : 'items-center justify-between h-16 px-4'}`}>
           <div className={`flex items-center gap-3 ${collapsed ? 'hidden' : ''}`}>
-            <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
-              <CollegeLogo className="w-6 h-6 text-primary-400" />
-            </div>
+            <img src={logo} alt="KKEP.ka" className="w-10 h-10 rounded-xl  object-contain flex-shrink-0" />
             <span className="text-lg font-semibold text-dark-text">KKEP.ka</span>
           </div>
           {collapsed && (
-            <div className="w-9 h-9 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
-              <CollegeLogo className="w-5 h-5 text-primary-400" />
-            </div>
+            <img src={logo} alt="KKEP.ka" className="w-9 h-9 rounded-xl  object-contain flex-shrink-0" />
           )}
           <button
             onClick={onToggle}
@@ -260,9 +250,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
         >
           <div className="flex items-center justify-between h-16 px-4 border-b border-dark-border flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-500/20 flex items-center justify-center flex-shrink-0">
-                <CollegeLogo className="w-6 h-6 text-primary-400" />
-              </div>
+              <img src={logo} alt="KKEP.ka" className="w-10 h-10 rounded-xl  object-contain flex-shrink-0" />
               <span className="text-lg font-semibold text-dark-text">KKEP.ka</span>
             </div>
             <button
