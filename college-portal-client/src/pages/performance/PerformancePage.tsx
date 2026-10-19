@@ -343,32 +343,20 @@ export function PerformancePage() {
                   )}
                 </Card>
 
-                <div className="flex flex-wrap gap-2 px-1">
-                  <button
-                    type="button"
-                    onClick={() => selectRatingSubject(null)}
-                    className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
-                      ratingSubject === null
-                        ? 'bg-primary-500/20 border-primary-500/40 text-primary-300'
-                        : 'bg-dark-bg border-dark-border text-dark-textMuted hover:border-primary-500/30 hover:text-dark-text'
-                    }`}
+                <div className="px-1">
+                  <select
+                    value={ratingSubject ?? ''}
+                    onChange={(e) => selectRatingSubject(e.target.value || null)}
+                    className="input w-auto max-w-full"
+                    aria-label="Предмет рейтинга"
                   >
-                    Общий
-                  </button>
-                  {rating.subjects.map((subject) => (
-                    <button
-                      key={subject}
-                      type="button"
-                      onClick={() => selectRatingSubject(subject)}
-                      className={`rounded-xl border px-3 py-2 text-sm transition-colors ${
-                        ratingSubject === subject
-                          ? 'bg-primary-500/20 border-primary-500/40 text-primary-300'
-                          : 'bg-dark-bg border-dark-border text-dark-textMuted hover:border-primary-500/30 hover:text-dark-text'
-                      }`}
-                    >
-                      {subject}
-                    </button>
-                  ))}
+                    <option value="">Общий рейтинг</option>
+                    {rating.subjects.map((subject) => (
+                      <option key={subject} value={subject}>
+                        {subject}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {rating.entries.length === 0 ? (
