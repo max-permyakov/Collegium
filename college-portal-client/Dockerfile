@@ -7,7 +7,7 @@ COPY package.json package-lock.json .npmrc ./
 # npm reads legacy-peer-deps from .npmrc; the flag is a safety net.
 # The lockfile resolves a peer conflict between eslint 10 and
 # eslint-plugin-react (which declares support up to eslint 9).
-RUN npm ci --legacy-peer-deps
+RUN npm ci --legacy-peer-deps 
 
 COPY . .
 
