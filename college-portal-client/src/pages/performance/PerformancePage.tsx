@@ -95,9 +95,11 @@ export function PerformancePage() {
     );
   }
 
-  const avgMark =
-    subjectsWithData.reduce((sum, s) => sum + s.averageMark, 0) / subjectsWithData.length;
-  const marksCount = subjectsWithData.reduce((sum, s) => sum + totalMarks(s), 0);
+  const gradedSubjects = subjectsWithData.filter((s) => totalMarks(s) > 0);
+  const avgMark = gradedSubjects.length
+    ? gradedSubjects.reduce((sum, s) => sum + s.averageMark, 0) / gradedSubjects.length
+    : 0;
+  const marksCount = gradedSubjects.reduce((sum, s) => sum + totalMarks(s), 0);
 
   return (
     <div className="space-y-6">
@@ -120,7 +122,7 @@ export function PerformancePage() {
                 <p className="text-sm text-dark-textMuted">Предметов всего</p>
               </div>
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                <p className="text-3xl font-bold text-emerald-400">{subjectsWithData.length}</p>
+                <p className="text-3xl font-bold text-emerald-400">{gradedSubjects.length}</p>
                 <p className="text-sm text-dark-textMuted">С оценками</p>
               </div>
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
