@@ -25,7 +25,7 @@ export function UsersTab() {
   const [actionError, setActionError] = useState('');
   const [permTarget, setPermTarget] = useState<AdminUserDto | null>(null);
 
-  const { data: users, isLoading, error } = useQuery<AdminUserDto[]>({
+  const { data: users, isLoading, error, refetch } = useQuery<AdminUserDto[]>({
     queryKey: ['admin', 'users'],
     queryFn: async () => (await adminApi.getUsers()).data,
   });
@@ -73,9 +73,11 @@ export function UsersTab() {
   }
 
   if (error || !users) {
+    const status = (error as { response?: { status?: number } } | null)?.response?.status;
     return (
       <Card variant="hover" className="text-center py-12">
-        <p className="text-red-400">Не удалось загрузить пользователей</p>
+        <p className="text-red-400">Не удалось загрузить пользователей{status ? ` (HTTP ${status})` : ''}</p>
+        <Button className="mt-4" onClick={() => refetch()}>Попробовать снова</Button>
       </Card>
     );
   }

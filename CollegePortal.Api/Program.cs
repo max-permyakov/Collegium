@@ -8,6 +8,7 @@ using CollegePortal.Infrastructure.Extensions;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 
 namespace CollegePortal.Api;
@@ -30,6 +31,14 @@ public class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddMemoryCache();
+
+        // Compress JSON responses — some payloads (e.g. /admin/users) are large
+        // and mobile clients time out without gzip/brotli.
+        builder.Services.AddResponseCompression(options =>
+        {
+            options.EnableForHttps = true;
+            options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/json" });
+        });
 
         // CORS: only explicitly allowed frontend origins may call the API.
         // Credentials are enabled because the access token travels in an HttpOnly cookie.
@@ -76,6 +85,7 @@ public class Program
         var app = builder.Build();
 
         app.UseForwardedHeaders();
+        app.UseResponseCompression();
 
         if (app.Environment.IsDevelopment())
         {

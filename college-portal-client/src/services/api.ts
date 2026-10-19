@@ -151,14 +151,14 @@ export const profileApi = {
 
 export const adminApi = {
   getStatistics: () => api.get<StatisticsDto>('/admin/statistics'),
-  getUsers: () => api.get<AdminUserDto[]>('/admin/users'),
+  getUsers: () => api.get<AdminUserDto[]>('/admin/users', { timeout: 60000 }),
   getUser: (id: string) => api.get<ProfileDto>(`/admin/users/${id}`),
   setRole: (id: string, role: 'Student' | 'Admin') => api.post(`/admin/users/${id}/role`, { role }),
   setIsActive: (id: string, isActive: boolean) => api.post(`/admin/users/${id}/is-active`, { isActive }),
   setHeadman: (id: string, headmanRole: string) => api.post(`/admin/users/${id}/headman`, { headmanRole }),
   recomputeGrades: (id: string) => api.post(`/admin/users/${id}/recompute-grades`),
   getAudit: (limit = 100) => api.get<AuditLogDto[]>(`/admin/audit`, { params: { limit } }),
-  exportUsersCsv: () => api.get<Blob>('/admin/users.csv', { responseType: 'blob' }),
+  exportUsersCsv: () => api.get<Blob>('/admin/users.csv', { responseType: 'blob', timeout: 120000 }),
   getClubs: () => api.get<ClubListDto[]>('/admin/clubs'),
   getClub: (id: string) => api.get<ClubDetailDto>(`/admin/clubs/${id}`),
   getClubMessages: (id: string) => api.get<ClubMessageDto[]>(`/admin/clubs/${id}/messages`),
