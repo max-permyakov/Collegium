@@ -12,7 +12,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { RoomButton } from '../../components/college/RoomButton';
 import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
-import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
+import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO, addDaysISO } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
 import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
@@ -53,12 +53,13 @@ export function HomePage() {
 
     try {
       const todayStr = moscowDateISO();
+      const tomorrowStr = addDaysISO(todayStr, 1);
       const weekStartStr = moscowWeekStartISO();
       const nowTime = moscowNowTimeHMS();
 
       const [scheduleRes, kkepikRes, gradesRes, newsRes, assignmentsRes, perfRes] = await Promise.allSettled([
         scheduleApi.getWeek(weekStartStr),
-        scheduleApi.getKkepik(),
+        scheduleApi.getKkepik(tomorrowStr),
         gradesApi.getGrades(),
         newsApi.getNews(user.studentProfile?.studyGroupId),
         assignmentsApi.getMyAssignments(),
@@ -210,7 +211,7 @@ export function HomePage() {
                 ))}
               </div>
             ) : (
-              <p className="text-dark-textMuted text-center py-8">Данных от kkepik пока нет</p>
+              <p className="text-dark-textMuted text-center py-8">Расписания пока нет</p>
             )}
           </CardContent>
           {dashboardData.kkepik?.updatedAt && (

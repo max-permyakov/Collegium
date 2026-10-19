@@ -124,9 +124,11 @@ public class ScheduleService : IScheduleService
         else
         {
             // Moscow calendar date (fixed UTC+3, no DST) expressed as a UTC midnight,
-            // so it is comparable with the stored, UTC-backed schedule dates.
+            // so it can be compared with the stored, UTC-backed schedule dates.
+            // Only schedules after today are relevant: older snapshots stay in the
+            // table and would otherwise be served as "tomorrow's" schedule.
             var today = DateTime.UtcNow.AddHours(3).Date;
-            query = query.Where(s => s.Date >= today);
+            query = query.Where(s => s.Date > today);
         }
 
         var snapshot = await query

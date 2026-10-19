@@ -41,14 +41,12 @@ export function SchedulePage() {
       const startDate = searchParams.get('startDate') || moscowWeekStartISO();
       const [scheduleRes, kkepikRes] = await Promise.allSettled([
         scheduleApi.getWeek(startDate),
-        scheduleApi.getKkepik(),
+        scheduleApi.getKkepik(addDaysISO(moscowDateISO(), 1)),
       ]);
       if (scheduleRes.status === 'fulfilled') {
         setWeekSchedule(scheduleRes.value.data);
       }
-      if (kkepikRes.status === 'fulfilled') {
-        setKkepik(kkepikRes.value.data);
-      }
+      setKkepik(kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined);
     } catch (err) {
       console.error('Failed to load schedule:', err);
     } finally {
