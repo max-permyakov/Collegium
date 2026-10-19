@@ -18,6 +18,9 @@ public class StudentProfile
     public decimal? AverageMark { get; set; }
     public DateTime? GradesCachedAt { get; set; }
 
+    // Group rating: the student opted in to appear in the group ranking
+    public bool RatingOptIn { get; set; }
+
     // Diary integration fields
     public string? DiaryCookieData { get; set; }
     public string? DiaryPasswordHash { get; set; }

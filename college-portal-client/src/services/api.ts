@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUserDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -111,6 +111,12 @@ export const scheduleApi = {
 export const gradesApi = {
   getGrades: () => api.get<GradesResponse>('/grades'),
   getPerformance: () => api.get<PerformanceResponse>('/grades/performance'),
+};
+
+export const ratingApi = {
+  getGroup: (subject?: string | null) =>
+    api.get<GroupRating>('/rating/group', { params: subject ? { subject } : {} }),
+  participate: (enabled: boolean) => api.post<RatingParticipation>('/rating/participate', { enabled }),
 };
 
 export const newsApi = {

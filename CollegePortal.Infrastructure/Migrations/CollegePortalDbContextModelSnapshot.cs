@@ -656,6 +656,9 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<int>("HeadmanRole")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("RatingOptIn")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("StudyGroupId")
                         .HasColumnType("uuid");
 

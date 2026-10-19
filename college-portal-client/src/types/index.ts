@@ -125,6 +125,26 @@ export interface DayWithMarks {
   absenceType?: string;
 }
 
+export interface RatingEntry {
+  userId: string;
+  displayName: string;
+  averageMark: number | null;
+  isCurrentUser: boolean;
+}
+
+export interface GroupRating {
+  optedIn: boolean;
+  groupName: string;
+  groupSize: number;
+  subjects: string[];
+  subject: string | null;
+  entries: RatingEntry[];
+}
+
+export interface RatingParticipation {
+  optedIn: boolean;
+}
+
 export interface Announcement {
   id: string;
   title: string;

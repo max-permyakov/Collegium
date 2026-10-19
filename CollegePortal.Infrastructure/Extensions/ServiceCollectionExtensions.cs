@@ -190,6 +190,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICollegeInfoService, CollegeInfoService>();
         services.AddScoped<ICollegeMapService, CollegeMapService>();
         services.AddScoped<IAdminPermissionService, AdminPermissionService>();
+        services.AddScoped<IRatingService, RatingService>();
 
         services.AddHostedService<KkepikScheduleSyncService>();
 
