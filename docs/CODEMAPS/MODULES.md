@@ -40,7 +40,7 @@ framework dependencies.
 - `Entities/KkepikSchedule.cs` — cached external schedule per group/day.
 - `Entities/RefreshToken.cs`, `UserPermission.cs`, `AdminAuditLog.cs` —
   session rotation, granular permissions and admin audit trail.
-- `Entities/HeadmanRole.cs` — headman role constants/type.
+- `Entities/HeadmanRole.cs` — `None`/`Headman`/`Deputy` enum.
 - `Enums/Permission.cs` — `UsersManage`, `NewsManage`, `AssignmentsManage`,
   `ClubsManage`, `CollegeInfoManage`, `MapManage`, `AuditView`.
 
