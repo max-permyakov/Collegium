@@ -78,3 +78,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# OpenCode local plans/config
+.opencode/
+
+# Crypto/keys
+ECC/
