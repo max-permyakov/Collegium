@@ -78,6 +78,7 @@ public class ProfileService : IProfileService
             profile?.AverageMark,
             profile?.GradesCachedAt,
             user.LastLoginAt,
+            user.LastActivityAt,
             user.CreatedAt,
             requesterRoles.Contains("Admin")
         );

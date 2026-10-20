@@ -18,6 +18,7 @@ public record ProfileDto(
     decimal? AverageMark,
     DateTime? GradesCachedAt,
     DateTime? LastLoginAt,
+    DateTime? LastActivityAt,
     DateTime CreatedAt,
     bool IsViewerAdmin
 );

@@ -16,11 +16,13 @@ public record AdminUserDto(
     decimal? AverageMark,
     DateTime? GradesCachedAt,
     DateTime? LastLoginAt,
+    DateTime? LastActivityAt,
     DateTime CreatedAt
 );
 
 public record StatisticsDto(
     int TotalUsers,
+    int OnlineUsers,
     int ActiveUsers,
     int AdminUsers,
     int ProtectedAdmins,

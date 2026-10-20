@@ -51,7 +51,8 @@ export function StatisticsTab() {
     <div className="space-y-6">
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard label="Всего пользователей" value={data.totalUsers} />
-        <StatCard label="Активных" value={data.activeUsers} accent="text-green-400" />
+        <StatCard label="Онлайн" value={data.onlineUsers} accent="text-green-400" />
+        <StatCard label="Активных (7 дн.)" value={data.activeUsers} accent="text-primary-400" />
         <StatCard label="Админов" value={data.adminUsers} accent="text-primary-400" />
         <StatCard label="Защищённых админов" value={data.protectedAdmins} accent="text-yellow-400" />
         <StatCard label="Учебных групп" value={data.totalGroups} />

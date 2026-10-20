@@ -198,7 +198,7 @@ export function ProfilePage() {
                 {profile.headmanRole && profile.headmanRole !== 'None' && (
                   <Badge variant="info">{profile.headmanRole === 'Headman' ? 'Староста' : 'Зам. старосты'}</Badge>
                 )}
-                <Badge variant={profile.isActive ? 'success' : 'danger'}>{profile.isActive ? 'Активен' : 'Заблокирован'}</Badge>
+                <Badge variant={profile.isActive ? 'success' : 'danger'}>{profile.isActive ? 'Не заблокирован' : 'Заблокирован'}</Badge>
                 {profile.isProtected && <Badge variant="warning">Защищённый</Badge>}
               </div>
               <div className="grid gap-3 sm:grid-cols-2 text-sm text-dark-textMuted">

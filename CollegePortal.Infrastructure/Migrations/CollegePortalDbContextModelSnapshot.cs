@@ -163,6 +163,9 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<bool>("IsProtected")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("LastActivityAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
 

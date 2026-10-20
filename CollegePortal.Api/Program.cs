@@ -108,6 +108,7 @@ public class Program
 
         app.UseAuthentication();
         app.UseMiddleware<BannedUsersMiddleware>();
+        app.UseMiddleware<ActivityTrackerMiddleware>();
         app.UseAuthorization();
 
         app.MapControllers();

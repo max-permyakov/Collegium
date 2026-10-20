@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { shortName } from '../../utils/names';
+import { formatMoscowDateTime } from '../../utils/datetime';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import type { AdminUserDto } from '../../types/admin';
 
@@ -16,6 +17,22 @@ const headmanLabel: Record<string, string> = {
   Headman: 'Староста',
   Deputy: 'Зам. старосты',
 };
+
+// Must match ActivityTracking.OnlineWindow on the backend.
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+function activityLabel(lastActivityAt?: string | null): { online: boolean; text: string } {
+  if (!lastActivityAt) return { online: false, text: 'активность не зафиксирована' };
+  const diff = Date.now() - new Date(lastActivityAt).getTime();
+  if (diff < ONLINE_WINDOW_MS) return { online: true, text: 'онлайн' };
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return { online: false, text: `был ${minutes} мин назад` };
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return { online: false, text: `был ${hours} ч назад` };
+  const days = Math.floor(hours / 24);
+  if (days < 7) return { online: false, text: `был ${days} дн. назад` };
+  return { online: false, text: `был ${formatMoscowDateTime(lastActivityAt)}` };
+}
 
 export function UsersTab() {
   const queryClient = useQueryClient();
@@ -124,6 +141,7 @@ export function UsersTab() {
               const canManageRole = isPrimaryAdmin && !u.isProtected;
               const canBan = !u.isProtected && !isSelf;
               const canManagePermissions = isPrimaryAdmin && !u.isProtected && u.role !== 'Admin';
+              const activity = activityLabel(u.lastActivityAt);
               return (
                 <tr key={u.id} className="text-dark-text border-b border-dark-border">
                   <td className="py-2 px-3">
@@ -131,6 +149,12 @@ export function UsersTab() {
                       {shortName(u.displayName)}
                     </Link>
                     <div className="text-xs text-dark-textMuted">{u.login}</div>
+                    <div className={`text-xs flex items-center gap-1.5 ${activity.online ? 'text-green-400' : 'text-dark-textMuted'}`}>
+                      <span
+                        className={`inline-block w-1.5 h-1.5 rounded-full ${activity.online ? 'bg-green-500' : 'bg-dark-textMuted/50'}`}
+                      />
+                      {activity.text}
+                    </div>
                   </td>
                   <td className="py-2 px-3 text-dark-textMuted">
                     {u.studyGroupName || '—'}
@@ -149,7 +173,7 @@ export function UsersTab() {
                   </td>
                   <td className="py-2 px-3">
                     <Badge variant={u.isActive ? 'success' : 'danger'}>
-                      {u.isActive ? 'Активен' : 'Заблокирован'}
+                      {u.isActive ? 'Не заблокирован' : 'Заблокирован'}
                     </Badge>
                   </td>
                   <td className="py-2 px-3">

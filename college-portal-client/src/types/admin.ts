@@ -53,11 +53,13 @@ export interface AdminUserDto {
   averageMark?: number | null;
   gradesCachedAt?: string | null;
   lastLoginAt?: string | null;
+  lastActivityAt?: string | null;
   createdAt: string;
 }
 
 export interface StatisticsDto {
   totalUsers: number;
+  onlineUsers: number;
   activeUsers: number;
   adminUsers: number;
   protectedAdmins: number;
@@ -117,6 +119,7 @@ export interface ProfileDto {
   averageMark?: number | null;
   gradesCachedAt?: string | null;
   lastLoginAt?: string | null;
+  lastActivityAt?: string | null;
   createdAt: string;
   isViewerAdmin: boolean;
   studentProfile?: {

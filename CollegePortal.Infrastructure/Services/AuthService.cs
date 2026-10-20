@@ -69,6 +69,7 @@ public class AuthService : IAuthService
         // Multiple concurrent sessions are allowed: the security stamp is only
         // rotated on ban / role change, never on login.
         user.LastLoginAt = DateTime.UtcNow;
+        user.LastActivityAt = user.LastLoginAt;
         await TryUpdateUserAsync(user);
 
         var roles = await _userManager.GetRolesAsync(user);
@@ -360,6 +361,7 @@ public class AuthService : IAuthService
 
         // Multiple concurrent sessions are allowed: no stamp rotation on login.
         user.LastLoginAt = DateTime.UtcNow;
+        user.LastActivityAt = user.LastLoginAt;
         await TryUpdateUserAsync(user);
 
         var roles = await _userManager.GetRolesAsync(user);
@@ -407,6 +409,7 @@ public class AuthService : IAuthService
         // Refreshing the external diary session is not a security event: the
         // security stamp stays untouched so other portal sessions keep working.
         user.LastLoginAt = DateTime.UtcNow;
+        user.LastActivityAt = user.LastLoginAt;
         await TryUpdateUserAsync(user);
 
         // Rotate the session credentials (sliding expiry): revoke the refresh

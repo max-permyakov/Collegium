@@ -10,6 +10,7 @@ public class ApplicationUser : IdentityUser<Guid>
     public bool IsProtected { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+    public DateTime? LastActivityAt { get; set; }
 
     public StudentProfile? StudentProfile { get; set; }
 }

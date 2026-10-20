@@ -1,3 +1,4 @@
+using CollegePortal.Application;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
@@ -46,6 +47,7 @@ public class AdminService : IAdminService
                 u.IsActive,
                 u.IsProtected,
                 u.LastLoginAt,
+                u.LastActivityAt,
                 u.CreatedAt,
                 StudyGroupId = u.StudentProfile != null ? (Guid?)u.StudentProfile.StudyGroupId : null,
                 StudyGroupName = u.StudentProfile != null ? u.StudentProfile.StudyGroup.Name : null,
@@ -73,6 +75,7 @@ public class AdminService : IAdminService
             u.AverageMarkVal,
             u.GradesCachedAtVal,
             u.LastLoginAt,
+            u.LastActivityAt,
             u.CreatedAt
         )).ToList();
     }
@@ -82,7 +85,12 @@ public class AdminService : IAdminService
         var now = DateTime.UtcNow;
 
         var totalUsers = await _dbContext.Users.CountAsync(ct);
-        var activeUsers = await _dbContext.Users.CountAsync(u => u.IsActive, ct);
+        // "Online" = any authenticated request within the tracker's online
+        // window; "active" = any request within the last 7 days.
+        var onlineUsers = await _dbContext.Users
+            .CountAsync(u => u.LastActivityAt >= now - ActivityTracking.OnlineWindow, ct);
+        var activeUsers = await _dbContext.Users
+            .CountAsync(u => u.LastActivityAt >= now - ActivityTracking.ActiveWindow, ct);
         var adminUsers = await _dbContext.Users.CountAsync(u => u.Role == "Admin", ct);
         var protectedAdmins = await _dbContext.Users.CountAsync(u => u.IsProtected, ct);
         var totalGroups = await _dbContext.StudyGroups.CountAsync(ct);
@@ -114,6 +122,7 @@ public class AdminService : IAdminService
 
         return new StatisticsDto(
             totalUsers,
+            onlineUsers,
             activeUsers,
             adminUsers,
             protectedAdmins,

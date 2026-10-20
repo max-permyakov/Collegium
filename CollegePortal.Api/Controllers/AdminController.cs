@@ -140,7 +140,7 @@ public class AdminController : ControllerBase
                 EscapeCsv(u.StudyGroupName),
                 u.Course?.ToString() ?? "",
                 u.Role,
-                u.IsActive ? "Активен" : "Заблокирован",
+                u.IsActive ? "Не заблокирован" : "Заблокирован",
                 EscapeCsv(u.HeadmanRole),
                 u.AverageMark?.ToString("F2") ?? "",
                 u.LastLoginAt?.AddHours(MoscowUtcOffsetHours).ToString("yyyy-MM-dd HH:mm") ?? ""
