@@ -117,6 +117,13 @@ export function PerformancePage() {
 
   const recentMarks = useMemo(() => getRecentMarks(performance, 12), [performance]);
 
+  const activeSubjectDays = useMemo(() => {
+    if (!activeSubject) return [];
+    return [...activeSubject.daysWithMarks].sort(
+      (a, b) => new Date(b.day).getTime() - new Date(a.day).getTime()
+    );
+  }, [activeSubject]);
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -222,8 +229,8 @@ export function PerformancePage() {
                   <Badge variant="primary">Средний балл: {activeSubject.averageMark.toFixed(2)}</Badge>
                 </div>
 
-                {activeSubject.daysWithMarks.map((dayMarks, index) => (
-                  <Card key={`${activeSubject.subjectName}-${index}`} variant="hover">
+                {activeSubjectDays.map((dayMarks, index) => (
+                  <Card key={`${activeSubject.subjectName}-${dayMarks.day}`} variant="hover">
                     <CardHeader className="flex flex-row items-center justify-between gap-2 mb-2">
                       <CardTitle className="text-base">{formatDate(dayMarks.day)}</CardTitle>
                       <div className="flex items-center gap-2 shrink-0">
