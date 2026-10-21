@@ -4,7 +4,8 @@ namespace CollegePortal.Application.Services;
 
 public interface IAdminService
 {
-    Task<IReadOnlyList<AdminUserDto>> GetUsersAsync(CancellationToken ct = default);
+    Task<AdminUsersPageDto> GetUsersAsync(int page, int pageSize, string? query, CancellationToken ct = default);
+    Task<IReadOnlyList<AdminUserDto>> GetUsersForExportAsync(CancellationToken ct = default);
     Task<StatisticsDto> GetStatisticsAsync(CancellationToken ct = default);
     Task<ProfileDto?> GetUserDetailAsync(Guid adminUserId, Guid targetUserId, CancellationToken ct = default);
     Task<AdminActionResult> SetRoleAsync(Guid adminUserId, Guid targetUserId, string role, CancellationToken ct = default);

@@ -38,9 +38,21 @@ public class AdminController : ControllerBase
 
     [HttpGet("users")]
     [Authorize(Policy = "Permission.UsersManage")]
-    public async Task<IActionResult> GetUsers(CancellationToken ct)
+    public async Task<IActionResult> GetUsers(
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? q = null,
+        CancellationToken ct = default)
     {
-        var users = await _adminService.GetUsersAsync(ct);
+        // Older clients (for example a PWA still running a cached bundle) call
+        // this endpoint without paging parameters and expect a plain array.
+        if (page is null && pageSize is null && string.IsNullOrWhiteSpace(q))
+        {
+            var allUsers = await _adminService.GetUsersForExportAsync(ct);
+            return Ok(allUsers);
+        }
+
+        var users = await _adminService.GetUsersAsync(page ?? 1, pageSize ?? 25, q, ct);
         return Ok(users);
     }
 
@@ -120,7 +132,7 @@ public class AdminController : ControllerBase
         if (!adminId.HasValue)
             return Unauthorized();
 
-        var users = await _adminService.GetUsersAsync(ct);
+        var users = await _adminService.GetUsersForExportAsync(ct);
         if (users.Count == 0)
         {
             var empty = Encoding.UTF8.GetBytes("Login;ФИО;Email;Телефон;Группа;Курс;Роль;Статус;Староста;Средний балл;Последний вход\n");

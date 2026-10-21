@@ -12,7 +12,7 @@
 - Хранение пользователей в PostgreSQL через EF Core
 - Пароли хэшируются через PBKDF2 (Identity по умолчанию)
 - Роли: `Student`, `Admin`
-- Токены: JWT (планируется) или Cookie-based аутентификация
+- Токены: JWT 
 
 ### Привязка к внешнему профилю (StudentProfile)
 - Поле `ExternalStudentId` хранит подтверждённый ID из дневника
@@ -125,27 +125,3 @@ dotnet user-secrets set "ExternalApis:Diary:BaseUrl" "https://spo.rso23.ru"
 - `SignOutAsync()` очищает куки аутентификации
 - При выходе пользователя — удаление кэшированных cookies дневника (если хранились)
 - Короткое время жизни JWT (если используется): 15-30 минут access + refresh token
-
-## План реализации (по этапам)
-
-### Этап 2 (текущий)
-- [ ] Identity с cookie-аутентификацией
-- [ ] Login/Logout/Me endpoints
-- [ ] Роли Student/Admin
-- [ ] User Secrets для connection string
-
-### Этап 3-4
-- [ ] Безопасное хранение ExternalStudentId
-- [ ] Валидация привязки профиля к дневнику
-- [ ] Изоляция данных: каждый пользователь видит только свои оценки/расписание
-
-### Этап 5
-- [ ] Административные endpoints защищены `[Authorize(Roles = "Admin")]`
-- [ ] Студенты видят только задания своей группы
-
-### Этап 6-7
-- [ ] Frontend: защита маршрутов, редирект на логин при 401
-- [ ] HTTPS в production
-- [ ] Security headers
-- [ ] Rate limiting на API
-- [ ] Пентест / код-ревью безопасности

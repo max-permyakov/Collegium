@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -10,7 +11,9 @@ import { Input } from '../../components/ui/Input';
 import { shortName } from '../../utils/names';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
-import type { AdminUserDto } from '../../types/admin';
+import type { AdminUserDto, AdminUsersPageDto } from '../../types/admin';
+
+const PAGE_SIZE = 25;
 
 const headmanLabel: Record<string, string> = {
   None: '—',
@@ -34,31 +37,76 @@ function activityLabel(lastActivityAt?: string | null): { online: boolean; text:
   return { online: false, text: `был ${formatMoscowDateTime(lastActivityAt)}` };
 }
 
+function ActivityLine({ lastActivityAt }: { lastActivityAt?: string | null }) {
+  const activity = activityLabel(lastActivityAt);
+  return (
+    <div
+      className={`text-xs flex items-center gap-1.5 ${
+        activity.online ? 'text-green-400' : 'text-dark-textMuted'
+      }`}
+    >
+      <span
+        className={`inline-block w-1.5 h-1.5 rounded-full ${
+          activity.online ? 'bg-green-500' : 'bg-dark-textMuted/50'
+        }`}
+      />
+      {activity.text}
+    </div>
+  );
+}
+
+function RoleBadges({ user }: { user: AdminUserDto }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <Badge variant={user.role === 'Admin' ? 'primary' : 'default'}>{user.role}</Badge>
+      {user.isProtected && <Badge variant="warning">Защищён</Badge>}
+    </div>
+  );
+}
+
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  return (
+    <Badge variant={isActive ? 'success' : 'danger'}>
+      {isActive ? 'Активен' : 'Заблокирован'}
+    </Badge>
+  );
+}
+
 export function UsersTab() {
   const queryClient = useQueryClient();
   const { user: viewer } = useAuth();
+
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [permTarget, setPermTarget] = useState<AdminUserDto | null>(null);
 
-  const { data: users, isLoading, error, refetch } = useQuery<AdminUserDto[]>({
-    queryKey: ['admin', 'users'],
-    queryFn: async () => (await adminApi.getUsers()).data,
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
+
+  const { data, isLoading, isFetching, error, refetch } = useQuery<AdminUsersPageDto>({
+    queryKey: ['admin', 'users', page, debouncedSearch],
+    queryFn: async () =>
+      (
+        await adminApi.getUsers({
+          page,
+          pageSize: PAGE_SIZE,
+          q: debouncedSearch || undefined,
+        })
+      ).data,
+    placeholderData: keepPreviousData,
+    retry: 1,
   });
 
-  const isPrimaryAdmin = viewer?.isProtected === true;
+  const users = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const filtered = useMemo(() => {
-    if (!users) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) =>
-      [u.displayName, u.login, u.email, u.phoneNumber, u.studyGroupName]
-        .filter(Boolean)
-        .some((v) => (v as string).toLowerCase().includes(q))
-    );
-  }, [users, search]);
+  useEffect(() => {
+    if (data && page > totalPages) setPage(totalPages);
+  }, [data, page, totalPages]);
+
+  const isPrimaryAdmin = viewer?.isProtected === true;
 
   const afterChange = () => {
     queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
@@ -79,165 +127,277 @@ export function UsersTab() {
     }
   };
 
-  if (isLoading) {
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+
+  const renderActions = (u: AdminUserDto) => {
+    const busy = busyId === u.id;
+    const isSelf = viewer?.id === u.id;
+    const canManageRole = isPrimaryAdmin && !u.isProtected;
+    const canBan = !u.isProtected && !isSelf;
+    const canManagePermissions = isPrimaryAdmin && !u.isProtected && u.role !== 'Admin';
+
     return (
-      <div className="space-y-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="skeleton h-16" />
-        ))}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {u.role === 'Admin' && u.isProtected && (
+          <span className="text-xs text-dark-textMuted">все права</span>
+        )}
+        {!u.isProtected && (
+          <>
+            <Button
+              variant={u.role === 'Admin' ? 'ghost' : 'secondary'}
+              size="sm"
+              disabled={busy || !canManageRole}
+              title={!isPrimaryAdmin ? 'Только первичный админ может менять роли' : undefined}
+              onClick={() =>
+                run(u.id, () => adminApi.setRole(u.id, u.role === 'Admin' ? 'Student' : 'Admin'))
+              }
+            >
+              {u.role === 'Admin' ? 'Снять админа' : 'Админ'}
+            </Button>
+            <Button
+              variant={u.isActive ? 'ghost' : 'primary'}
+              size="sm"
+              disabled={busy || !canBan}
+              title={isSelf ? 'Нельзя забанить себя' : undefined}
+              onClick={() => run(u.id, () => adminApi.setIsActive(u.id, !u.isActive))}
+            >
+              {u.isActive ? 'Бан' : 'Разбан'}
+            </Button>
+            {u.role !== 'Admin' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy || !canManagePermissions}
+                title={
+                  !canManagePermissions
+                    ? 'Выдавать права может только первичный админ'
+                    : 'Настроить права'
+                }
+                onClick={() => setPermTarget(u)}
+              >
+                Права
+              </Button>
+            )}
+          </>
+        )}
       </div>
     );
-  }
+  };
 
-  if (error || !users) {
-    const status = (error as { response?: { status?: number } } | null)?.response?.status;
-    return (
-      <Card variant="hover" className="text-center py-12">
-        <p className="text-red-400">Не удалось загрузить пользователей{status ? ` (HTTP ${status})` : ''}</p>
-        <Button className="mt-4" onClick={() => refetch()}>Попробовать снова</Button>
-      </Card>
-    );
-  }
+  const renderHeadmanSelect = (u: AdminUserDto) => (
+    <select
+      className="input py-1 text-sm"
+      value={u.headmanRole}
+      disabled={busyId === u.id}
+      aria-label={`Староста: ${u.displayName}`}
+      onChange={(e) => run(u.id, () => adminApi.setHeadman(u.id, e.target.value))}
+    >
+      <option value="None">{headmanLabel.None}</option>
+      <option value="Headman">{headmanLabel.Headman}</option>
+      <option value="Deputy">{headmanLabel.Deputy}</option>
+    </select>
+  );
+
+  const showError = Boolean(error) && users.length === 0;
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Input
+          type="search"
+          aria-label="Поиск пользователей"
           placeholder="Поиск по ФИО, логину, группе, почте, телефону"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
         />
-        <span className="text-sm text-dark-textMuted whitespace-nowrap">
-          Найдено: {filtered.length} из {users.length}
+        <span className="text-sm text-dark-textMuted whitespace-nowrap" aria-live="polite">
+          Всего: {isLoading ? '—' : total}
+          {isFetching && !isLoading ? ' · обновление…' : ''}
         </span>
       </div>
 
       {actionError && (
         <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
           <span>{actionError}</span>
-          <Button variant="ghost" size="sm" onClick={() => setActionError('')}>✕</Button>
+          <Button variant="ghost" size="sm" onClick={() => setActionError('')}>
+            ✕
+          </Button>
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="text-left text-dark-textMuted border-b border-dark-border">
-              <th className="py-2 px-3 font-medium">ФИО / логин</th>
-              <th className="py-2 px-3 font-medium">Группа</th>
-              <th className="py-2 px-3 font-medium">Средний балл</th>
-              <th className="py-2 px-3 font-medium">Контакты</th>
-              <th className="py-2 px-3 font-medium">Роль</th>
-              <th className="py-2 px-3 font-medium">Статус</th>
-              <th className="py-2 px-3 font-medium">Староста</th>
-              <th className="py-2 px-3 font-medium">Права</th>
-              <th className="py-2 px-3 font-medium">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((u) => {
-              const busy = busyId === u.id;
-              const isSelf = viewer?.id === u.id;
-              const canManageRole = isPrimaryAdmin && !u.isProtected;
-              const canBan = !u.isProtected && !isSelf;
-              const canManagePermissions = isPrimaryAdmin && !u.isProtected && u.role !== 'Admin';
-              const activity = activityLabel(u.lastActivityAt);
-              return (
-                <tr key={u.id} className="text-dark-text border-b border-dark-border">
-                  <td className="py-2 px-3">
-                    <Link to={`/users/${u.id}`} className="font-medium text-dark-text hover:text-primary-400">
+      {error && users.length > 0 && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between gap-3">
+          <span>
+            Не удалось обновить список{status ? ` (HTTP ${status})` : ''}. Показаны ранее
+            загруженные данные.
+          </span>
+          <Button variant="ghost" size="sm" onClick={() => refetch()}>
+            Повторить
+          </Button>
+        </div>
+      )}
+
+      {showError ? (
+        <Card variant="hover" className="text-center py-12">
+          <p className="text-red-400">
+            Не удалось загрузить пользователей{status ? ` (HTTP ${status})` : ''}
+          </p>
+          <Button className="mt-4" onClick={() => refetch()}>
+            Попробовать снова
+          </Button>
+        </Card>
+      ) : isLoading ? (
+        <div className="space-y-2" aria-busy="true">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-16" />
+          ))}
+        </div>
+      ) : users.length === 0 ? (
+        <Card variant="hover" className="text-center py-12">
+          <p className="text-dark-textMuted">
+            {debouncedSearch ? 'Пользователи не найдены' : 'Пользователей пока нет'}
+          </p>
+        </Card>
+      ) : (
+        <>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-dark-textMuted border-b border-dark-border">
+                  <th className="py-2 px-3 font-medium">ФИО / логин</th>
+                  <th className="py-2 px-3 font-medium">Группа</th>
+                  <th className="py-2 px-3 font-medium">Балл</th>
+                  <th className="py-2 px-3 font-medium">Контакты</th>
+                  <th className="py-2 px-3 font-medium">Роль</th>
+                  <th className="py-2 px-3 font-medium">Статус</th>
+                  <th className="py-2 px-3 font-medium">Староста</th>
+                  <th className="py-2 px-3 font-medium text-right">Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id} className="text-dark-text border-b border-dark-border align-top">
+                    <td className="py-2 px-3">
+                      <Link
+                        to={`/users/${u.id}`}
+                        className="font-medium text-dark-text hover:text-primary-400"
+                      >
+                        {shortName(u.displayName)}
+                      </Link>
+                      <div className="text-xs text-dark-textMuted">{u.login}</div>
+                      <ActivityLine lastActivityAt={u.lastActivityAt} />
+                    </td>
+                    <td className="py-2 px-3 text-dark-textMuted">
+                      {u.studyGroupName || '—'}
+                      {u.course ? <span className="block text-xs">курс {u.course}</span> : null}
+                    </td>
+                    <td className="py-2 px-3 text-dark-text">
+                      {u.averageMark != null ? (
+                        u.averageMark.toFixed(2)
+                      ) : (
+                        <span className="text-dark-textMuted">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-dark-textMuted text-xs">
+                      {u.email ? <div className="truncate max-w-[180px]">{u.email}</div> : <div>—</div>}
+                      {u.phoneNumber ? <div>{u.phoneNumber}</div> : null}
+                    </td>
+                    <td className="py-2 px-3">
+                      <RoleBadges user={u} />
+                    </td>
+                    <td className="py-2 px-3">
+                      <StatusBadge isActive={u.isActive} />
+                    </td>
+                    <td className="py-2 px-3">{renderHeadmanSelect(u)}</td>
+                    <td className="py-2 px-3">
+                      <div className="flex justify-end">{renderActions(u)}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden space-y-2">
+            {users.map((u) => (
+              <Card key={u.id} variant="hover" padding="sm" className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      to={`/users/${u.id}`}
+                      className="font-medium text-dark-text hover:text-primary-400 break-words"
+                    >
                       {shortName(u.displayName)}
                     </Link>
                     <div className="text-xs text-dark-textMuted">{u.login}</div>
-                    <div className={`text-xs flex items-center gap-1.5 ${activity.online ? 'text-green-400' : 'text-dark-textMuted'}`}>
-                      <span
-                        className={`inline-block w-1.5 h-1.5 rounded-full ${activity.online ? 'bg-green-500' : 'bg-dark-textMuted/50'}`}
-                      />
-                      {activity.text}
-                    </div>
-                  </td>
-                  <td className="py-2 px-3 text-dark-textMuted">
-                    {u.studyGroupName || '—'}
-                    {u.course ? <span className="block text-xs">курс {u.course}</span> : null}
-                  </td>
-                  <td className="py-2 px-3 text-dark-text">
-                    {u.averageMark != null ? u.averageMark.toFixed(2) : <span className="text-dark-textMuted">—</span>}
-                  </td>
-                  <td className="py-2 px-3 text-dark-textMuted text-xs">
-                    {u.email ? <div className="truncate max-w-[180px]">{u.email}</div> : <div>—</div>}
-                    {u.phoneNumber ? <div>{u.phoneNumber}</div> : null}
-                  </td>
-                  <td className="py-2 px-3">
-                    <Badge variant={u.role === 'Admin' ? 'primary' : 'default'}>{u.role}</Badge>
-                    {u.isProtected && <Badge variant="warning" className="ml-1">Защищён</Badge>}
-                  </td>
-                  <td className="py-2 px-3">
-                    <Badge variant={u.isActive ? 'success' : 'danger'}>
-                      {u.isActive ? 'Не заблокирован' : 'Заблокирован'}
-                    </Badge>
-                  </td>
-                  <td className="py-2 px-3">
-                    <select
-                      className="input py-1 text-sm"
-                      value={u.headmanRole}
-                      disabled={busy}
-                      onChange={(e) => run(u.id, () => adminApi.setHeadman(u.id, e.target.value))}
-                    >
-                      <option value="None">{headmanLabel.None}</option>
-                      <option value="Headman">{headmanLabel.Headman}</option>
-                      <option value="Deputy">{headmanLabel.Deputy}</option>
-                    </select>
-                  </td>
-                  <td className="py-2 px-3">
-                    {u.role === 'Admin' ? (
-                      <span className="text-xs text-dark-textMuted">все права</span>
-                    ) : u.isProtected ? (
-                      <span className="text-xs text-dark-textMuted">—</span>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={busy || !canManagePermissions}
-                        title={!canManagePermissions ? 'Выдавать права может только первичный админ' : 'Настроить права'}
-                        onClick={() => setPermTarget(u)}
-                      >
-                        Управлять
-                      </Button>
-                    )}
-                  </td>
-                  <td className="py-2 px-3">
-                    <div className="flex flex-wrap gap-1.5 justify-end">
-                      <Button
-                        variant={u.role === 'Admin' ? 'ghost' : 'secondary'}
-                        size="sm"
-                        disabled={busy || !canManageRole}
-                        title={!isPrimaryAdmin ? 'Только первичный админ может менять роли' : undefined}
-                        onClick={() => run(u.id, () => adminApi.setRole(u.id, u.role === 'Admin' ? 'Student' : 'Admin'))}
-                      >
-                        {u.role === 'Admin' ? 'Снять админа' : 'Админ'}
-                      </Button>
-                      <Button
-                        variant={u.isActive ? 'ghost' : 'primary'}
-                        size="sm"
-                        disabled={busy || !canBan}
-                        title={u.isProtected ? 'Защищённый пользователь' : isSelf ? 'Нельзя забанить себя' : undefined}
-                        onClick={() => run(u.id, () => adminApi.setIsActive(u.id, !u.isActive))}
-                      >
-                        {u.isActive ? 'Бан' : 'Разбан'}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <RoleBadges user={u} />
+                    <StatusBadge isActive={u.isActive} />
+                  </div>
+                </div>
 
-      {filtered.length === 0 && (
-        <Card variant="hover" className="text-center py-12">
-          <p className="text-dark-textMuted">Пользователи не найдены</p>
-        </Card>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="text-dark-textMuted">
+                    <span className="text-dark-text">Группа: </span>
+                    {u.studyGroupName || '—'}
+                    {u.course ? ` · курс ${u.course}` : ''}
+                  </div>
+                  <div className="text-dark-textMuted">
+                    <span className="text-dark-text">Балл: </span>
+                    {u.averageMark != null ? u.averageMark.toFixed(2) : '—'}
+                  </div>
+                </div>
+
+                {(u.email || u.phoneNumber) && (
+                  <div className="text-xs text-dark-textMuted space-y-0.5">
+                    {u.email && <div className="truncate">{u.email}</div>}
+                    {u.phoneNumber && <div>{u.phoneNumber}</div>}
+                  </div>
+                )}
+
+                <ActivityLine lastActivityAt={u.lastActivityAt} />
+
+                <div className="space-y-2">
+                  {renderHeadmanSelect(u)}
+                  {renderActions(u)}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span className="text-sm text-dark-textMuted">
+              Показано {from}–{to} из {total}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                ← Назад
+              </Button>
+              <span className="text-sm text-dark-textMuted whitespace-nowrap">
+                Стр. {page} из {totalPages}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                Вперёд →
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       {permTarget && (

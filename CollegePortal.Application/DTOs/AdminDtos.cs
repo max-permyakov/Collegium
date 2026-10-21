@@ -20,6 +20,13 @@ public record AdminUserDto(
     DateTime CreatedAt
 );
 
+public record AdminUsersPageDto(
+    AdminUserDto[] Items,
+    int Total,
+    int Page,
+    int PageSize
+);
+
 public record StatisticsDto(
     int TotalUsers,
     int OnlineUsers,

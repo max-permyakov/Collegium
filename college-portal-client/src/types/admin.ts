@@ -57,6 +57,13 @@ export interface AdminUserDto {
   createdAt: string;
 }
 
+export interface AdminUsersPageDto {
+  items: AdminUserDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface StatisticsDto {
   totalUsers: number;
   onlineUsers: number;

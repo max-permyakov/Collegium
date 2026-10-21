@@ -32,10 +32,57 @@ public class AdminService : IAdminService
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<AdminUserDto>> GetUsersAsync(CancellationToken ct = default)
+    public async Task<AdminUsersPageDto> GetUsersAsync(
+        int page,
+        int pageSize,
+        string? query,
+        CancellationToken ct = default)
     {
-        var users = await _dbContext.Users
-            .AsNoTracking()
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var usersQuery = ApplyUserSearch(_dbContext.Users.AsNoTracking(), query);
+        var total = await usersQuery.CountAsync(ct);
+
+        var items = await LoadUsersAsync(
+            usersQuery,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            ct);
+
+        return new AdminUsersPageDto(items.ToArray(), total, page, pageSize);
+    }
+
+    public async Task<IReadOnlyList<AdminUserDto>> GetUsersForExportAsync(CancellationToken ct = default)
+    {
+        return await LoadUsersAsync(_dbContext.Users.AsNoTracking(), skip: null, take: null, ct);
+    }
+
+    private static IQueryable<ApplicationUser> ApplyUserSearch(
+        IQueryable<ApplicationUser> usersQuery,
+        string? query)
+    {
+        var term = query?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(term))
+            return usersQuery;
+
+        return usersQuery.Where(u =>
+            u.DisplayName.ToLower().Contains(term) ||
+            (u.UserName != null && u.UserName.ToLower().Contains(term)) ||
+            (u.Email != null && u.Email.ToLower().Contains(term)) ||
+            (u.PhoneNumber != null && u.PhoneNumber.ToLower().Contains(term)) ||
+            (u.StudentProfile != null && u.StudentProfile.StudyGroup.Name.ToLower().Contains(term)));
+    }
+
+    private static async Task<List<AdminUserDto>> LoadUsersAsync(
+        IQueryable<ApplicationUser> usersQuery,
+        int? skip,
+        int? take,
+        CancellationToken ct)
+    {
+        var projected = usersQuery
+            .OrderBy(u => u.DisplayName)
+            .ThenBy(u => u.Id)
             .Select(u => new
             {
                 u.Id,
@@ -55,9 +102,14 @@ public class AdminService : IAdminService
                 HeadmanRoleVal = u.StudentProfile != null ? u.StudentProfile.HeadmanRole : HeadmanRole.None,
                 AverageMarkVal = u.StudentProfile != null ? u.StudentProfile.AverageMark : null,
                 GradesCachedAtVal = u.StudentProfile != null ? u.StudentProfile.GradesCachedAt : null
-            })
-            .OrderBy(u => u.DisplayName)
-            .ToListAsync(ct);
+            });
+
+        if (skip is int skipCount)
+            projected = projected.Skip(skipCount);
+        if (take is int takeCount)
+            projected = projected.Take(takeCount);
+
+        var users = await projected.ToListAsync(ct);
 
         return users.Select(u => new AdminUserDto(
             u.Id,
