@@ -23,10 +23,11 @@ public class ScheduleService : IScheduleService
         _logger = logger;
     }
 
-    public async Task<ScheduleResponseDto?> GetScheduleForDayAsync(Guid userId, DateTime date, CancellationToken ct = default)
+    private async Task<StudentProfile?> GetStudentProfileAsync(Guid userId, CancellationToken ct)
     {
         var studentProfile = await _dbContext.StudentProfiles
             .AsNoTracking()
+            .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
 
         if (studentProfile == null)
@@ -34,33 +35,38 @@ public class ScheduleService : IScheduleService
             _logger.LogWarning("Student profile not found for user {UserId}", userId);
             return null;
         }
+
+        return studentProfile;
+    }
+
+    public async Task<ScheduleResponseDto?> GetScheduleForDayAsync(Guid userId, DateTime date, CancellationToken ct = default)
+    {
+        var studentProfile = await GetStudentProfileAsync(userId, ct);
+        if (studentProfile == null)
+            return null;
 
         var daySchedule = await _scheduleProvider.GetScheduleForDayAsync(studentProfile.ExternalStudentId, date, ct);
         if (daySchedule == null)
             return null;
 
-        return MapToResponseDto(daySchedule);
+        var snapshots = await LoadKkepikSnapshotsAsync(studentProfile.StudyGroup?.Name, date, date, ct);
+        return await BuildDayResponse(daySchedule, snapshots, ct);
     }
 
     public async Task<WeekScheduleResponseDto?> GetScheduleForWeekAsync(Guid userId, DateTime startDate, CancellationToken ct = default)
     {
-        var studentProfile = await _dbContext.StudentProfiles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
-
+        var studentProfile = await GetStudentProfileAsync(userId, ct);
         if (studentProfile == null)
-        {
-            _logger.LogWarning("Student profile not found for user {UserId}", userId);
             return null;
-        }
 
         var endDate = startDate.AddDays(6);
         var schedule = await _scheduleProvider.GetScheduleAsync(studentProfile.ExternalStudentId, startDate, endDate, ct);
+        var snapshots = await LoadKkepikSnapshotsAsync(studentProfile.StudyGroup?.Name, startDate, endDate, ct);
 
         return new WeekScheduleResponseDto(
             startDate,
             endDate,
-            schedule.Select(MapToResponseDto).ToArray()
+            await Task.WhenAll(schedule.Select(day => BuildDayResponse(day, snapshots, ct)))
         );
     }
 
@@ -90,11 +96,12 @@ public class ScheduleService : IScheduleService
         var firstStudent = students.First();
         var endDate = startDate.AddDays(6);
         var schedule = await _scheduleProvider.GetScheduleAsync(firstStudent.ExternalStudentId, startDate, endDate, ct);
+        var snapshots = await LoadKkepikSnapshotsAsync(groupName, startDate, endDate, ct);
 
         return new WeekScheduleResponseDto(
             startDate,
             endDate,
-            schedule.Select(MapToResponseDto).ToArray()
+            await Task.WhenAll(schedule.Select(day => BuildDayResponse(day, snapshots, ct)))
         );
     }
 
@@ -138,27 +145,79 @@ public class ScheduleService : IScheduleService
         if (snapshot == null)
             return null;
 
-        string[] lines;
-        try
-        {
-            lines = System.Text.Json.JsonSerializer.Deserialize<string[]>(snapshot.ScheduleLinesJson) ?? Array.Empty<string>();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to deserialize kkepik schedule lines for {Group}", groupName);
-            lines = Array.Empty<string>();
-        }
+        return await ToKkepikResponseAsync(snapshot, ct);
+    }
+
+    private async Task<KkepikScheduleResponseDto> ToKkepikResponseAsync(KkepikSchedule snapshot, CancellationToken ct)
+    {
+        var lines = await DeserializeLinesAsync(snapshot, ct);
 
         return new KkepikScheduleResponseDto(
             snapshot.Date,
-            groupName,
-            KkepikScheduleParser.Parse(lines, snapshot.Date.DayOfWeek),
+            snapshot.GroupName,
+            lines.Length > 0 ? KkepikScheduleParser.Parse(lines, snapshot.Date.DayOfWeek) : Array.Empty<LessonDto>(),
             snapshot.UpdatedAt
         );
     }
 
+    private async Task<string[]> DeserializeLinesAsync(KkepikSchedule snapshot, CancellationToken ct)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<string[]>(snapshot.ScheduleLinesJson) ?? Array.Empty<string>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize kkepik schedule lines for {Group} on {Date}", snapshot.GroupName, snapshot.Date.ToString("yyyy-MM-dd"));
+            return Array.Empty<string>();
+        }
+    }
+
+    // Кеш kkepik (дата -> строки расписания). Используется, чтобы на главной и
+    // во вкладке "Расписание" показывалось расписание kkepik (в том числе
+    // аудитории) там, где колледж его уже опубликовал, — вместо данных
+    // электронного дневника.
+    private async Task<Dictionary<DateTime, KkepikSchedule>> LoadKkepikSnapshotsAsync(string? groupName, DateTime startDate, DateTime endDate, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(groupName))
+            return new Dictionary<DateTime, KkepikSchedule>();
+
+        var start = DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc);
+        var end = DateTime.SpecifyKind(endDate.Date, DateTimeKind.Utc);
+
+        var snapshots = await _dbContext.KkepikSchedules
+            .AsNoTracking()
+            .Where(s => s.GroupName == groupName && s.Date >= start && s.Date <= end)
+            .ToListAsync(ct);
+
+        var result = new Dictionary<DateTime, KkepikSchedule>();
+        foreach (var snapshot in snapshots)
+        {
+            if (!result.TryGetValue(snapshot.Date.Date, out var existing) || snapshot.UpdatedAt > existing.UpdatedAt)
+                result[snapshot.Date.Date] = snapshot;
+        }
+        return result;
+    }
+
+    private async Task<ScheduleResponseDto> BuildDayResponse(ScheduleDayDto day, Dictionary<DateTime, KkepikSchedule> snapshots, CancellationToken ct)
+    {
+        if (snapshots.TryGetValue(day.Date.Date, out var snapshot))
+        {
+            var lines = await DeserializeLinesAsync(snapshot, ct);
+            var lessons = lines.Length > 0 ? KkepikScheduleParser.Parse(lines, day.Date.DayOfWeek) : Array.Empty<LessonDto>();
+            if (lessons.Length > 0)
+            {
+                // kkepik — актуальный источник: опубликованные им пары заменяют
+                // данные дневника (включая аудитории).
+                return new ScheduleResponseDto(day.Date, false, day.IsShort, lessons, "kkepik");
+            }
+        }
+
+        return MapToResponseDto(day);
+    }
+
     private static ScheduleResponseDto MapToResponseDto(ScheduleDayDto day)
     {
-        return new ScheduleResponseDto(day.Date, day.IsHoliday, day.IsShort, day.Lessons);
+        return new ScheduleResponseDto(day.Date, day.IsHoliday, day.IsShort, day.Lessons, "diary");
     }
 }

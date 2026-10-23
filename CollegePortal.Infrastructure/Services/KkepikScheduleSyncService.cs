@@ -15,6 +15,14 @@ public class KkepikScheduleSyncService : BackgroundService
     private readonly ILogger<KkepikScheduleSyncService> _logger;
     private readonly TimeSpan _interval = TimeSpan.FromMinutes(30);
 
+    // kkepik публикует расписание день за днём; кешируем сегодня и неделю вперёд,
+    // чтобы на главной и во вкладке "Расписание" всегда показывалось то же
+    // расписание, которое выкладывает kkepik (включая аудитории).
+    private const int DaysAhead = 6;
+
+    // kkepik разрешает 10 запросов в секунду на IP.
+    private static readonly TimeSpan RequestDelay = TimeSpan.FromMilliseconds(250);
+
     public KkepikScheduleSyncService(
         IServiceScopeFactory scopeFactory,
         ILogger<KkepikScheduleSyncService> logger)
@@ -78,42 +86,70 @@ public class KkepikScheduleSyncService : BackgroundService
 
         foreach (var group in groups)
         {
-            // kkepik публикует актуальное расписание на ближайший учебный день;
-            // смотрим сегодня+завтра, чтобы покрыть выходные и переносы.
-            for (var offset = 1; offset <= 2; offset++)
+            for (var offset = 0; offset <= DaysAhead; offset++)
             {
+                ct.ThrowIfCancellationRequested();
+
                 // Moscow calendar date (fixed UTC+3, no DST) stored as UTC midnight for
                 // consistency with the timestamp-with-time-zone column.
                 var targetDate = DateTime.UtcNow.AddHours(3).Date.AddDays(offset);
-                var schedule = await scheduleApi.GetGroupScheduleAsync(group, targetDate, ct);
+
+                ScheduleResponseDto? schedule;
+                try
+                {
+                    schedule = await scheduleApi.GetGroupScheduleAsync(group, targetDate, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Kkepik request failed for {Group} on {Date}", group, targetDate.ToString("yyyy-MM-dd"));
+                    continue;
+                }
+
+                await Task.Delay(RequestDelay, ct);
+
                 if (schedule == null || schedule.ScheduleLines.Length == 0)
                     continue;
 
-                var linesJson = JsonSerializer.Serialize(schedule.ScheduleLines);
-                var existing = await db.KkepikSchedules
-                    .FirstOrDefaultAsync(s => s.GroupName == group && s.Date == targetDate, ct);
+                // kkepik возвращает собственную дату расписания; кешируем ответ
+                // именно под неё, а не под запрошенную дату — иначе "актуальный"
+                // день может оказаться под ярлыком завтрашнего.
+                var effectiveDate = schedule.Date == default
+                    ? targetDate
+                    : schedule.Date.Date;
+                effectiveDate = DateTime.SpecifyKind(effectiveDate, DateTimeKind.Utc);
 
-                if (existing != null)
-                {
-                    existing.ScheduleLinesJson = linesJson;
-                    existing.UpdatedAt = DateTime.UtcNow;
-                }
-                else
-                {
-                    db.KkepikSchedules.Add(new KkepikSchedule
-                    {
-                        Id = Guid.NewGuid(),
-                        GroupName = group,
-                        Date = targetDate,
-                        ScheduleLinesJson = linesJson,
-                        UpdatedAt = DateTime.UtcNow
-                    });
-                }
-
-                await db.SaveChangesAsync(ct);
-                _logger.LogInformation("Kkepik schedule updated for {Group} on {Date}", group, targetDate.ToString("yyyy-MM-dd"));
-                break;
+                await UpsertAsync(db, group, effectiveDate, schedule.ScheduleLines, ct);
             }
         }
+    }
+
+    private async Task UpsertAsync(CollegePortalDbContext db, string group, DateTime date, string[] lines, CancellationToken ct)
+    {
+        var linesJson = JsonSerializer.Serialize(lines);
+        var existing = await db.KkepikSchedules
+            .FirstOrDefaultAsync(s => s.GroupName == group && s.Date == date, ct);
+
+        if (existing != null)
+        {
+            if (existing.ScheduleLinesJson == linesJson)
+                return; // без изменений — не трогаем UpdatedAt, чтобы он показывал время фактической публикации
+
+            existing.ScheduleLinesJson = linesJson;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            db.KkepikSchedules.Add(new KkepikSchedule
+            {
+                Id = Guid.NewGuid(),
+                GroupName = group,
+                Date = date,
+                ScheduleLinesJson = linesJson,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        _logger.LogInformation("Kkepik schedule updated for {Group} on {Date}", group, date.ToString("yyyy-MM-dd"));
     }
 }

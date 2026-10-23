@@ -4,7 +4,8 @@ public record ScheduleResponseDto(
     DateTime Date,
     bool IsHoliday,
     bool IsShort,
-    LessonDto[] Lessons
+    LessonDto[] Lessons,
+    string Source = "diary"
 );
 
 public record WeekScheduleResponseDto(

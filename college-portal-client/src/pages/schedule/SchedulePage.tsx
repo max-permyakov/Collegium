@@ -41,7 +41,7 @@ export function SchedulePage() {
       const startDate = searchParams.get('startDate') || moscowWeekStartISO();
       const [scheduleRes, kkepikRes] = await Promise.allSettled([
         scheduleApi.getWeek(startDate),
-        scheduleApi.getKkepik(addDaysISO(moscowDateISO(), 1)),
+        scheduleApi.getKkepik(),
       ]);
       if (scheduleRes.status === 'fulfilled') {
         setWeekSchedule(scheduleRes.value.data);
@@ -106,8 +106,8 @@ export function SchedulePage() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
             <p className="text-sm text-dark-text truncate">
               {kkepik.updatedAt
-                ? `Расписание на завтра актуально: обновлено от kkepik в ${formatMoscowTime(kkepik.updatedAt, { hour: '2-digit', minute: '2-digit' })}`
-                : 'Расписание на завтра актуально'}
+                ? `Актуальное расписание от kkepik: обновлено в ${formatMoscowTime(kkepik.updatedAt, { hour: '2-digit', minute: '2-digit' })}`
+                : 'Актуальное расписание от kkepik'}
             </p>
           </div>
           {kkepik.date && (
@@ -129,7 +129,15 @@ export function SchedulePage() {
             >
               <div className={`flex items-center justify-between mb-3 ${isToday ? 'text-primary-400' : ''}`}>
                 <span className="text-sm font-medium text-dark-textMuted">{dayNames[date.getDay()]}</span>
-                <span className={`font-semibold ${isToday ? 'text-primary-400' : 'text-dark-text'}`}>{date.getDate()}</span>
+                <div className="flex items-center gap-2">
+                  {day.source === 'kkepik' && (
+                    <Badge variant="primary" className="text-[10px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block mr-1" />
+                      от kkepik
+                    </Badge>
+                  )}
+                  <span className={`font-semibold ${isToday ? 'text-primary-400' : 'text-dark-text'}`}>{date.getDate()}</span>
+                </div>
               </div>
               {day.isHoliday && (
                 <Badge variant="warning" className="mb-2">Выходной</Badge>

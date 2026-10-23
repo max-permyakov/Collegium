@@ -43,6 +43,8 @@ export interface ScheduleDay {
   isHoliday: boolean;
   isShort: boolean;
   lessons: Lesson[];
+  /** 'kkepik' — день заменён актуальным расписанием kkepik; 'diary' — данные электронного дневника. */
+  source?: 'kkepik' | 'diary';
 }
 
 export interface Lesson {

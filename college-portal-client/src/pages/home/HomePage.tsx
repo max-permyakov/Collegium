@@ -12,12 +12,13 @@ import { Avatar } from '../../components/ui/Avatar';
 import { RoomButton } from '../../components/college/RoomButton';
 import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
-import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO, addDaysISO } from '../../utils/datetime';
+import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
 import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
 interface DashboardData {
   remainingToday?: Lesson[];
+  todaySource?: 'kkepik';
   kkepik?: KkepikScheduleResponse;
   grades?: SubjectGrade[];
   recentMarks?: RecentMarkEntry[];
@@ -53,13 +54,12 @@ export function HomePage() {
 
     try {
       const todayStr = moscowDateISO();
-      const tomorrowStr = addDaysISO(todayStr, 1);
       const weekStartStr = moscowWeekStartISO();
       const nowTime = moscowNowTimeHMS();
 
       const [scheduleRes, kkepikRes, gradesRes, newsRes, assignmentsRes, perfRes] = await Promise.allSettled([
         scheduleApi.getWeek(weekStartStr),
-        scheduleApi.getKkepik(tomorrowStr),
+        scheduleApi.getKkepik(),
         gradesApi.getGrades(),
         newsApi.getNews(user.studentProfile?.studyGroupId),
         assignmentsApi.getMyAssignments(),
@@ -67,17 +67,20 @@ export function HomePage() {
       ]);
 
       let remainingToday: Lesson[] = [];
+      let todaySource: 'kkepik' | undefined = undefined;
       if (scheduleRes.status === 'fulfilled' && scheduleRes.value.data?.days) {
         const todayDay = scheduleRes.value.data.days.find(
           d => d.date === todayStr || d.date.slice(0, 10) === todayStr
         );
         if (todayDay) {
           remainingToday = todayDay.lessons.filter(l => l.startTime > nowTime);
+          if (todayDay.source === 'kkepik') todaySource = 'kkepik';
         }
       }
 
       setDashboardData({
         remainingToday,
+        todaySource,
         kkepik: kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined,
         grades: gradesRes.status === 'fulfilled' ? gradesRes.value.data?.subjects?.slice(0, 4) : [],
         recentMarks: getRecentMarks(perfRes.status === 'fulfilled' ? perfRes.value.data : null, 6),
@@ -126,7 +129,15 @@ export function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card variant="hover">
           <CardHeader>
-            <CardTitle>Оставшиеся пары сегодня</CardTitle>
+            <CardTitle className="flex items-center gap-2 min-w-0">
+              <span className="truncate">Оставшиеся пары сегодня</span>
+              {dashboardData.todaySource === 'kkepik' && (
+                <Badge variant="primary" className="text-[10px] shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block mr-1" />
+                  от kkepik
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {dashboardData.remainingToday && dashboardData.remainingToday.length > 0 ? (
@@ -167,7 +178,7 @@ export function HomePage() {
         <Card variant="hover">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-1 min-w-0">
-              <span className="truncate">Расписание на завтра</span>
+              <span className="truncate">Актуальное расписание kkepik</span>
               <Button
                 variant="ghost"
                 size="sm"
