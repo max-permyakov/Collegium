@@ -58,6 +58,7 @@ interface RunState {
   holdDuck: boolean;
   obstacles: Obstacle[];
   trail: TrailPoint[];
+  trailAcc: number;
   frameBlink: number;
   hiScore: number;
 }
@@ -115,6 +116,7 @@ const EscapeGamePage = () => {
     holdDuck: false,
         obstacles: [],
         trail: [],
+        trailAcc: 0,
         frameBlink: 0,
     hiScore: 0,
   });
@@ -166,8 +168,9 @@ const EscapeGamePage = () => {
         vy: 0,
         grounded: true,
         holdDuck: false,
-    obstacles: [],
-    trail: [],
+        obstacles: [],
+        trail: [],
+        trailAcc: 0,
         frameBlink: 0,
         hiScore: hi,
       };
@@ -228,6 +231,7 @@ const EscapeGamePage = () => {
         holdDuck: false,
     obstacles: [],
     trail: [],
+    trailAcc: 0,
     frameBlink: 0,
         hiScore: hi,
       };
@@ -235,7 +239,6 @@ const EscapeGamePage = () => {
 
     let raf = 0;
     let lastTime = performance.now();
-    let acc = 0;
     const STEP = 1000 / 60;
 
     const spreadFont = (size: number) => `bold ${size}px "Segoe UI", system-ui, sans-serif`;
@@ -276,17 +279,19 @@ const EscapeGamePage = () => {
       s.spawnAcc = 0;
     };
 
-    const stepPhysics = () => {
+    const stepPhysics = (dt: number) => {
       const s = runRef.current;
       if (s.status !== 'running') return;
 
+      const scale = dt / STEP;
       s.speed = Math.min(MAX_SPEED, START_SPEED + s.runDistance * ACCEL);
-      s.runDistance += s.speed;
-      s.spawnAcc += s.speed;
+      const move = s.speed * scale;
+      s.runDistance += move;
+      s.spawnAcc += move;
 
       if (!s.grounded) {
-        s.vy += GRAVITY;
-        s.alt -= s.vy;
+        s.vy += GRAVITY * scale;
+        s.alt -= s.vy * scale;
         if (s.alt <= 0) {
           s.alt = 0;
           s.vy = 0;
@@ -299,13 +304,17 @@ const EscapeGamePage = () => {
       const pW = ducking ? DUCK_W : STAND_W;
       const pTop = GROUND_Y - s.alt - pH;
 
-      s.trail.push({ alt: s.alt, ducking });
-      if (s.trail.length > TRAIL_MAX_DELAY + 4) s.trail.shift();
+      s.trailAcc += dt;
+      while (s.trailAcc >= STEP) {
+        s.trailAcc -= STEP;
+        s.trail.push({ alt: s.alt, ducking });
+        if (s.trail.length > TRAIL_MAX_DELAY + 4) s.trail.shift();
+      }
 
       if (s.spawnAcc >= s.spawnGap) spawnObstacle();
 
       for (const o of s.obstacles) {
-        o.x -= s.speed;
+        o.x -= move;
         const overlapX = PLAYER_X + HIT_MARGIN < o.x + o.w - HIT_MARGIN &&
           PLAYER_X + pW - HIT_MARGIN > o.x + HIT_MARGIN;
         const overlapY = pTop + HIT_MARGIN < o.y + o.h - HIT_MARGIN &&
@@ -506,14 +515,10 @@ const EscapeGamePage = () => {
 
     const loop = (time: number) => {
       raf = requestAnimationFrame(loop);
-      const dt = Math.min(time - lastTime, 100);
+      const dt = Math.max(0, Math.min(time - lastTime, 33));
       lastTime = time;
-      acc += dt;
-      while (acc >= STEP) {
-        acc -= STEP;
-        runRef.current.frameBlink += 1;
-        stepPhysics();
-      }
+      runRef.current.frameBlink += 1;
+      stepPhysics(dt);
       draw();
     };
     raf = requestAnimationFrame(loop);
@@ -528,7 +533,9 @@ const EscapeGamePage = () => {
         jump();
       } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
         e.preventDefault();
-        runRef.current.holdDuck = true;
+        const s = runRef.current;
+        if (!s.grounded) s.vy = Math.max(s.vy, 7);
+        s.holdDuck = true;
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -560,7 +567,7 @@ const EscapeGamePage = () => {
     let startY = 0;
     let tracking = false;
     let fired = false;
-    let duckTimer: number | undefined;
+    let duckHeld = false;
 
     const onTouchStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement | null;
@@ -585,16 +592,21 @@ const EscapeGamePage = () => {
       if (dy < 0) {
         jump();
       } else {
-        runRef.current.holdDuck = true;
-        if (duckTimer) window.clearTimeout(duckTimer);
-        duckTimer = window.setTimeout(() => {
-          runRef.current.holdDuck = false;
-        }, 650);
+        const s = runRef.current;
+        if (s.status === 'running') {
+          if (!s.grounded) s.vy = Math.max(s.vy, 7);
+          s.holdDuck = true;
+          duckHeld = true;
+        }
       }
     };
 
     const onTouchEnd = () => {
       tracking = false;
+      if (duckHeld) {
+        runRef.current.holdDuck = false;
+        duckHeld = false;
+      }
     };
 
     el.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -606,7 +618,7 @@ const EscapeGamePage = () => {
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', onTouchEnd);
-      if (duckTimer) window.clearTimeout(duckTimer);
+      if (duckHeld) runRef.current.holdDuck = false;
     };
   }, [jump]);
 

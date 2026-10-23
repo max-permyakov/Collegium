@@ -75,7 +75,7 @@ export const escapeModes: EscapeModeConfig[] = [
       { text: '«Не сочиняй!»', style: 'badge', flying: true },
       { text: '«Я не так диктовала»', style: 'badge', flying: true },
       { text: '2', style: 'glyph', flying: true },
-      { text: '«Эльфы отвечают первыми»', style: 'badge', flying: true },
+      { text: '«Эльфы вперёд»', style: 'badge', flying: true },
     ],
     trailImage: '/games/1c/trail.png',
   },

@@ -126,8 +126,8 @@ export function HomePage() {
         <Avatar src={user?.studentProfile?.avatarDataUrl || undefined} name={user?.displayName || ''} size="lg" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card variant="hover">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+        <Card variant="hover" className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 min-w-0">
               <span className="truncate">Оставшиеся пары сегодня</span>
@@ -143,23 +143,23 @@ export function HomePage() {
             {dashboardData.remainingToday && dashboardData.remainingToday.length > 0 ? (
               <div className="space-y-2">
                 {dashboardData.remainingToday.map((lesson, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-dark-bg border border-dark-border">
+                  <div key={i} className="min-w-0 p-3 rounded-xl bg-dark-bg border border-dark-border">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Badge variant="primary">
                         {_formatTime(lesson.startTime)} - {_formatTime(lesson.endTime)}
                       </Badge>
                     </div>
-                    <p className="font-medium text-dark-text">{lesson.name}</p>
+                    <p className="font-medium text-dark-text break-words">{lesson.name}</p>
                     {lesson.classroom && lesson.classroom.name && (
                       <RoomButton
                         roomName={lesson.classroom.name}
                         lessonName={lesson.name}
                         teacherName={teacherShort(lesson.teacher)}
-                        className="block text-sm text-primary-400 hover:text-primary-300 hover:underline mt-1 disabled:opacity-60 text-left"
+                        className="block text-sm text-primary-400 hover:text-primary-300 hover:underline mt-1 disabled:opacity-60 text-left break-words"
                       />
                     )}
                     {lesson.teacher && (
-                      <p className="text-sm text-dark-textMuted">{teacherShort(lesson.teacher)}</p>
+                      <p className="text-sm text-dark-textMuted break-words">{teacherShort(lesson.teacher)}</p>
                     )}
                   </div>
                 ))}
@@ -175,7 +175,7 @@ export function HomePage() {
           </CardFooter>
         </Card>
 
-        <Card variant="hover">
+        <Card variant="hover" className="min-w-0 overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-1 min-w-0">
               <span className="truncate">Актуальное расписание kkepik</span>
@@ -199,24 +199,24 @@ export function HomePage() {
             {dashboardData.kkepik && dashboardData.kkepik.lessons.length > 0 ? (
               <div className="space-y-2">
                 {dashboardData.kkepik.lessons.slice(0, 5).map((lesson, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-dark-bg border border-dark-border">
+                  <div key={i} className="min-w-0 p-3 rounded-xl bg-dark-bg border border-dark-border">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Badge variant="primary">
                         {_formatTime(lesson.startTime)} - {_formatTime(lesson.endTime)}
                       </Badge>
                       <span className="text-xs text-dark-textMuted">пара {i + 1}</span>
                     </div>
-                    <p className="font-medium text-dark-text">{lesson.name}</p>
+                    <p className="font-medium text-dark-text break-words">{lesson.name}</p>
                     {lesson.classroom && lesson.classroom.name && (
                       <RoomButton
                         roomName={lesson.classroom.name}
                         lessonName={lesson.name}
                         teacherName={teacherShort(lesson.teacher)}
-                        className="block text-sm text-primary-400 hover:text-primary-300 hover:underline mt-1 disabled:opacity-60 text-left"
+                        className="block text-sm text-primary-400 hover:text-primary-300 hover:underline mt-1 disabled:opacity-60 text-left break-words"
                       />
                     )}
                     {lesson.teacher && (
-                      <p className="text-sm text-dark-textMuted">{teacherShort(lesson.teacher)}</p>
+                      <p className="text-sm text-dark-textMuted break-words">{teacherShort(lesson.teacher)}</p>
                     )}
                   </div>
                 ))}
