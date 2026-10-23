@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/Card';
 
 const upcoming = [
   { icon: '🧩', title: 'Викторина' },
-  { icon: '🎓', title: 'За оба стула' },
+  { icon: '🎓', title: 'Успей на пару под градусом' },
 ];
 
 export function GamesPage() {

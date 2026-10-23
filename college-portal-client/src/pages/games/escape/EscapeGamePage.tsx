@@ -11,7 +11,8 @@ const LOGICAL_W = 900;
 const LOGICAL_H = 300;
 const GROUND_H = 50;
 const GROUND_Y = LOGICAL_H - GROUND_H;
-const PLAYER_X = 80;
+const PLAYER_X = 150;
+const TRAIL_X = 80;
 const STAND_H = 66;
 const STAND_W = 46;
 const DUCK_H = 34;
@@ -19,13 +20,16 @@ const DUCK_W = 56;
 const JUMP_VY = -12.4;
 const GRAVITY = 0.5;
 const START_SPEED = 5.2;
-const MAX_SPEED = 10.5;
-const ACCEL = 0.00016;
+const MAX_SPEED = 100.5;
+const ACCEL = 0.0001;
 const FLY_CHANCE = 0.3;
 const MIN_GAP = 260;
 const HIT_MARGIN = 7;
 const SCORE_DIVISOR = 8;
 const PLAYER_SPRITE_URL = '/games/player.png';
+const TRAIL_MIN_DELAY = 6;
+const TRAIL_MAX_DELAY = 14;
+const TRAIL_ALPHA = 1;
 
 interface Obstacle {
   x: number;
@@ -35,6 +39,12 @@ interface Obstacle {
   text: string;
   style: 'badge' | 'glyph' | 'wave';
   accent: string;
+  image?: string;
+}
+
+interface TrailPoint {
+  alt: number;
+  ducking: boolean;
 }
 
 interface RunState {
@@ -48,6 +58,7 @@ interface RunState {
   grounded: boolean;
   holdDuck: boolean;
   obstacles: Obstacle[];
+  trail: TrailPoint[];
   frameBlink: number;
   hiScore: number;
 }
@@ -55,6 +66,7 @@ interface RunState {
 interface RefsBundle {
   sprite: HTMLImageElement | null;
   spriteReady: boolean;
+  imageCache: Map<string, HTMLImageElement>;
 }
 
 const spacesForSpeed = (speed: number) => MIN_GAP + speed * 30;
@@ -102,11 +114,12 @@ const EscapeGamePage = () => {
     vy: 0,
     grounded: true,
     holdDuck: false,
-    obstacles: [],
-    frameBlink: 0,
+        obstacles: [],
+        trail: [],
+        frameBlink: 0,
     hiScore: 0,
   });
-  const refsRef = useRef<RefsBundle>({ sprite: null, spriteReady: false });
+  const refsRef = useRef<RefsBundle>({ sprite: null, spriteReady: false, imageCache: new Map() });
   const hiScoreRef = useRef(0);
   const onGameOverRef = useRef<(score: number) => void>(() => {});
 
@@ -156,8 +169,9 @@ const EscapeGamePage = () => {
         vy: 0,
         grounded: true,
         holdDuck: false,
-        obstacles: [],
-        frameBlink: 0,
+    obstacles: [],
+    trail: [],
+    frameBlink: 0,
         hiScore: hi,
       };
       setStatus('running');
@@ -189,6 +203,21 @@ const EscapeGamePage = () => {
     sprite.onload = () => { bundle.spriteReady = true; };
     sprite.onerror = () => { bundle.spriteReady = false; };
 
+    const getImage = (src: string) => {
+      let img = bundle.imageCache.get(src);
+      if (!img) {
+        img = new Image();
+        img.src = src;
+        bundle.imageCache.set(src, img);
+      }
+      return img;
+    };
+
+    for (const item of [...config.groundItems, ...config.flyingItems]) {
+      if (item.image) getImage(item.image);
+    }
+    getImage(config.trailImage);
+
     {
       const hi = hiScoreRef.current;
       runRef.current = {
@@ -201,8 +230,9 @@ const EscapeGamePage = () => {
         vy: 0,
         grounded: true,
         holdDuck: false,
-        obstacles: [],
-        frameBlink: 0,
+    obstacles: [],
+    trail: [],
+    frameBlink: 0,
         hiScore: hi,
       };
     }
@@ -221,7 +251,10 @@ const EscapeGamePage = () => {
       const spec = randomOf(specs);
       let w: number;
       let h: number;
-      if (spec.style === 'glyph') {
+      if (spec.image) {
+        h = spec.imageHeight ?? (useFlying ? 40 : 56);
+        w = spec.imageWidth ?? Math.round(h * 1.4);
+      } else if (spec.style === 'glyph') {
         h = 34;
         w = h * (spec.text.length > 2 ? 1.4 : 1);
       } else if (spec.style === 'wave') {
@@ -241,6 +274,7 @@ const EscapeGamePage = () => {
         text: spec.text,
         style: spec.style,
         accent: config.accent,
+        image: spec.image,
       });
       s.spawnGap = spacesForSpeed(s.speed) + Math.random() * 220;
       s.spawnAcc = 0;
@@ -269,6 +303,9 @@ const EscapeGamePage = () => {
       const pW = ducking ? DUCK_W : STAND_W;
       const pTop = GROUND_Y - s.alt - pH;
 
+      s.trail.push({ alt: s.alt, ducking });
+      if (s.trail.length > TRAIL_MAX_DELAY + 4) s.trail.shift();
+
       if (s.spawnAcc >= s.spawnGap) spawnObstacle();
 
       for (const o of s.obstacles) {
@@ -288,6 +325,17 @@ const EscapeGamePage = () => {
 
     const drawObstacle = (o: Obstacle) => {
       ctx.save();
+      if (o.image) {
+        const img = bundle.imageCache.get(o.image);
+        if (img && img.complete && img.naturalWidth > 0) {
+          const scale = Math.min(o.w / img.naturalWidth, o.h / img.naturalHeight);
+          const dw = img.naturalWidth * scale;
+          const dh = img.naturalHeight * scale;
+          ctx.drawImage(img, o.x + (o.w - dw) / 2, o.y + (o.h - dh) / 2, dw, dh);
+          ctx.restore();
+          return;
+        }
+      }
       if (o.style === 'wave') {
         ctx.strokeStyle = o.accent;
         ctx.globalAlpha = 0.9;
@@ -333,6 +381,34 @@ const EscapeGamePage = () => {
           ctx.textBaseline = 'middle';
           ctx.fillText(o.text, o.x + o.w / 2, o.y + o.h / 2);
         }
+      }
+      ctx.restore();
+    };
+
+    const drawTrail = () => {
+      const s = runRef.current;
+      if (s.trail.length === 0) return;
+      const delay = Math.min(
+        TRAIL_MAX_DELAY,
+        Math.max(TRAIL_MIN_DELAY, Math.round(5 + s.speed * 0.55)),
+      );
+      const point = s.trail[s.trail.length - 1 - delay];
+      if (!point) return;
+      const pH = point.ducking ? DUCK_H : STAND_H;
+      const pW = point.ducking ? DUCK_W : STAND_W;
+      const pTop = GROUND_Y - point.alt - pH;
+      const gx = TRAIL_X - Math.min(64, Math.round(s.speed * delay));
+      const trailImg = bundle.imageCache.get(config.trailImage);
+      ctx.save();
+      ctx.globalAlpha = TRAIL_ALPHA;
+      if (trailImg && trailImg.complete && trailImg.naturalWidth > 0) {
+        ctx.drawImage(trailImg, gx, pTop, pW, pH);
+      } else if (bundle.spriteReady && bundle.sprite) {
+        ctx.drawImage(bundle.sprite, gx, pTop, pW, pH);
+      } else {
+        ctx.fillStyle = s.status === 'over' ? '#64748b' : config.accent;
+        roundRect(ctx, gx, pTop, pW, pH, 10);
+        ctx.fill();
       }
       ctx.restore();
     };
@@ -396,6 +472,7 @@ const EscapeGamePage = () => {
       ctx.globalAlpha = 1;
 
       for (const o of s.obstacles) drawObstacle(o);
+      drawTrail();
       drawPlayer();
 
       const score = Math.floor(s.runDistance / SCORE_DIVISOR);
