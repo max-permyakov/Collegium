@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { gamesApi } from '../../../services/api';
-import { Button } from '../../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/Card';
 import { escapeModeById, escapeModes } from './gameModes';
 import type { GameLeaderboard, GameModeId } from '../../../types';
@@ -89,7 +88,6 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 const EscapeGamePage = () => {
   const [mode, setMode] = useState<GameModeId>('physics');
-  const [status, setStatus] = useState<RunState['status']>('idle');
   const config = escapeModeById(mode);
 
   const [leaderboardKey, setLeaderboardKey] = useState(0);
@@ -104,6 +102,7 @@ const EscapeGamePage = () => {
   const boardFailed = shownBoard == null && board.failed;
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const pageRef = useRef<HTMLDivElement | null>(null);
   const runRef = useRef<RunState>({
     status: 'idle',
     speed: START_SPEED,
@@ -124,7 +123,6 @@ const EscapeGamePage = () => {
   const onGameOverRef = useRef<(score: number) => void>(() => {});
 
   const handleGameOver = useCallback((score: number) => {
-    setStatus('over');
     gamesApi.submitScore(GAME_ID, mode, score)
       .then((r) => {
         if (r.data?.personalBest != null) hiScoreRef.current = r.data.personalBest;
@@ -155,7 +153,6 @@ const EscapeGamePage = () => {
     const s = runRef.current;
     if (s.status === 'idle') {
       s.status = 'running';
-      setStatus('running');
     }
     if (s.status === 'over') {
       const hi = hiScoreRef.current;
@@ -171,10 +168,9 @@ const EscapeGamePage = () => {
         holdDuck: false,
     obstacles: [],
     trail: [],
-    frameBlink: 0,
+        frameBlink: 0,
         hiScore: hi,
       };
-      setStatus('running');
       return;
     }
     if (s.grounded) {
@@ -385,6 +381,13 @@ const EscapeGamePage = () => {
       ctx.restore();
     };
 
+    const drawFitted = (img: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+      const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh), dw, dh);
+    };
+
     const drawTrail = () => {
       const s = runRef.current;
       if (s.trail.length === 0) return;
@@ -402,9 +405,9 @@ const EscapeGamePage = () => {
       ctx.save();
       ctx.globalAlpha = TRAIL_ALPHA;
       if (trailImg && trailImg.complete && trailImg.naturalWidth > 0) {
-        ctx.drawImage(trailImg, gx, pTop, pW, pH);
+        drawFitted(trailImg, gx, pTop, pW, pH);
       } else if (bundle.spriteReady && bundle.sprite) {
-        ctx.drawImage(bundle.sprite, gx, pTop, pW, pH);
+        drawFitted(bundle.sprite, gx, pTop, pW, pH);
       } else {
         ctx.fillStyle = s.status === 'over' ? '#64748b' : config.accent;
         roundRect(ctx, gx, pTop, pW, pH, 10);
@@ -421,7 +424,7 @@ const EscapeGamePage = () => {
       const pTop = GROUND_Y - s.alt - pH;
       ctx.save();
       if (bundle.spriteReady && bundle.sprite) {
-        ctx.drawImage(bundle.sprite, PLAYER_X, pTop, pW, pH);
+        drawFitted(bundle.sprite, PLAYER_X, pTop, pW, pH);
       } else {
         ctx.fillStyle = s.status === 'over' ? '#64748b' : '#38bdf8';
         roundRect(ctx, PLAYER_X, pTop, pW, pH, 10);
@@ -544,18 +547,73 @@ const EscapeGamePage = () => {
   }, [mode, config, jump]);
 
   const onCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType === 'touch') return;
     e.preventDefault();
     jump();
   };
 
-  const duckHold = (down: boolean) => {
-    runRef.current.holdDuck = down;
-  };
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    let fired = false;
+    let duckTimer: number | undefined;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (e.touches.length !== 1 || target?.tagName === 'SELECT') {
+        tracking = false;
+        return;
+      }
+      tracking = true;
+      fired = false;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!tracking || fired || e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dy) < 10 || Math.abs(dy) <= Math.abs(dx)) return;
+      if (runRef.current.status === 'running') e.preventDefault();
+      if (Math.abs(dy) < 28) return;
+      fired = true;
+      if (dy < 0) {
+        jump();
+      } else {
+        runRef.current.holdDuck = true;
+        if (duckTimer) window.clearTimeout(duckTimer);
+        duckTimer = window.setTimeout(() => {
+          runRef.current.holdDuck = false;
+        }, 650);
+      }
+    };
+
+    const onTouchEnd = () => {
+      tracking = false;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+      if (duckTimer) window.clearTimeout(duckTimer);
+    };
+  }, [jump]);
 
   const entries = shownBoard?.entries ?? [];
 
   return (
-    <div className="space-y-4">
+    <div ref={pageRef} className="space-y-4">
       <div>
         <Link to="/games" className="text-sm text-dark-textMuted hover:text-primary-400">← Игры</Link>
         <h1 className="text-2xl font-bold text-dark-text mt-1">{config.title}</h1>
@@ -572,7 +630,6 @@ const EscapeGamePage = () => {
               value={mode}
               onChange={(e) => {
                 e.currentTarget.blur();
-                setStatus('idle');
                 setMode(e.target.value as GameModeId);
               }}
             >
@@ -586,13 +643,14 @@ const EscapeGamePage = () => {
             <span className="font-mono font-semibold text-dark-text">
               {shownBoard?.currentUserBest != null ? formatScore(shownBoard.currentUserBest) : '—'}
             </span>
-            {status === 'over' && (
-              <Button size="sm" onClick={jump}>Заново</Button>
-            )}
           </div>
         </div>
 
         <div className="p-3">
+          <div className="hidden portrait:flex md:hidden items-center gap-2 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3 py-2 mb-3 text-xs text-primary-300">
+            <span className="text-base">📱↻</span>
+            <span>Поверните телефон горизонтально — окно игры станет заметно больше</span>
+          </div>
           <canvas
             ref={canvasRef}
             onPointerDown={onCanvasPointerDown}
@@ -600,22 +658,9 @@ const EscapeGamePage = () => {
             style={{ aspectRatio: `${LOGICAL_W} / ${LOGICAL_H}` }}
             aria-label={`Игра ${config.title}`}
           />
-          <div className="flex gap-2 mt-3">
-            <Button className="flex-1" onClick={jump}>
-              {status === 'over' ? 'Заново' : 'Прыжок (Пробел)'}
-            </Button>
-            <Button
-              variant="ghost"
-              className="flex-1"
-              onPointerDown={(e) => { e.preventDefault(); duckHold(true); }}
-              onPointerUp={() => duckHold(false)}
-              onPointerLeave={() => duckHold(false)}
-              onPointerCancel={() => duckHold(false)}
-            >
-              Пригнуться (держать)
-            </Button>
-          </div>
-          <p className="text-xs text-dark-textMuted mt-2">{config.description}</p>
+          <p className="text-xs text-dark-textMuted mt-2">
+            {config.description}. На телефоне: свайп вверх — прыжок, свайп вниз — присесть.
+          </p>
         </div>
       </Card>
 

@@ -300,7 +300,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      {!isAdminView && (
+      {!isAdminView && profile.hasDiaryLink === false && (
         <Card>
           <CardHeader>
             <CardTitle>Учебная группа</CardTitle>
