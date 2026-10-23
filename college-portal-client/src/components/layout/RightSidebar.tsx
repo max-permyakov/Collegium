@@ -89,6 +89,13 @@ const InfoIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const GamepadIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6.5 7h11A3.5 3.5 0 0121 10.5v4A3.5 3.5 0 0117.5 18h-11A3.5 3.5 0 013 14.5v-4A3.5 3.5 0 016.5 7z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7.5 10.5v3M6 12h3M14.75 11.25h.01M17.25 13.5h.01" />
+  </svg>
+);
+
 const MapIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -115,6 +122,7 @@ const navItems: NavItem[] = [
   { path: '/assignments', label: 'Задания', icon: <ClipboardIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/news', label: 'Новости', icon: <NewspaperIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/clubs', label: 'Кружки', icon: <GroupIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
+  { path: '/games', label: 'Игры', icon: <GamepadIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/college-info', label: 'Колледж', icon: <InfoIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/college-info/map', label: 'Карта', icon: <MapIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/profile', label: 'Профиль', icon: <UserIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
@@ -139,7 +147,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [mobileOpen]);
 
-  const isExact = (item: NavItem) => item.path === '/' || item.path === '/college-info';
+  const isExact = (item: NavItem) => item.path === '/' || item.path === '/college-info' || item.path === '/games';
 
   const filteredNavItems = navItems.filter(item => {
     if (item.adminSection) {

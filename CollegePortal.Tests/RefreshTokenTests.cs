@@ -62,6 +62,9 @@ public class RefreshTokenTests : IDisposable
             sp.GetRequiredService<CollegePortalDbContext>(),
             configuration,
             null!,
+            null!,
+            null!,
+            null!,
             sp.GetRequiredService<IDataProtectionProvider>(),
             NullLogger<AuthService>.Instance));
 

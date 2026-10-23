@@ -8,5 +8,6 @@ public interface IProfileService
     Task<ProfileDto?> GetProfileForViewAsync(Guid requesterUserId, Guid targetUserId, CancellationToken ct = default);
     Task<PublicProfileDto?> GetPublicProfileAsync(Guid viewerUserId, Guid targetUserId, CancellationToken ct = default);
     Task<ProfileUpdateResult> UpdateProfileAsync(Guid userId, UpdateProfileRequestDto request, CancellationToken ct = default);
+    Task<ProfileUpdateResult> ChangeGroupAsync(Guid userId, string groupName, CancellationToken ct = default);
     Task<bool> SetAvatarAsync(Guid userId, string? dataUrl, CancellationToken ct = default);
 }

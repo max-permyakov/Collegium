@@ -27,7 +27,7 @@ public class GradesController : ControllerBase
         var grades = await _gradesService.GetGradesAsync(userId.Value);
         
         if (grades == null)
-            return NotFound(new { message = "Профиль студента не найден или оценки недоступны" });
+            return DiaryRequired();
 
         return Ok(grades);
     }
@@ -42,10 +42,14 @@ public class GradesController : ControllerBase
         var performance = await _gradesService.GetPerformanceAsync(userId.Value);
         
         if (performance == null)
-            return NotFound(new { message = "Профиль студента не найден или успеваемость недоступна" });
+            return DiaryRequired();
 
         return Ok(performance);
     }
+
+    private ObjectResult DiaryRequired() => StatusCode(
+        StatusCodes.Status403Forbidden,
+        new { code = "diary_required", message = "Оценки доступны после привязки дневника" });
 
     private Guid? GetCurrentUserId()
     {

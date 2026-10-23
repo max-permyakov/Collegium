@@ -166,6 +166,12 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<DateTime?>("LastActivityAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("LastAuthAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("LastAuthMethod")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -191,6 +197,9 @@ namespace CollegePortal.Infrastructure.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("RegistrationSource")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -522,6 +531,98 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("Disciplines");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.EmailLoginCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OAuthDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("OAuthProvider")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OAuthProviderUserId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("RegistrationTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RegistrationTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RegistrationTokenHash");
+
+                    b.HasIndex("Email", "CreatedAt");
+
+                    b.ToTable("EmailLoginCodes");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.GameScore", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("BestAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GameId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("GameId", "Mode", "Score");
+
+                    b.HasIndex("GameId", "Mode", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("GameScores");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.KkepikSchedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -647,10 +748,17 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<DateTime?>("DiaryLastSyncedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DiaryLinkedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DiaryLogin")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("DiaryPasswordHash")
                         .HasColumnType("text");
 
-                    b.Property<int>("ExternalStudentId")
+                    b.Property<int?>("ExternalStudentId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("GradesCachedAt")
@@ -658,6 +766,9 @@ namespace CollegePortal.Infrastructure.Migrations
 
                     b.Property<int>("HeadmanRole")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastGroupChangedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("RatingOptIn")
                         .HasColumnType("boolean");
@@ -709,6 +820,44 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("StudyGroups");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.UserAuthProvider", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProviderEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<string>("ProviderUserId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "ProviderUserId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("UserAuthProviders");
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.UserPermission", b =>
@@ -998,6 +1147,17 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.GameScore", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.NewsComment", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.Announcement", "Announcement")
@@ -1043,6 +1203,17 @@ namespace CollegePortal.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("StudyGroup");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.UserAuthProvider", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany("AuthProviders")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -1111,6 +1282,8 @@ namespace CollegePortal.Infrastructure.Migrations
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.ApplicationUser", b =>
                 {
+                    b.Navigation("AuthProviders");
+
                     b.Navigation("StudentProfile");
                 });
 

@@ -38,28 +38,37 @@
 ## Модули
 
 ### Domain (CollegePortal.Domain)
-- `Entities/ApplicationUser` — пользователь с ролями (Student, Admin)
-- `Entities/StudentProfile` — профиль студента, связь с внешним ID
+- `Entities/ApplicationUser` — пользователь с ролями (Student, Admin), `RegistrationSource`/`LastAuthMethod`
+- `Entities/StudentProfile` — профиль студента, nullable-связь с внешним ID, зашифрованный diary hash
+- `Entities/UserAuthProvider` — привязанные способы входа
+- `Entities/EmailLoginCode` — OTP-коды и registration/pending-OAuth токены (только хэши)
 - `Entities/StudyGroup` — учебная группа
 - `Entities/Announcement` — новости/объявления
 - `Entities/Assignment` — учебные задания
+- `Enums/AuthMethod` — Diary, Email, Google, GitHub, Yandex, Vk
 
 ### Application (CollegePortal.Application)
 - `Services/IScheduleProvider` — интерфейс получения расписания
 - `Services/IGradesProvider` — интерфейс получения оценок
 - `Services/IDiaryApiClient` — интерфейс клиента дневника
+- `Services/IEmailSender` — отправка OTP-писем
+- `Services/IOAuthService` — OAuth Authorization Code + PKCE
+- `DTOs/AlternativeAuthDtos.cs` — DTO альтернативного входа
 - `DTOs/ExternalApiDtos.cs` — DTO для внешних API
-- `DTOs/ApiDtos.cs` — DTO для собственного API (планируется)
 
 ### Infrastructure (CollegePortal.Infrastructure)
 - `Data/CollegePortalDbContext` — EF Core контекст
 - `Extensions/ServiceCollectionExtensions` — регистрация сервисов
 - `ExternalApis/Diary/DiaryApiClient` — клиент электронного дневника
 - `ExternalApis/Schedule/ScheduleApiClient` — клиент API расписания
+- `ExternalApis/OAuth/OAuthService` — Google/GitHub/Yandex/VK
+- `Services/AuthService` — Identity, OTP, OAuth, миграция и привязка аккаунтов
+- `Services/SmtpEmailSender` — SMTP-доставка кодов
 
 ### Api (CollegePortal.Api)
-- `Program.cs` — точка входа, настройка DI, Swagger
-- `Controllers/` — API контроллеры (планируется)
+- `Program.cs` — точка входа, DI, rate limiting, CORS
+- `Controllers/AuthController` — вход, регистрация, OAuth callbacks
+- `Controllers/ProfileController` — профиль, смена группы, привязка дневника
 
 ## Внешние интеграции
 
@@ -83,11 +92,13 @@
 
 - HTTPS в production
 - ASP.NET Core Identity с хэшированием паролей
-- JWT токены для API (планируется)
-- Проверка прав доступа на уровне контроллеров
-- Валидация входных данных
+- JWT access/refresh в HttpOnly cookies
+- Альтернативный вход: OTP по email и OAuth (PKCE S256, проверка state)
+- Проверка прав доступа на уровне контроллеров; `403 diary_required` без дневника
+- Валидация входных данных и группы по справочнику колледжа
+- Смена учебной группы не чаще одного раза в 3 дня (`Profile:GroupChangeCooldownDays`)
 - Тайм-ауты внешних запросов (30с дневник, 10с расписание)
-- Отсутствие секретов в логах и коде
+- Отсутствие секретов, OTP и токенов в логах и коде
 - User Secrets / Environment variables для конфигурации
 
 ## База данных
@@ -98,6 +109,8 @@
   - `AspNetUsers` (ApplicationUser)
   - `AspNetRoles`, `AspNetUserRoles`
   - `StudentProfiles`
+  - `UserAuthProviders`
+  - `EmailLoginCodes`
   - `StudyGroups`
   - `Announcements`
   - `Assignments`

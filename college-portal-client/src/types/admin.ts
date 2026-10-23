@@ -1,5 +1,7 @@
 export type HeadmanRole = 'None' | 'Headman' | 'Deputy';
 
+export type AuthMethod = 'Diary' | 'Email' | 'Google' | 'GitHub' | 'Yandex' | 'Vk';
+
 export type Permission =
   | 'UsersManage'
   | 'NewsManage'
@@ -55,6 +57,9 @@ export interface AdminUserDto {
   lastLoginAt?: string | null;
   lastActivityAt?: string | null;
   createdAt: string;
+  registrationSource?: AuthMethod;
+  lastAuthMethod?: AuthMethod | null;
+  hasDiaryLink?: boolean;
 }
 
 export interface AdminUsersPageDto {
@@ -129,11 +134,13 @@ export interface ProfileDto {
   lastActivityAt?: string | null;
   createdAt: string;
   isViewerAdmin: boolean;
+  hasDiaryLink?: boolean;
+  lastGroupChangedAt?: string | null;
   studentProfile?: {
     id: string;
     studyGroupId: string;
     studyGroupName: string;
-    externalStudentId: number;
+    externalStudentId: number | null;
     bio?: string | null;
     avatarDataUrl?: string | null;
     headmanRole?: string | null;

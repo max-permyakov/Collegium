@@ -28,4 +28,13 @@ public interface IAuthService
     Task<LoginResponseDto?> DiaryLoginAsync(string login, string passwordHash, CancellationToken ct = default);
     Task<LoginResponseDto?> DiaryReloginAsync(Guid userId, string? currentRefreshToken = null, CancellationToken ct = default);
     Task<bool> UpdateDiaryDataAsync(Guid userId, int externalStudentId, string cookieData, string passwordHash, DateTime? cookiesExpiresAt, CancellationToken ct = default);
+
+    // Alternative authentication
+    Task<AuthProvidersDto> GetAuthProvidersAsync(CancellationToken ct = default);
+    Task<RequestEmailCodeResultDto> RequestEmailCodeAsync(string email, string? pendingOAuthToken, CancellationToken ct = default);
+    Task<EmailVerifyResultDto> VerifyEmailCodeAsync(string email, string code, CancellationToken ct = default);
+    Task<RegistrationOutcome> CompleteEmailRegistrationAsync(CompleteEmailRegistrationRequestDto request, CancellationToken ct = default);
+    Task<ExternalLoginResult> ExternalLoginAsync(ExternalIdentity identity, CancellationToken ct = default);
+    Task<LinkDiaryResult> LinkDiaryAsync(Guid userId, string login, string passwordHash, CancellationToken ct = default);
+    Task<ProfileUpdateResult> CompleteProfileAsync(Guid userId, CompleteProfileRequestDto request, CancellationToken ct = default);
 }

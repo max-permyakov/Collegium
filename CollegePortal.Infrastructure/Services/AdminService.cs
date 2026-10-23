@@ -101,7 +101,10 @@ public class AdminService : IAdminService
                 Course = u.StudentProfile != null ? (int?)u.StudentProfile.StudyGroup.Course : null,
                 HeadmanRoleVal = u.StudentProfile != null ? u.StudentProfile.HeadmanRole : HeadmanRole.None,
                 AverageMarkVal = u.StudentProfile != null ? u.StudentProfile.AverageMark : null,
-                GradesCachedAtVal = u.StudentProfile != null ? u.StudentProfile.GradesCachedAt : null
+                GradesCachedAtVal = u.StudentProfile != null ? u.StudentProfile.GradesCachedAt : null,
+                u.RegistrationSource,
+                u.LastAuthMethod,
+                HasDiaryLink = u.StudentProfile != null && u.StudentProfile.ExternalStudentId != null
             });
 
         if (skip is int skipCount)
@@ -128,7 +131,10 @@ public class AdminService : IAdminService
             u.GradesCachedAtVal,
             u.LastLoginAt,
             u.LastActivityAt,
-            u.CreatedAt
+            u.CreatedAt,
+            u.RegistrationSource,
+            u.LastAuthMethod,
+            u.HasDiaryLink
         )).ToList();
     }
 
@@ -322,10 +328,12 @@ public class AdminService : IAdminService
             .FirstOrDefaultAsync(sp => sp.UserId == targetUserId, ct);
         if (profile == null)
             return new AdminActionResult(false, "Студенческий профиль не найден");
+        if (profile.ExternalStudentId == null)
+            return new AdminActionResult(false, "Дневник не привязан к аккаунту");
 
         try
         {
-            var subjects = await _diaryApiClient.GetDashboardForUserAsync(targetUserId, profile.ExternalStudentId, ct);
+            var subjects = await _diaryApiClient.GetDashboardForUserAsync(targetUserId, profile.ExternalStudentId.Value, ct);
             if (subjects == null || subjects.Length == 0)
             {
                 profile.AverageMark = null;

@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Layout, AuthLayout } from './components/layout/Layout';
 import { LoginPage } from './pages/auth/LoginPage';
+import { CompleteProfilePage } from './pages/auth/CompleteProfilePage';
 import { ClaimPrimaryAdminPage } from './pages/auth/ClaimPrimaryAdminPage';
 import { HomePage } from './pages/home/HomePage';
 import { SchedulePage } from './pages/schedule/SchedulePage';
@@ -18,6 +19,8 @@ import { ClubsPage } from './pages/clubs/ClubsPage';
 import { ClubDetailPage } from './pages/clubs/ClubDetailPage';
 import { CollegeInfoPage } from './pages/college/CollegeInfoPage';
 import { CollegeMapPage } from './pages/college/CollegeMapPage';
+import { GamesPage } from './pages/games/GamesPage';
+import EscapeGamePage from './pages/games/escape/EscapeGamePage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +35,7 @@ const queryClient = new QueryClient({
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: ('Student' | 'Admin')[] }) {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -43,6 +47,10 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user?.requiresProfileSetup && location.pathname !== '/complete-profile') {
+    return <Navigate to="/complete-profile" replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
@@ -76,7 +84,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -87,7 +95,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={user?.requiresProfileSetup ? '/complete-profile' : '/'} replace />;
   }
 
   return <>{children}</>;
@@ -117,6 +125,12 @@ function AppRoutes() {
         </PublicRoute>
       } />
 
+      <Route path="/complete-profile" element={
+        <ProtectedRoute>
+          <CompleteProfilePage />
+        </ProtectedRoute>
+      } />
+
       <Route element={
         <ProtectedRoute>
           <Layout />
@@ -130,6 +144,8 @@ function AppRoutes() {
         <Route path="news" element={<NewsPage />} />
         <Route path="clubs" element={<ClubsPage />} />
         <Route path="clubs/:clubId" element={<ClubDetailPage />} />
+        <Route path="games" element={<GamesPage />} />
+        <Route path="games/escape" element={<EscapeGamePage />} />
         <Route path="college-info" element={<CollegeInfoPage />} />
         <Route path="college-info/map" element={<CollegeMapPage />} />
         <Route path="profile" element={<ProfilePage />} />

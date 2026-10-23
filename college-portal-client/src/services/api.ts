@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -90,6 +90,25 @@ api.interceptors.response.use(
   }
 );
 
+export interface AuthProviderOption {
+  provider: 'Google' | 'GitHub' | 'Yandex' | 'Vk';
+  name: string;
+  enabled: boolean;
+}
+
+export interface AuthProvidersResponse {
+  emailEnabled: boolean;
+  providers: AuthProviderOption[];
+}
+
+export interface EmailVerifyResponse {
+  success: boolean;
+  requiresRegistration: boolean;
+  registrationToken?: string | null;
+  error?: string | null;
+  user?: User | null;
+}
+
 export const authApi = {
   login: (data: LoginRequest) => api.post<User>('/auth/login', data),
   diaryLogin: (login: string, passwordHash: string) => api.post<User>('/auth/diary-login', { login, passwordHash }),
@@ -99,6 +118,25 @@ export const authApi = {
   claimPrimaryAdmin: (password: string) => api.post<User>('/auth/claim-primary-admin', { password }),
   assignProfile: (data: { userId: string; externalStudentId: number; studyGroupId: string }) =>
     api.post('/auth/assign-profile', data),
+  getProviders: () => api.get<AuthProvidersResponse>('/auth/providers'),
+  getGroups: () => api.get<{ groups: string[] }>('/auth/groups'),
+  requestEmailCode: (email: string, pendingOAuthToken?: string | null) =>
+    api.post<{ sent: boolean; message: string }>('/auth/email/request-code', { email, pendingOAuthToken }),
+  verifyEmailCode: (email: string, code: string) =>
+    api.post<EmailVerifyResponse>('/auth/email/verify-code', { email, code }),
+  completeEmailRegistration: (data: {
+    registrationToken: string;
+    lastName: string;
+    firstName: string;
+    middleName?: string | null;
+    groupName: string;
+  }) => api.post<User>('/auth/email/complete-registration', data),
+  completeProfile: (data: { lastName: string; firstName: string; middleName?: string | null; groupName: string }) =>
+    api.post<User>('/auth/complete-profile', data),
+  linkDiary: (login: string, passwordHash: string) =>
+    api.post<User>('/auth/link-diary', { login, passwordHash }),
+  externalStartUrl: (provider: string, returnUrl = '/') =>
+    `${API_BASE_URL}/auth/external/${encodeURIComponent(provider)}/start?returnUrl=${encodeURIComponent(returnUrl)}`,
 };
 
 export const scheduleApi = {
@@ -117,6 +155,13 @@ export const ratingApi = {
   getGroup: (subject?: string | null) =>
     api.get<GroupRating>('/rating/group', { params: subject ? { subject } : {} }),
   participate: (enabled: boolean) => api.post<RatingParticipation>('/rating/participate', { enabled }),
+};
+
+export const gamesApi = {
+  getLeaderboard: (gameId: string, mode: string) =>
+    api.get<GameLeaderboard>(`/games/${encodeURIComponent(gameId)}/leaderboard`, { params: { mode } }),
+  submitScore: (gameId: string, mode: string, score: number) =>
+    api.post<GameScoreSubmission>(`/games/${encodeURIComponent(gameId)}/score`, { mode, score }),
 };
 
 export const newsApi = {
@@ -147,6 +192,7 @@ export const profileApi = {
   updateMe: (data: { bio?: string | null; email?: string | null; phoneNumber?: string | null }) => api.put('/profile/me', data),
   setAvatar: (dataUrl?: string | null) => api.post('/profile/me/avatar', { dataUrl }),
   clearAvatar: () => api.delete('/profile/me/avatar'),
+  changeGroup: (groupName: string) => api.put('/profile/me/group', { groupName }),
 };
 
 export const adminApi = {

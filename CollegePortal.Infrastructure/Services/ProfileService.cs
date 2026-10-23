@@ -4,6 +4,7 @@ using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace CollegePortal.Infrastructure.Services;
@@ -15,15 +16,21 @@ public class ProfileService : IProfileService
 
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly CollegePortalDbContext _dbContext;
+    private readonly ICollegeInfoService _collegeInfoService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ProfileService> _logger;
 
     public ProfileService(
         UserManager<ApplicationUser> userManager,
         CollegePortalDbContext dbContext,
+        ICollegeInfoService collegeInfoService,
+        IConfiguration configuration,
         ILogger<ProfileService> logger)
     {
         _userManager = userManager;
         _dbContext = dbContext;
+        _collegeInfoService = collegeInfoService;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -80,7 +87,9 @@ public class ProfileService : IProfileService
             user.LastLoginAt,
             user.LastActivityAt,
             user.CreatedAt,
-            requesterRoles.Contains("Admin")
+            requesterRoles.Contains("Admin"),
+            profile?.ExternalStudentId != null,
+            profile?.LastGroupChangedAt
         );
     }
 
@@ -165,6 +174,64 @@ public class ProfileService : IProfileService
         }
 
         return new ProfileUpdateResult(true);
+    }
+
+    public async Task<ProfileUpdateResult> ChangeGroupAsync(Guid userId, string groupName, CancellationToken ct = default)
+    {
+        var profile = await _dbContext.StudentProfiles.FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+        if (profile == null)
+            return new ProfileUpdateResult(false, "Профиль студента не найден");
+
+        var requested = groupName?.Trim();
+        if (string.IsNullOrWhiteSpace(requested))
+            return new ProfileUpdateResult(false, "Выберите группу");
+
+        var catalog = await _collegeInfoService.GetCatalogAsync(ct);
+        var canonicalName = catalog?.Groups.FirstOrDefault(g =>
+            string.Equals(g, requested, StringComparison.OrdinalIgnoreCase));
+        if (canonicalName == null)
+            return new ProfileUpdateResult(false, "Такой группы нет в справочнике колледжа");
+
+        var group = await _dbContext.StudyGroups.FirstOrDefaultAsync(g => g.Name == canonicalName, ct);
+        if (group != null && profile.StudyGroupId == group.Id)
+            return new ProfileUpdateResult(true);
+
+        var cooldownDays = Math.Max(1, _configuration.GetValue("Profile:GroupChangeCooldownDays", 3));
+
+        if (profile.LastGroupChangedAt.HasValue &&
+            profile.LastGroupChangedAt.Value > DateTime.UtcNow.AddDays(-cooldownDays))
+        {
+            var nextAllowed = profile.LastGroupChangedAt.Value.AddDays(cooldownDays);
+            return new ProfileUpdateResult(false,
+                $"Группу можно менять не чаще одного раза в {cooldownDays} дн. Следующая смена доступна {nextAllowed:dd.MM.yyyy}.");
+        }
+
+        if (group == null)
+        {
+            group = new StudyGroup
+            {
+                Id = Guid.NewGuid(),
+                Name = canonicalName,
+                Course = ParseCourseNumber(canonicalName),
+                AcademicYear = $"{DateTime.UtcNow.Year}-{DateTime.UtcNow.Year + 1}",
+                CreatedAt = DateTime.UtcNow
+            };
+            _dbContext.StudyGroups.Add(group);
+        }
+
+        profile.StudyGroupId = group.Id;
+        profile.LastGroupChangedAt = DateTime.UtcNow;
+        profile.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+        return new ProfileUpdateResult(true);
+    }
+
+    private static int ParseCourseNumber(string groupName)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(groupName, @"\d+");
+        if (!match.Success)
+            return 1;
+        return int.TryParse(match.Value[..1], out var course) && course >= 1 && course <= 4 ? course : 1;
     }
 
     public async Task<bool> SetAvatarAsync(Guid userId, string? dataUrl, CancellationToken ct = default)

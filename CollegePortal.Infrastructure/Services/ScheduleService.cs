@@ -45,7 +45,10 @@ public class ScheduleService : IScheduleService
         if (studentProfile == null)
             return null;
 
-        var daySchedule = await _scheduleProvider.GetScheduleForDayAsync(studentProfile.ExternalStudentId, date, ct);
+        if (studentProfile.ExternalStudentId == null)
+            return null;
+
+        var daySchedule = await _scheduleProvider.GetScheduleForDayAsync(studentProfile.ExternalStudentId.Value, date, ct);
         if (daySchedule == null)
             return null;
 
@@ -59,8 +62,11 @@ public class ScheduleService : IScheduleService
         if (studentProfile == null)
             return null;
 
+        if (studentProfile.ExternalStudentId == null)
+            return null;
+
         var endDate = startDate.AddDays(6);
-        var schedule = await _scheduleProvider.GetScheduleAsync(studentProfile.ExternalStudentId, startDate, endDate, ct);
+        var schedule = await _scheduleProvider.GetScheduleAsync(studentProfile.ExternalStudentId.Value, startDate, endDate, ct);
         var snapshots = await LoadKkepikSnapshotsAsync(studentProfile.StudyGroup?.Name, startDate, endDate, ct);
 
         return new WeekScheduleResponseDto(
@@ -84,18 +90,18 @@ public class ScheduleService : IScheduleService
 
         var students = await _dbContext.StudentProfiles
             .AsNoTracking()
-            .Where(sp => sp.StudyGroupId == studyGroup.Id)
+            .Where(sp => sp.StudyGroupId == studyGroup.Id && sp.ExternalStudentId != null)
             .ToListAsync(ct);
 
         if (students.Count == 0)
         {
-            _logger.LogWarning("No students found in group {GroupName}", groupName);
+            _logger.LogWarning("No students with a linked diary found in group {GroupName}", groupName);
             return null;
         }
 
         var firstStudent = students.First();
         var endDate = startDate.AddDays(6);
-        var schedule = await _scheduleProvider.GetScheduleAsync(firstStudent.ExternalStudentId, startDate, endDate, ct);
+        var schedule = await _scheduleProvider.GetScheduleAsync(firstStudent.ExternalStudentId!.Value, startDate, endDate, ct);
         var snapshots = await LoadKkepikSnapshotsAsync(groupName, startDate, endDate, ct);
 
         return new WeekScheduleResponseDto(

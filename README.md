@@ -87,13 +87,44 @@ Frontend будет доступен по адресу: `http://localhost:5173`
       "BaseUrl": "https://kkepik.rub1kub.ru/api",
       "TimeoutSeconds": 10
     }
+  },
+  "Auth": {
+    "OtpPepper": "long-random-secret"
+  },
+  "Smtp": {
+    "Host": "smtp.example.com",
+    "Port": 587,
+    "User": "no-reply@example.com",
+    "Password": "secret",
+    "From": "College Portal <no-reply@example.com>",
+    "EnableSsl": true
+  },
+  "OAuth": {
+    "RedirectBaseUrl": "https://portal.example.com",
+    "Google": { "ClientId": "", "ClientSecret": "" },
+    "GitHub": { "ClientId": "", "ClientSecret": "" },
+    "Yandex": { "ClientId": "", "ClientSecret": "" },
+    "Vk": { "ClientId": "", "ClientSecret": "" }
   }
 }
 ```
 
 Секреты (пароли, ключи) хранятся в **User Secrets** или переменных окружения, не в репозитории.
+Для Docker-развёртывания используйте `.env.example`: `AUTH_OTP_PEPPER`, `SMTP_*`, `OAUTH_*`.
+Callback URL OAuth: `/api/auth/external/<google|github|yandex|vk>/callback`.
 
 ## API Endpoints
+
+### Аутентификация
+- `GET /api/auth/providers` — доступные способы входа
+- `POST /api/auth/email/request-code` — отправить код на email
+- `POST /api/auth/email/verify-code` — проверить код
+- `POST /api/auth/email/complete-registration` — завершить регистрацию
+- `GET /api/auth/external/{provider}/start` — начать OAuth-вход
+- `GET /api/auth/external/{provider}/callback` — OAuth callback
+- `POST /api/auth/link-diary` — привязать дневник
+- `POST /api/auth/complete-profile` — заполнить профиль после OAuth
+- `PUT /api/profile/me/group` — сменить учебную группу
 
 ### Личный кабинет
 - `GET /api/me` — профиль текущего пользователя

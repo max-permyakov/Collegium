@@ -217,9 +217,13 @@ public class DiaryApiClient : IDiaryApiClient
                 return false;
             }
 
-            var login = !string.IsNullOrEmpty(profile.User.UserName)
-                ? profile.User.UserName
-                : profile.ExternalStudentId.ToString();
+            var login = !string.IsNullOrEmpty(profile.DiaryLogin)
+                ? profile.DiaryLogin
+                : !string.IsNullOrEmpty(profile.User.UserName)
+                    ? profile.User.UserName
+                    : profile.ExternalStudentId?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(login))
+                return false;
 
             var passwordHash = _dataProtector.Unprotect(profile.DiaryPasswordHash);
 
@@ -579,6 +583,24 @@ public class DiaryApiClient : IDiaryApiClient
             () => new HttpRequestMessage(HttpMethod.Get, "/services/security/account-settings"),
             ct);
 
+        return await ParseAccountSettingsAsync(response, ct);
+    }
+
+    // Used during the very first diary login, before the user row (and therefore
+    // the persisted cookie jar) exists. The cookies returned by the login call
+    // are supplied explicitly so the account email can be read for migration.
+    public async Task<AccountSettingsDto?> GetAccountSettingsWithCookiesAsync(string cookieData, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/services/security/account-settings");
+        if (!string.IsNullOrWhiteSpace(cookieData))
+            request.Headers.TryAddWithoutValidation("Cookie", cookieData);
+
+        using var response = await _httpClient.SendAsync(request, ct);
+        return await ParseAccountSettingsAsync(response, ct);
+    }
+
+    private async Task<AccountSettingsDto?> ParseAccountSettingsAsync(HttpResponseMessage response, CancellationToken ct)
+    {
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("Get account settings failed: {StatusCode}", response.StatusCode);

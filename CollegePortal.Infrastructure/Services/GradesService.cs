@@ -29,13 +29,13 @@ public class GradesService : IGradesService
             .AsNoTracking()
             .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
 
-        if (studentProfile == null)
+        if (studentProfile == null || studentProfile.ExternalStudentId == null)
         {
-            _logger.LogWarning("Student profile not found for user {UserId}", userId);
+            _logger.LogWarning("Student profile or diary link not found for user {UserId}", userId);
             return null;
         }
 
-        var subjects = await _gradesProvider.GetDashboardAsync(studentProfile.ExternalStudentId, ct);
+        var subjects = await _gradesProvider.GetDashboardAsync(studentProfile.ExternalStudentId.Value, ct);
         if (subjects == null || subjects.Length == 0)
         {
             return new GradesResponseDto(Array.Empty<SubjectGradeResponseDto>());
@@ -52,12 +52,12 @@ public class GradesService : IGradesService
             .AsNoTracking()
             .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
 
-        if (studentProfile == null)
+        if (studentProfile == null || studentProfile.ExternalStudentId == null)
         {
-            _logger.LogWarning("Student profile not found for user {UserId}", userId);
+            _logger.LogWarning("Student profile or diary link not found for user {UserId}", userId);
             return null;
         }
 
-        return await _gradesProvider.GetPerformanceAsync(studentProfile.ExternalStudentId, ct);
+        return await _gradesProvider.GetPerformanceAsync(studentProfile.ExternalStudentId.Value, ct);
     }
 }

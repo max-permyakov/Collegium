@@ -20,7 +20,9 @@ public record ProfileDto(
     DateTime? LastLoginAt,
     DateTime? LastActivityAt,
     DateTime CreatedAt,
-    bool IsViewerAdmin
+    bool IsViewerAdmin,
+    bool HasDiaryLink,
+    DateTime? LastGroupChangedAt
 );
 
 public record ProfileUpdateResult(

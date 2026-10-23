@@ -34,9 +34,9 @@ public class RatingService : IRatingService
         var profile = await _dbContext.StudentProfiles
             .AsNoTracking()
             .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
-        if (profile == null)
+        if (profile == null || profile.ExternalStudentId == null)
         {
-            _logger.LogWarning("Student profile not found for user {UserId}", userId);
+            _logger.LogWarning("Student profile or diary link not found for user {UserId}", userId);
             return null;
         }
 
@@ -46,10 +46,10 @@ public class RatingService : IRatingService
 
         var participants = await _dbContext.StudentProfiles
             .AsNoTracking()
-            .Where(sp => sp.StudyGroupId == profile.StudyGroupId && sp.RatingOptIn)
+            .Where(sp => sp.StudyGroupId == profile.StudyGroupId && sp.RatingOptIn && sp.ExternalStudentId != null)
             .Select(sp => new Participant(
                 sp.UserId,
-                sp.ExternalStudentId,
+                sp.ExternalStudentId!.Value,
                 sp.AverageMark,
                 sp.User.DisplayName))
             .ToListAsync(ct);
@@ -59,7 +59,7 @@ public class RatingService : IRatingService
             .CountAsync(sp => sp.StudyGroupId == profile.StudyGroupId, ct);
 
         var subjectName = string.IsNullOrWhiteSpace(subject) ? null : subject.Trim();
-        var subjects = await GetOwnSubjectsAsync(profile.ExternalStudentId, ct);
+        var subjects = await GetOwnSubjectsAsync(profile.ExternalStudentId.Value, ct);
 
         var entries = subjectName == null
             ? BuildOverallEntries(participants, userId)
@@ -83,6 +83,9 @@ public class RatingService : IRatingService
             _logger.LogWarning("Student profile not found for user {UserId}", userId);
             return null;
         }
+
+        if (profile.ExternalStudentId == null)
+            return null;
 
         if (profile.RatingOptIn != enabled)
         {

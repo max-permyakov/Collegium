@@ -29,6 +29,23 @@ services:
       PrimaryAdmin__Secret: ${PRIMARY_ADMIN_SECRET:-}
       PrimaryAdmin__SecretHash: ${PRIMARY_ADMIN_SECRET_HASH:-}
       Cors__AllowedOrigins__0: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      Client__BaseUrl: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      Auth__OtpPepper: ${AUTH_OTP_PEPPER:-}
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      OAuth__RedirectBaseUrl: ${OAUTH_REDIRECT_BASE_URL:-}
+      OAuth__Google__ClientId: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAuth__Google__ClientSecret: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAuth__GitHub__ClientId: ${OAUTH_GITHUB_CLIENT_ID:-}
+      OAuth__GitHub__ClientSecret: ${OAUTH_GITHUB_CLIENT_SECRET:-}
+      OAuth__Yandex__ClientId: ${OAUTH_YANDEX_CLIENT_ID:-}
+      OAuth__Yandex__ClientSecret: ${OAUTH_YANDEX_CLIENT_SECRET:-}
+      OAuth__Vk__ClientId: ${OAUTH_VK_CLIENT_ID:-}
+      OAuth__Vk__ClientSecret: ${OAUTH_VK_CLIENT_SECRET:-}
       DataProtection__KeysPath: /keys
       Database__AutoMigrate: "true"
     volumes:

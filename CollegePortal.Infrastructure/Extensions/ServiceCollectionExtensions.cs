@@ -16,6 +16,7 @@ using CollegePortal.Infrastructure.Authorization;
 using CollegePortal.Infrastructure.Data;
 using CollegePortal.Infrastructure.ExternalApis.Diary;
 using CollegePortal.Infrastructure.ExternalApis.Gosuslugi;
+using CollegePortal.Infrastructure.ExternalApis.OAuth;
 using CollegePortal.Infrastructure.ExternalApis.Schedule;
 using CollegePortal.Infrastructure.Services;
 
@@ -178,6 +179,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScheduleProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
         services.AddScoped<IGradesProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
 
+        services.AddHttpClient<IOAuthService, OAuthService>();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IScheduleService, ScheduleService>();
         services.AddScoped<IGradesService, GradesService>();
@@ -191,6 +195,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICollegeMapService, CollegeMapService>();
         services.AddScoped<IAdminPermissionService, AdminPermissionService>();
         services.AddScoped<IRatingService, RatingService>();
+        services.AddScoped<IGameService, GameService>();
 
         services.AddHostedService<KkepikScheduleSyncService>();
 

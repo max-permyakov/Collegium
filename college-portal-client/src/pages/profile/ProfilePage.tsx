@@ -1,10 +1,11 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { profileApi, adminApi } from '../../services/api';
+import { profileApi, adminApi, authApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
@@ -16,7 +17,7 @@ const MAX_BIO_LENGTH = 200;
 
 export function ProfilePage() {
   const { userId } = useParams<{ userId?: string }>();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, linkDiary } = useAuth();
   const queryClient = useQueryClient();
   const isAdminView = Boolean(userId);
   const targetUserId = userId;
@@ -24,8 +25,21 @@ export function ProfilePage() {
   const [bioError, setBioError] = useState('');
   const [bioValue, setBioValue] = useState<string | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [linkForm, setLinkForm] = useState({ login: '', password: '' });
+  const [linkError, setLinkError] = useState('');
+  const [linkPending, setLinkPending] = useState(false);
+  const [groupSelection, setGroupSelection] = useState('');
+  const [groupError, setGroupError] = useState('');
+  const [groupSuccess, setGroupSuccess] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+
+  const { data: groups = [] } = useQuery<string[]>({
+    queryKey: ['auth', 'groups'],
+    queryFn: async () => (await authApi.getGroups()).data.groups ?? [],
+    enabled: !isAdminView,
+    staleTime: 30 * 60 * 1000,
+  });
 
   const goBack = () => {
     if (location.key !== 'default') navigate(-1);
@@ -99,6 +113,43 @@ export function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
   });
+
+  const changeGroupMutation = useMutation({
+    mutationFn: (groupName: string) => profileApi.changeGroup(groupName),
+    onSuccess: async () => {
+      setGroupError('');
+      setGroupSuccess('Группа обновлена');
+      await refreshUser();
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      queryClient.invalidateQueries({ queryKey: ['rating'] });
+    },
+    onError: (err) => {
+      const e = err as { response?: { data?: { message?: string } } };
+      setGroupSuccess('');
+      setGroupError(e.response?.data?.message || 'Не удалось изменить группу');
+    },
+  });
+
+  const handleLinkDiary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkError('');
+    setLinkPending(true);
+    try {
+      await linkDiary(linkForm.login, linkForm.password);
+      setLinkForm({ login: '', password: '' });
+      queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      queryClient.invalidateQueries({ queryKey: ['rating'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule'] });
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setLinkError(e.response?.data?.message || 'Не удалось привязать дневник');
+    } finally {
+      setLinkPending(false);
+    }
+  };
 
   const recomputeMutation = useMutation({
     mutationFn: () => adminApi.recomputeGrades(targetUserId!),
@@ -248,6 +299,82 @@ export function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {!isAdminView && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Учебная группа</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="w-full">
+                <label htmlFor="profile-group" className="block text-sm font-medium text-dark-text mb-1.5">
+                  Группа
+                </label>
+                <select
+                  id="profile-group"
+                  className="input"
+                  value={groupSelection || profile.studyGroupName || ''}
+                  onChange={(e) => { setGroupSelection(e.target.value); setGroupError(''); setGroupSuccess(''); }}
+                >
+                  <option value="">Выберите группу</option>
+                  {groups.map((group) => (
+                    <option key={group} value={group}>{group}</option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                loading={changeGroupMutation.isPending}
+                disabled={!groupSelection || groupSelection === profile.studyGroupName}
+                onClick={() => changeGroupMutation.mutate(groupSelection)}
+              >
+                Изменить группу
+              </Button>
+            </div>
+            {groupError && <p className="text-sm text-red-400" role="alert">{groupError}</p>}
+            {groupSuccess && <p className="text-sm text-green-400" role="status">{groupSuccess}</p>}
+            <p className="text-xs text-dark-textMuted">
+              Группу можно менять не чаще одного раза в 3 дня.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isAdminView && profile.hasDiaryLink === false && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Привязка дневника</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-dark-textMuted mb-4">
+              Привяжите электронный дневник, чтобы видеть оценки, успеваемость и рейтинг.
+            </p>
+            <form id="link-diary-form" onSubmit={handleLinkDiary} className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Логин дневника"
+                value={linkForm.login}
+                onChange={(e) => { setLinkForm(prev => ({ ...prev, login: e.target.value })); setLinkError(''); }}
+                autoComplete="username"
+                required
+              />
+              <Input
+                label="Пароль дневника"
+                type="password"
+                value={linkForm.password}
+                onChange={(e) => { setLinkForm(prev => ({ ...prev, password: e.target.value })); setLinkError(''); }}
+                autoComplete="current-password"
+                required
+              />
+            </form>
+            {linkError && <p className="mt-3 text-sm text-red-400" role="alert">{linkError}</p>}
+            <Button type="submit" form="link-diary-form" className="mt-4" loading={linkPending}>
+              Привязать дневник
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {isAdminView && isViewerAdmin && !profile.isProtected && (
         <Card>

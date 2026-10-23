@@ -55,11 +55,24 @@ function ActivityLine({ lastActivityAt }: { lastActivityAt?: string | null }) {
   );
 }
 
+const authSourceLabels: Record<string, string> = {
+  Diary: 'Дневник',
+  Email: 'Почта',
+  Google: 'Google',
+  GitHub: 'GitHub',
+  Yandex: 'Яндекс',
+  Vk: 'VK',
+};
+
 function RoleBadges({ user }: { user: AdminUserDto }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       <Badge variant={user.role === 'Admin' ? 'primary' : 'default'}>{user.role}</Badge>
       {user.isProtected && <Badge variant="warning">Защищён</Badge>}
+      {user.registrationSource && (
+        <Badge variant="info">{authSourceLabels[user.registrationSource] ?? user.registrationSource}</Badge>
+      )}
+      {user.hasDiaryLink === false && <Badge variant="warning">Без дневника</Badge>}
     </div>
   );
 }

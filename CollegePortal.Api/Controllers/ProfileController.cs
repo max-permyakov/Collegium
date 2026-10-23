@@ -52,6 +52,17 @@ public class ProfileController : ControllerBase
         return result.Success ? Ok() : BadRequest(new { message = result.Error });
     }
 
+    [HttpPut("me/group")]
+    public async Task<IActionResult> ChangeGroup([FromBody] ChangeGroupRequestDto request, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _profileService.ChangeGroupAsync(userId.Value, request.GroupName, ct);
+        return result.Success ? Ok() : BadRequest(new { message = result.Error });
+    }
+
     [HttpPost("me/avatar")]
     public async Task<IActionResult> SetAvatar([FromBody] SetAvatarRequestDto request, CancellationToken ct)
     {

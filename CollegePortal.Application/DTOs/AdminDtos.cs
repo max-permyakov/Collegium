@@ -1,3 +1,5 @@
+using CollegePortal.Domain.Enums;
+
 namespace CollegePortal.Application.DTOs;
 
 public record AdminUserDto(
@@ -17,7 +19,10 @@ public record AdminUserDto(
     DateTime? GradesCachedAt,
     DateTime? LastLoginAt,
     DateTime? LastActivityAt,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    AuthMethod RegistrationSource,
+    AuthMethod? LastAuthMethod,
+    bool HasDiaryLink
 );
 
 public record AdminUsersPageDto(

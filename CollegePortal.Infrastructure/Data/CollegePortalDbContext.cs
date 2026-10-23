@@ -28,6 +28,9 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<Discipline> Disciplines => Set<Discipline>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+    public DbSet<UserAuthProvider> UserAuthProviders => Set<UserAuthProvider>();
+    public DbSet<EmailLoginCode> EmailLoginCodes => Set<EmailLoginCode>();
+    public DbSet<GameScore> GameScores => Set<GameScore>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -37,6 +40,8 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
         {
             entity.Property(e => e.DisplayName).HasMaxLength(200);
             entity.Property(e => e.Role).HasMaxLength(50);
+            entity.Property(e => e.RegistrationSource).HasConversion<int>();
+            entity.Property(e => e.LastAuthMethod).HasConversion<int?>();
         });
 
         builder.Entity<StudentProfile>(entity =>
@@ -46,6 +51,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasIndex(e => e.ExternalStudentId).IsUnique();
             entity.Property(e => e.Bio).HasMaxLength(200);
             entity.Property(e => e.AvatarDataUrl).HasMaxLength(3_000_000);
+            entity.Property(e => e.DiaryLogin).HasMaxLength(200);
             entity.Property(e => e.AverageMark).HasPrecision(5, 2);
             entity.HasOne(e => e.User)
                 .WithOne(u => u.StudentProfile)
@@ -211,6 +217,46 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.UserId, e.Permission }).IsUnique();
             entity.Property(e => e.Permission).HasConversion<int>();
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserAuthProvider>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Provider).HasConversion<int>();
+            entity.Property(e => e.ProviderUserId).HasMaxLength(200);
+            entity.Property(e => e.ProviderEmail).HasMaxLength(320);
+            entity.HasIndex(e => new { e.Provider, e.ProviderUserId }).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.Provider }).IsUnique();
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.AuthProviders)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EmailLoginCode>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).HasMaxLength(320);
+            entity.Property(e => e.CodeHash).HasMaxLength(64);
+            entity.Property(e => e.RegistrationTokenHash).HasMaxLength(64);
+            entity.Property(e => e.OAuthProvider).HasConversion<int?>();
+            entity.Property(e => e.OAuthProviderUserId).HasMaxLength(200);
+            entity.Property(e => e.OAuthDisplayName).HasMaxLength(200);
+            entity.HasIndex(e => new { e.Email, e.CreatedAt });
+            entity.HasIndex(e => e.RegistrationTokenHash);
+        });
+
+        builder.Entity<GameScore>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.GameId, e.Mode, e.UserId }).IsUnique();
+            entity.Property(e => e.GameId).HasMaxLength(50);
+            entity.Property(e => e.Mode).HasMaxLength(50);
+            entity.HasIndex(e => new { e.GameId, e.Mode, e.Score });
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)

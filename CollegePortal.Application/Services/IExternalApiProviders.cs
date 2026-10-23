@@ -24,6 +24,7 @@ public interface IDiaryApiClient : IScheduleProvider, IGradesProvider
     Task<bool> ReloginAsync(string login, string passwordHash, CancellationToken ct = default);
     
     Task<AccountSettingsDto?> GetAccountSettingsAsync(CancellationToken ct = default);
+    Task<AccountSettingsDto?> GetAccountSettingsWithCookiesAsync(string cookieData, CancellationToken ct = default);
 
     // Fetches grades using the specified user's diary session (used by admins to
     // recompute the average mark cache without impersonating the user in the HTTP context).

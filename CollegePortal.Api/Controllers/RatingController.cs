@@ -25,7 +25,7 @@ public class RatingController : ControllerBase
 
         var rating = await _ratingService.GetGroupRatingAsync(userId.Value, subject, ct);
         if (rating == null)
-            return NotFound(new { message = "Студенческий профиль не найден" });
+            return DiaryRequired();
 
         return Ok(rating);
     }
@@ -38,10 +38,14 @@ public class RatingController : ControllerBase
 
         var result = await _ratingService.SetParticipationAsync(userId.Value, request.Enabled, ct);
         if (result == null)
-            return NotFound(new { message = "Студенческий профиль не найден" });
+            return DiaryRequired();
 
         return Ok(result);
     }
+
+    private ObjectResult DiaryRequired() => StatusCode(
+        StatusCodes.Status403Forbidden,
+        new { code = "diary_required", message = "Рейтинг доступен после привязки дневника" });
 
     private Guid? GetCurrentUserId()
     {

@@ -4,6 +4,7 @@ import { gradesApi, ratingApi } from '../../services/api';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { DiaryRequiredNotice } from '../../components/DiaryRequiredNotice';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { getMarkValue, getMarkVariant, getRecentMarks } from '../../utils/performance';
 import { formatMoscowDate } from '../../utils/datetime';
@@ -34,6 +35,7 @@ export function PerformancePage() {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(() => searchParams.get('subject'));
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [diaryRequired, setDiaryRequired] = useState(false);
   const [rating, setRating] = useState<GroupRating | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
   const [ratingError, setRatingError] = useState('');
@@ -44,12 +46,17 @@ export function PerformancePage() {
   const loadPerformance = async () => {
     setIsLoading(true);
     setError('');
+    setDiaryRequired(false);
     try {
       const response = await gradesApi.getPerformance();
       setPerformance(response.data);
     } catch (err) {
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Не удалось загрузить успеваемость');
+      const e = err as { response?: { data?: { message?: string; code?: string } } };
+      if (e.response?.data?.code === 'diary_required') {
+        setDiaryRequired(true);
+      } else {
+        setError(e.response?.data?.message || 'Не удалось загрузить успеваемость');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -131,6 +138,10 @@ export function PerformancePage() {
         <div className="skeleton h-64" />
       </div>
     );
+  }
+
+  if (diaryRequired) {
+    return <DiaryRequiredNotice />;
   }
 
   if (error) {

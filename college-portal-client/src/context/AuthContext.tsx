@@ -19,6 +19,11 @@ interface AuthContextType {
   sessionExpired: boolean;
   login: (data: LoginRequest) => Promise<void>;
   diaryLogin: (login: string, password: string) => Promise<void>;
+  requestEmailCode: (email: string) => Promise<{ sent: boolean; message: string }>;
+  verifyEmailCode: (email: string, code: string) => Promise<{ success: boolean; requiresRegistration: boolean; registrationToken?: string | null; error?: string | null; user?: User | null }>;
+  completeEmailRegistration: (data: { registrationToken: string; lastName: string; firstName: string; middleName?: string | null; groupName: string }) => Promise<void>;
+  completeProfile: (data: { lastName: string; firstName: string; middleName?: string | null; groupName: string }) => Promise<void>;
+  linkDiary: (login: string, password: string) => Promise<void>;
   claimPrimaryAdmin: (password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -26,8 +31,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// The diary API expects the password pre-hashed (SHA-256, base64) so the raw
-// diary password is never sent to (or stored by) the portal server.
+// The diary API expects the password pre-hashed (SHA-256, base64). The portal
+// stores only an encrypted copy of this hash for diary re-login.
 async function hashDiaryPassword(password: string): Promise<string> {
   const data = new TextEncoder().encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -110,6 +115,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadPermissions();
   };
 
+  const requestEmailCode = async (email: string) => {
+    const response = await authApi.requestEmailCode(email);
+    return response.data;
+  };
+
+  const verifyEmailCode = async (email: string, code: string) => {
+    const response = await authApi.verifyEmailCode(email, code);
+    if (response.data.user) {
+      queryClient.clear();
+      setUser(response.data.user);
+      setSessionExpired(false);
+      await loadPermissions();
+    }
+    return response.data;
+  };
+
+  const completeEmailRegistration = async (data: {
+    registrationToken: string;
+    lastName: string;
+    firstName: string;
+    middleName?: string | null;
+    groupName: string;
+  }) => {
+    const response = await authApi.completeEmailRegistration(data);
+    queryClient.clear();
+    setUser(response.data);
+    setSessionExpired(false);
+    await loadPermissions();
+  };
+
+  const completeProfile = async (data: {
+    lastName: string;
+    firstName: string;
+    middleName?: string | null;
+    groupName: string;
+  }) => {
+    const response = await authApi.completeProfile(data);
+    queryClient.clear();
+    setUser(response.data);
+    setSessionExpired(false);
+    await loadPermissions();
+  };
+
+  const linkDiary = async (login: string, password: string) => {
+    const passwordHash = await hashDiaryPassword(password);
+    const response = await authApi.linkDiary(login, passwordHash);
+    queryClient.clear();
+    setUser(response.data);
+    setSessionExpired(false);
+    await loadPermissions();
+  };
+
   const claimPrimaryAdmin = async (password: string) => {
     const response = await authApi.claimPrimaryAdmin(password);
 
@@ -149,6 +206,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionExpired,
         login,
         diaryLogin,
+        requestEmailCode,
+        verifyEmailCode,
+        completeEmailRegistration,
+        completeProfile,
+        linkDiary,
         claimPrimaryAdmin,
         logout,
         refreshUser,

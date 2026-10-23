@@ -4,21 +4,28 @@ import { gradesApi } from '../../services/api';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { DiaryRequiredNotice } from '../../components/DiaryRequiredNotice';
 import type { SubjectGrade } from '../../types';
 
 export function GradesPage() {
   const [grades, setGrades] = useState<SubjectGrade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [diaryRequired, setDiaryRequired] = useState(false);
 
   const loadGrades = async () => {
     setIsLoading(true);
     setError('');
+    setDiaryRequired(false);
     try {
       const response = await gradesApi.getGrades();
       setGrades(response.data?.subjects || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Не удалось загрузить оценки');
+      if (err.response?.data?.code === 'diary_required') {
+        setDiaryRequired(true);
+      } else {
+        setError(err.response?.data?.message || 'Не удалось загрузить оценки');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -47,6 +54,10 @@ export function GradesPage() {
         </div>
       </div>
     );
+  }
+
+  if (diaryRequired) {
+    return <DiaryRequiredNotice />;
   }
 
   if (error) {

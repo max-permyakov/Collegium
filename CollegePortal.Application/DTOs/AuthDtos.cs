@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using CollegePortal.Domain.Enums;
 
 namespace CollegePortal.Application.DTOs;
 
@@ -31,14 +32,20 @@ public record UserDto(
     bool IsActive,
     bool IsProtected,
     string? PhoneNumber,
-    StudentProfileDto? StudentProfile
+    StudentProfileDto? StudentProfile,
+    AuthMethod RegistrationSource,
+    AuthMethod? LastAuthMethod,
+    AuthMethod[] AuthProviders,
+    bool HasDiaryLink,
+    bool RequiresProfileSetup,
+    bool EmailConfirmed
 );
 
 public record StudentProfileDto(
     Guid Id,
     Guid StudyGroupId,
     string StudyGroupName,
-    int ExternalStudentId,
+    int? ExternalStudentId,
     string? Bio,
     string? AvatarDataUrl,
     string HeadmanRole,
