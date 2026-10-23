@@ -176,9 +176,12 @@ export function LoginPage() {
               type="button"
               role="tab"
               aria-selected={mode === 'email'}
-              disabled={!emailEnabled}
-              className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${mode === 'email' ? 'bg-primary-500/20 text-primary-300' : 'bg-dark-bg text-dark-textMuted hover:text-dark-text'}`}
-              onClick={() => { setMode('email'); clearMessages(); }}
+              className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${mode === 'email' ? 'bg-primary-500/20 text-primary-300' : 'bg-dark-bg text-dark-textMuted hover:text-dark-text'}`}
+              onClick={() => {
+                setMode('email');
+                clearMessages();
+                if (!emailEnabled) setError('Отправка почты сейчас недоступна: SMTP не настроен.');
+              }}
             >
               Почта
             </button>
