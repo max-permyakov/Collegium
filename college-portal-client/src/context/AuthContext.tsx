@@ -19,7 +19,7 @@ interface AuthContextType {
   sessionExpired: boolean;
   login: (data: LoginRequest) => Promise<void>;
   diaryLogin: (login: string, password: string) => Promise<void>;
-  requestEmailCode: (email: string) => Promise<{ sent: boolean; message: string }>;
+  requestEmailCode: (email: string) => Promise<{ sent: boolean; message: string; retryAfterSeconds?: number }>;
   verifyEmailCode: (email: string, code: string) => Promise<{ success: boolean; requiresRegistration: boolean; registrationToken?: string | null; error?: string | null; user?: User | null }>;
   completeEmailRegistration: (data: { registrationToken: string; lastName: string; firstName: string; middleName?: string | null; groupName: string }) => Promise<void>;
   completeProfile: (data: { lastName: string; firstName: string; middleName?: string | null; groupName: string }) => Promise<void>;

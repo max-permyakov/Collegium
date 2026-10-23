@@ -121,7 +121,7 @@ export const authApi = {
   getProviders: () => api.get<AuthProvidersResponse>('/auth/providers'),
   getGroups: () => api.get<{ groups: string[] }>('/auth/groups'),
   requestEmailCode: (email: string, pendingOAuthToken?: string | null) =>
-    api.post<{ sent: boolean; message: string }>('/auth/email/request-code', { email, pendingOAuthToken }),
+    api.post<{ sent: boolean; message: string; retryAfterSeconds?: number }>('/auth/email/request-code', { email, pendingOAuthToken }),
   verifyEmailCode: (email: string, code: string) =>
     api.post<EmailVerifyResponse>('/auth/email/verify-code', { email, code }),
   completeEmailRegistration: (data: {

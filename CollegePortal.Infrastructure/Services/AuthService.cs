@@ -604,10 +604,20 @@ public class AuthService : IAuthService
             .ToListAsync(ct);
 
         // Silent throttling: never reveal whether an account exists.
-        if (recent.FirstOrDefault()?.CreatedAt > now.AddSeconds(-60))
-            return new RequestEmailCodeResultDto(true, genericMessage);
-        if (recent.Count(c => c.CreatedAt > now.AddMinutes(-15)) >= 5)
-            return new RequestEmailCodeResultDto(true, genericMessage);
+        var latest = recent.FirstOrDefault();
+        if (latest != null && latest.CreatedAt > now.AddSeconds(-60))
+        {
+            var retryAfter = Math.Max(1, (int)Math.Ceiling(60 - (now - latest.CreatedAt).TotalSeconds));
+            return new RequestEmailCodeResultDto(true, genericMessage, retryAfter);
+        }
+
+        var recentWindow = recent.Where(c => c.CreatedAt > now.AddMinutes(-15)).ToList();
+        if (recentWindow.Count >= 5)
+        {
+            var oldest = recentWindow.Min(c => c.CreatedAt);
+            var retryAfter = Math.Max(1, (int)Math.Ceiling((oldest.AddMinutes(15) - now).TotalSeconds));
+            return new RequestEmailCodeResultDto(true, genericMessage, retryAfter);
+        }
 
         var active = await _dbContext.EmailLoginCodes
             .Where(c => c.Email == normalized && c.ConsumedAt == null)
@@ -642,7 +652,7 @@ public class AuthService : IAuthService
             return new RequestEmailCodeResultDto(false, "Не удалось отправить письмо, попробуйте позже");
         }
 
-        return new RequestEmailCodeResultDto(true, genericMessage);
+        return new RequestEmailCodeResultDto(true, genericMessage, 60);
     }
 
     public async Task<EmailVerifyResultDto> VerifyEmailCodeAsync(

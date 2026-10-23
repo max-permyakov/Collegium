@@ -38,6 +38,7 @@ export function LoginPage() {
   const [error, setError] = useState(oauthError ? OAUTH_ERRORS[oauthError] ?? 'Не удалось войти через провайдера.' : '');
   const [info, setInfo] = useState(oauthEmailFallback ? 'Провайдер не передал подтверждённую почту. Введите email — мы отправим код.' : '');
   const [isLoading, setIsLoading] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
 
   useEffect(() => {
     authApi.getProviders()
@@ -47,6 +48,12 @@ export function LoginPage() {
       .then((response) => setGroups(response.data.groups ?? []))
       .catch(() => setGroups([]));
   }, []);
+
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const timer = window.setTimeout(() => setResendSeconds((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendSeconds]);
 
   const clearMessages = () => {
     setError('');
@@ -81,6 +88,7 @@ export function LoginPage() {
       }
       setEmailStep('code');
       setInfo(result.message);
+      setResendSeconds(result.retryAfterSeconds ?? 60);
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e.response?.data?.message || 'Не удалось отправить код');
@@ -264,11 +272,16 @@ export function LoginPage() {
                 autoFocus
               />
               <div className="flex items-center justify-between gap-2 text-sm">
-                <button type="button" className="text-dark-textMuted hover:text-dark-text" onClick={() => { setEmailStep('email'); setCode(''); clearMessages(); }}>
+                <button type="button" className="text-dark-textMuted hover:text-dark-text" onClick={() => { setEmailStep('email'); setCode(''); setResendSeconds(0); clearMessages(); }}>
                   Изменить почту
                 </button>
-                <button type="button" className="text-primary-400 hover:text-primary-300" onClick={() => void sendEmailCode()} disabled={isLoading}>
-                  Отправить ещё раз
+                <button
+                  type="button"
+                  className="text-primary-400 hover:text-primary-300 disabled:text-dark-textMuted disabled:no-underline"
+                  onClick={() => void sendEmailCode()}
+                  disabled={isLoading || resendSeconds > 0}
+                >
+                  {resendSeconds > 0 ? `Повторить через ${resendSeconds} с` : 'Отправить ещё раз'}
                 </button>
               </div>
             </form>

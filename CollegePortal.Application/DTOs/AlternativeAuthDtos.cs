@@ -21,7 +21,8 @@ public record RequestEmailCodeRequestDto(
 
 public record RequestEmailCodeResultDto(
     bool Sent,
-    string Message
+    string Message,
+    int RetryAfterSeconds = 0
 );
 
 public record VerifyEmailCodeRequestDto(

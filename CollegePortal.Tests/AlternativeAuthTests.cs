@@ -85,6 +85,7 @@ public class AlternativeAuthTests : IDisposable
         var result = await _authService.RequestEmailCodeAsync("Student@Example.com", null);
 
         result.Sent.Should().BeTrue();
+        result.RetryAfterSeconds.Should().Be(60);
         _emailSender.LastCode.Should().MatchRegex("^[0-9]{6}$");
         _emailSender.LastEmail.Should().Be("student@example.com");
 
@@ -102,6 +103,7 @@ public class AlternativeAuthTests : IDisposable
         var result = await _authService.RequestEmailCodeAsync("student@example.com", null);
 
         result.Sent.Should().BeTrue();
+        result.RetryAfterSeconds.Should().BeGreaterThan(0).And.BeLessThanOrEqualTo(60);
         (await _dbContext.EmailLoginCodes.CountAsync()).Should().Be(1);
     }
 
