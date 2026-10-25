@@ -5,7 +5,7 @@ import { profileApi, adminApi, authApi, notificationsApi } from '../../services/
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationsContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { disablePush, enablePush, getPushUiState, type PushUiState } from '../../services/push';
+import { disablePush, enablePush, getPushUiState, PushConfigError, type PushUiState } from '../../services/push';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
@@ -169,7 +169,11 @@ export function ProfilePage() {
       }
     } catch (e) {
       console.error(e);
-      toast.error('Ошибка при настройке уведомлений');
+      if (e instanceof PushConfigError) {
+        toast.error(e.message);
+      } else {
+        toast.error('Ошибка при настройке уведомлений');
+      }
     } finally {
       setLoadingPush(false);
       await refreshPushState();

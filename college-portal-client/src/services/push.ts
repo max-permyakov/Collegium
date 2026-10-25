@@ -13,11 +13,34 @@ export interface EnablePushResult {
   state: PushUiState;
 }
 
+/** Thrown when the server exposes a VAPID public key that the browser rejects. */
+export class PushConfigError extends Error {
+  constructor() {
+    super('Ключи VAPID на сервере настроены неверно — обратитесь к администратору');
+    this.name = 'PushConfigError';
+  }
+}
+
+/** P-256 application server key: 65 bytes, '04' uncompressed point prefix. */
+export function isValidVapidPublicKey(base64UrlKey: string | null | undefined): boolean {
+  if (!base64UrlKey || /\s/.test(base64UrlKey)) return false;
+  try {
+    const bytes = urlBase64ToUint8Array(base64UrlKey);
+    return bytes.length === 65 && bytes[0] === 0x04;
+  } catch {
+    return false;
+  }
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, index) => byte === b[index]);
 }
 
 function isIos(): boolean {
@@ -163,14 +186,41 @@ export async function enablePush(): Promise<EnablePushResult> {
     return { ok: false, state: { state: 'disabled', iosNeedsInstall: false } };
   }
 
-  // A subscription may already exist (e.g. created before logout). Reuse it:
-  // subscribing again with the same key throws InvalidStateError in Chrome.
+  // A malformed key fails deep inside PushManager.subscribe with
+  // InvalidAccessError; catch it up front and explain what to fix.
+  if (!isValidVapidPublicKey(data.publicKey)) {
+    throw new PushConfigError();
+  }
+  const expectedKey = urlBase64ToUint8Array(data.publicKey);
+
+  // A subscription may already exist (e.g. created before logout). Reuse it —
+  // subscribing again with the same key throws InvalidStateError in Chrome —
+  // but drop it when it was created with a different server key: the browser
+  // would otherwise keep a subscription the server can never encrypt for.
   let subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(data.publicKey),
-    });
+  if (subscription) {
+    const subscriptionKey = new Uint8Array(
+      subscription.options?.applicationServerKey as ArrayBuffer ?? new ArrayBuffer(0),
+    );
+    if (!bytesEqual(subscriptionKey, expectedKey)) {
+      await subscription.unsubscribe().catch(() => undefined);
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: expectedKey,
+      });
+    }
+  } else {
+    try {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: expectedKey,
+      });
+    } catch (error) {
+      if (error instanceof Error && /InvalidAccessError|applicationServerKey/i.test(error.message)) {
+        throw new PushConfigError();
+      }
+      throw error;
+    }
   }
 
   await saveSubscription(subscription);
