@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { Layout, AuthLayout } from './components/layout/Layout';
+import { InstallPrompt } from './components/layout/InstallPrompt';
 import { LoginPage } from './pages/auth/LoginPage';
 import { CompleteProfilePage } from './pages/auth/CompleteProfilePage';
 import { ClaimPrimaryAdminPage } from './pages/auth/ClaimPrimaryAdminPage';
@@ -173,6 +174,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster position="top-right" richColors closeButton />
+      <InstallPrompt />
       <BrowserRouter>
         <AuthProvider>
           <NotificationsProvider>
