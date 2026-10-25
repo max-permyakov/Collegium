@@ -233,6 +233,167 @@ public class NotificationServiceTests : IDisposable
         (await _service.GetUnreadCountAsync(stranger.Id)).Should().Be(1);
     }
 
+    [Fact]
+    public async Task NotifyClubMembersAsync_NotifiesOnlyActiveMembersExcludingAuthor()
+    {
+        var author = NewUser();
+        var member = NewUser();
+        var inactiveMember = NewUser(isActive: false);
+        var outsider = NewUser();
+        var club = NewClub(author.Id);
+
+        _db.Users.AddRange(author, member, inactiveMember, outsider);
+        _db.Clubs.Add(club);
+        _db.ClubMembers.AddRange(
+            clubMemberOf(club.Id, member.Id),
+            clubMemberOf(club.Id, inactiveMember.Id));
+        await _db.SaveChangesAsync();
+
+        await _service.NotifyClubMembersAsync(
+            club.Id,
+            club.Name,
+            new NotificationMessage(NotificationType.ClubMessage, "Новое сообщение", "Привет всем"),
+            excludeUserId: author.Id);
+
+        var rows = await _db.Notifications.AsNoTracking().ToListAsync();
+        rows.Should().ContainSingle();
+        var row = rows.Single();
+        row.UserId.Should().Be(member.Id);
+        row.Type.Should().Be(NotificationType.ClubMessage);
+        row.Title.Should().StartWith($"«{club.Name}»:");
+        row.Url.Should().Be($"/clubs/{club.Id}");
+        row.Body.Should().Be("Привет всем");
+    }
+
+    [Fact]
+    public async Task NotifyClubMembersAsync_AggregatesRepeatedMessagesWithinWindow()
+    {
+        var author = NewUser();
+        var member = NewUser();
+        var club = NewClub(author.Id);
+
+        _db.Users.AddRange(author, member);
+        _db.Clubs.Add(club);
+        _db.ClubMembers.Add(clubMemberOf(club.Id, member.Id));
+        await _db.SaveChangesAsync();
+
+        await _service.NotifyClubMembersAsync(
+            club.Id, club.Name,
+            new NotificationMessage(NotificationType.ClubMessage, "Новое сообщение", "Первое"),
+            author.Id);
+        await _service.NotifyClubMembersAsync(
+            club.Id, club.Name,
+            new NotificationMessage(NotificationType.ClubMessage, "Новое сообщение", "Второе"),
+            author.Id);
+
+        var rows = await _db.Notifications.AsNoTracking().ToListAsync();
+        rows.Should().ContainSingle();
+        rows.Single().Body.Should().Be("Первое");
+    }
+
+    [Fact]
+    public async Task NotifyClubMembersAsync_AggregationIsPerClub()
+    {
+        var author = NewUser();
+        var member = NewUser();
+        var firstClub = NewClub(author.Id);
+        var secondClub = NewClub(author.Id);
+
+        _db.Users.AddRange(author, member);
+        _db.Clubs.AddRange(firstClub, secondClub);
+        _db.ClubMembers.AddRange(
+            clubMemberOf(firstClub.Id, member.Id),
+            clubMemberOf(secondClub.Id, member.Id));
+        await _db.SaveChangesAsync();
+
+        await _service.NotifyClubMembersAsync(
+            firstClub.Id, firstClub.Name,
+            new NotificationMessage(NotificationType.ClubMessage, "Новое сообщение", "Раз"),
+            author.Id);
+        await _service.NotifyClubMembersAsync(
+            secondClub.Id, secondClub.Name,
+            new NotificationMessage(NotificationType.ClubMessage, "Новое сообщение", "Два"),
+            author.Id);
+
+        var rows = await _db.Notifications.AsNoTracking().ToListAsync();
+        rows.Should().HaveCount(2);
+        rows.Select(row => row.Url).Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public async Task SetPreferenceAsync_DisabledTypeIsFilteredOutOfDelivery()
+    {
+        var subscriber = NewUser();
+        _db.Users.Add(subscriber);
+        await _db.SaveChangesAsync();
+
+        var defaults = await _service.GetPreferencesAsync(subscriber.Id);
+        defaults.Select(item => item.Type)
+            .Should().BeEquivalentTo(new[] { "News", "Assignment", "ClubMessage", "Comment" });
+        defaults.Should().OnlyContain(item => item.Enabled);
+
+        // Disabling News stops News notifications...
+        (await _service.SetPreferenceAsync(subscriber.Id, NotificationType.News, enabled: false))
+            .Enabled.Should().BeFalse();
+        (await _service.GetPreferencesAsync(subscriber.Id))
+            .Should().Contain(item => item.Type == "News" && !item.Enabled);
+
+        await _service.NotifyUsersAsync(
+            new[] { subscriber.Id },
+            new NotificationMessage(NotificationType.News, "Новая новость", "Текст", "/news"));
+        (await _db.Notifications.AsNoTracking().ToListAsync())
+            .Where(row => row.Type == NotificationType.News)
+            .Should().BeEmpty();
+
+        // ...but not other types.
+        await _service.NotifyUsersAsync(
+            new[] { subscriber.Id },
+            new NotificationMessage(NotificationType.Assignment, "Новое задание", "Текст", "/assignments"));
+
+        var rows = await _db.Notifications.AsNoTracking().ToListAsync();
+        rows.Should().ContainSingle();
+        rows.Single().Type.Should().Be(NotificationType.Assignment);
+    }
+
+    [Fact]
+    public async Task SetPreferenceAsync_ReEnablingRemovesTheDisabledRow()
+    {
+        var user = NewUser();
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        await _service.SetPreferenceAsync(user.Id, NotificationType.Comment, enabled: false);
+        (await _db.NotificationPreferences.AsNoTracking().ToListAsync()).Should().ContainSingle();
+
+        await _service.SetPreferenceAsync(user.Id, NotificationType.Comment, enabled: true);
+
+        var preference = await _db.NotificationPreferences.AsNoTracking().SingleAsync();
+        preference.IsDisabled.Should().BeFalse();
+
+        // No suppressed rows means delivery works again.
+        await _service.NotifyUsersAsync(
+            new[] { user.Id },
+            new NotificationMessage(NotificationType.Comment, "Новый комментарий", "Текст", "/news"));
+        (await _db.Notifications.AsNoTracking().CountAsync()).Should().Be(1);
+    }
+
+    private static Club NewClub(Guid ownerId) => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = "Кружок",
+        OwnerId = ownerId,
+        InviteToken = Guid.NewGuid().ToString("N"),
+        CreatedAt = DateTime.UtcNow
+    };
+
+    private static ClubMember clubMemberOf(Guid clubId, Guid userId) => new()
+    {
+        Id = Guid.NewGuid(),
+        ClubId = clubId,
+        UserId = userId,
+        JoinedAt = DateTime.UtcNow
+    };
+
     private static ApplicationUser NewUser(bool isActive = true) => new()
     {
         Id = Guid.NewGuid(),

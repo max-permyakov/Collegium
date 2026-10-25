@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
+import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { ClubListDto } from '../../types';
 
@@ -44,6 +45,7 @@ export function ClubsTab() {
   const deleteClubMutation = useMutation({
     mutationFn: (id: string) => adminApi.deleteClub(id),
     onSuccess: () => {
+      notifySuccess('Группа удалена');
       queryClient.invalidateQueries({ queryKey: ['admin', 'clubs'] });
       setSelectedId(null);
     },
@@ -52,7 +54,10 @@ export function ClubsTab() {
 
   const deleteMessageMutation = useMutation({
     mutationFn: (messageId: string) => clubsApi.deleteMessage(messageId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'club-messages', selectedId] }),
+    onSuccess: () => {
+      notifySuccess('Сообщение удалено');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'club-messages', selectedId] });
+    },
     onError: (err) => setError(getError(err)),
   });
 

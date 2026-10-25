@@ -1,6 +1,7 @@
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
+using CollegePortal.Domain.Enums;
 using CollegePortal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -12,11 +13,16 @@ public class NewsCommentService : INewsCommentService
     private const int MaxCommentLength = 2000;
 
     private readonly CollegePortalDbContext _dbContext;
+    private readonly INotificationService _notifications;
     private readonly ILogger<NewsCommentService> _logger;
 
-    public NewsCommentService(CollegePortalDbContext dbContext, ILogger<NewsCommentService> logger)
+    public NewsCommentService(
+        CollegePortalDbContext dbContext,
+        INotificationService notifications,
+        ILogger<NewsCommentService> logger)
     {
         _dbContext = dbContext;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -54,10 +60,12 @@ public class NewsCommentService : INewsCommentService
         if (trimmed.Length > MaxCommentLength)
             trimmed = trimmed[..MaxCommentLength];
 
-        var announcementExists = await _dbContext.Announcements
+        var announcement = await _dbContext.Announcements
             .AsNoTracking()
-            .AnyAsync(a => a.Id == announcementId && a.IsPublished && a.PublishedAt <= DateTime.UtcNow, ct);
-        if (!announcementExists)
+            .Where(a => a.Id == announcementId && a.IsPublished && a.PublishedAt <= DateTime.UtcNow)
+            .Select(a => new { a.Id, a.AuthorId, a.Title })
+            .FirstOrDefaultAsync(ct);
+        if (announcement == null)
             return null;
 
         var comment = new NewsComment
@@ -76,6 +84,32 @@ public class NewsCommentService : INewsCommentService
             .AsNoTracking()
             .Include(u => u.StudentProfile)
             .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+        // Only the news author is notified. A comment failure must not fail the
+        // comment that has already been saved.
+        if (announcement.AuthorId != userId)
+        {
+            try
+            {
+                var preview = trimmed.Length > 200 ? trimmed[..200] : trimmed;
+                await _notifications.NotifyUsersAsync(
+                    new[] { announcement.AuthorId },
+                    new NotificationMessage(
+                        NotificationType.Comment,
+                        "Новый комментарий",
+                        $"«{announcement.Title}»: {preview}",
+                        "/news"),
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to notify author {AuthorId} about comment {CommentId}",
+                    announcement.AuthorId,
+                    comment.Id);
+            }
+        }
 
         return new NewsCommentDto(
             comment.Id,

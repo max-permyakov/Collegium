@@ -10,4 +10,10 @@ public interface IAnnouncementService
     Task<AnnouncementDto?> UpdateAsync(Guid id, Guid authorId, UpdateAnnouncementDto dto, CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid id, Guid authorId, CancellationToken ct = default);
     Task<bool> TogglePublishedAsync(Guid id, Guid authorId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sends notifications for scheduled news that became visible since the
+    /// last check. Intended for the delayed-publication hosted job.
+    /// </summary>
+    Task<int> NotifyDueAsync(CancellationToken ct = default);
 }

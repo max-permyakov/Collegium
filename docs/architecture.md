@@ -101,6 +101,27 @@
 6. Клиент опрашивает `/api/notifications` и `/unread-count` раз в 60 секунд,
    дедуплицирует push/polling по id и ведёт счётчик в колокольчике.
 
+### Триггеры
+
+| Событие | Сервис | Тип | Особенности |
+|---------|--------|-----|-------------|
+| Публикация новости | `AnnouncementService` | News | группа новости или все активные; автор исключён |
+| Отложенная публикация новости | `AnnouncementPublicationWorker` | News | раз в минуту добирает `NotifiedAtUtc == null` |
+| Создание задания / сдвиг дедлайна | `AssignmentService` | Assignment | студенты группы, автор исключён |
+| Новое сообщение в клубе | `ClubService` | ClubMessage | агрегация: не чаще 1 уведомления на клуб за 10 минут |
+| Новый комментарий к новости | `NewsCommentService` | Comment | автор новости, комментатор исключён |
+
+Каждая новость анонсируется не более одного раза: `Announcement.NotifiedAtUtc`
+ставится после успешного fan-out; запланированная новость (.IsPublished +
+будущий PublishedAt) доставляется именно hosted job'ом.
+
+### Настройки по типам
+
+`NotificationPreferences` хранит отключённые типы (отсутствие строки =
+«включено»). Fan-out фильтрует получателей до создания строк, поэтому отключённый
+тип не появляется ни в push, ни в inbox. API: `GET/PUT /api/notifications/preferences`
+(News, Assignment, ClubMessage, Comment); UI — карточка «Уведомления» в профиле.
+
 Push отключён, если `PushServiceClient:PublicKey`/`PrivateKey` пусты;
 `GET /api/push/public-key` тогда возвращает `{ enabled: false }`, и UI показывает
 состояние «Недоступно». При выходе серверная привязка подписки удаляется, при
@@ -151,6 +172,7 @@ Push отключён, если `PushServiceClient:PublicKey`/`PrivateKey` пу�
   - `Announcements`
   - `Assignments`
   - `Notifications`
+  - `NotificationPreferences`
   - `PushSubscriptions`
 
 ## Frontend (college-portal-client)
@@ -163,6 +185,8 @@ Push отключён, если `PushServiceClient:PublicKey`/`PrivateKey` пу�
 - `context/NotificationsContext` — polling, сообщения service worker, toast (`sonner`), дедупликация
 - `components/notifications/NotificationBell` — счётчик и inbox
 - `services/push.ts` — состояние подписки, включение/отключение, перепривязка при входе
+- `utils/notify.ts` — тосты успеха/ошибок для мутаций (`sonner`), серверный текст ошибки имеет приоритет
+- `pages/profile/ProfilePage` — push-статус, тест уведомления, переключатели по типам
 - `sw.ts` (Workbox injectManifest) — foreground `postMessage`, системные уведомления, `pushsubscriptionchange`
 
 ## Развёртывание

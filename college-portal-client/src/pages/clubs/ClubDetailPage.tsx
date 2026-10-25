@@ -11,6 +11,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { KebabMenu } from '../../components/ui/KebabMenu';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
+import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { ClubDetailDto, ClubMessageDto, UpdateClubDto } from '../../types';
 
@@ -197,37 +198,58 @@ export function ClubDetailPage() {
 
   const joinMutation = useMutation({
     mutationFn: () => clubsApi.join(clubId!, invite),
-    onSuccess: invalidateClub,
+    onSuccess: () => {
+      notifySuccess('Вы вступили в группу');
+      invalidateClub();
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const leaveMutation = useMutation({
     mutationFn: () => clubsApi.leave(clubId!),
-    onSuccess: () => { invalidateClub(); queryClient.invalidateQueries({ queryKey: ['club-messages', clubId] }); },
+    onSuccess: () => {
+      notifySuccess('Вы покинули группу');
+      invalidateClub();
+      queryClient.invalidateQueries({ queryKey: ['club-messages', clubId] });
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: UpdateClubDto) => clubsApi.update(clubId!, data),
-    onSuccess: () => { invalidateClub(); setEditing(false); },
+    onSuccess: () => {
+      notifySuccess('Изменения сохранены');
+      invalidateClub();
+      setEditing(false);
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => clubsApi.delete(clubId!),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['clubs'] }); navigate('/clubs'); },
+    onSuccess: () => {
+      notifySuccess('Группа удалена');
+      queryClient.invalidateQueries({ queryKey: ['clubs'] });
+      navigate('/clubs');
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const leaderMutation = useMutation({
     mutationFn: ({ userId, isLeader }: { userId: string; isLeader: boolean }) => clubsApi.setLeader(clubId!, userId, isLeader),
-    onSuccess: invalidateClub,
+    onSuccess: () => {
+      notifySuccess('Права участника обновлены');
+      invalidateClub();
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const removeMemberMutation = useMutation({
     mutationFn: (userId: string) => clubsApi.removeMember(clubId!, userId),
-    onSuccess: invalidateClub,
+    onSuccess: () => {
+      notifySuccess('Участник удалён из группы');
+      invalidateClub();
+    },
     onError: (err) => setError(getError(err)),
   });
 
@@ -248,13 +270,17 @@ export function ClubDetailPage() {
 
   const deleteMessageMutation = useMutation({
     mutationFn: (messageId: string) => clubsApi.deleteMessage(messageId),
-    onSuccess: (_data, messageId) => removeMessageFromCache(messageId),
+    onSuccess: (_data, messageId) => {
+      notifySuccess('Сообщение удалено');
+      removeMessageFromCache(messageId);
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const editMessageMutation = useMutation({
     mutationFn: ({ messageId, text }: { messageId: string; text: string }) => clubsApi.updateMessage(messageId, text),
     onSuccess: (res) => {
+      notifySuccess('Сообщение изменено');
       queryClient.setQueryData<ClubMessageDto[]>(['club-messages', clubId], (old) =>
         old ? old.map((m) => (m.id === res.data.id ? res.data : m)) : old
       );
@@ -264,7 +290,10 @@ export function ClubDetailPage() {
 
   const pinMutation = useMutation({
     mutationFn: (isPinned: boolean) => clubsApi.setPinned(clubId!, isPinned),
-    onSuccess: invalidateClub,
+    onSuccess: (_data, isPinned) => {
+      notifySuccess(isPinned ? 'Группа закреплена' : 'Группа откреплена');
+      invalidateClub();
+    },
     onError: (err) => setError(getError(err)),
   });
 

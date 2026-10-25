@@ -9,6 +9,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { shortName } from '../../utils/names';
+import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import type { AdminUserDto, AdminUsersPageDto } from '../../types/admin';
@@ -126,15 +127,17 @@ export function UsersTab() {
     queryClient.invalidateQueries({ queryKey: ['admin', 'statistics'] });
   };
 
-  const run = async (id: string, fn: () => Promise<unknown>) => {
+  const run = async (id: string, fn: () => Promise<unknown>, successMessage = 'Действие выполнено') => {
     setBusyId(id);
     setActionError('');
     try {
       await fn();
       afterChange();
+      if (successMessage) notifySuccess(successMessage);
     } catch (e) {
       const err = e as { response?: { data?: { message?: string } } };
       setActionError(err.response?.data?.message || 'Не удалось выполнить действие');
+      notifyFailure(e, 'Не удалось выполнить действие');
     } finally {
       setBusyId(null);
     }
@@ -163,7 +166,11 @@ export function UsersTab() {
               disabled={busy || !canManageRole}
               title={!isPrimaryAdmin ? 'Только первичный админ может менять роли' : undefined}
               onClick={() =>
-                run(u.id, () => adminApi.setRole(u.id, u.role === 'Admin' ? 'Student' : 'Admin'))
+                run(
+                  u.id,
+                  () => adminApi.setRole(u.id, u.role === 'Admin' ? 'Student' : 'Admin'),
+                  u.role === 'Admin' ? 'У пользователя сняты права админа' : 'Пользователь назначен админом',
+                )
               }
             >
               {u.role === 'Admin' ? 'Снять админа' : 'Админ'}
@@ -173,7 +180,13 @@ export function UsersTab() {
               size="sm"
               disabled={busy || !canBan}
               title={isSelf ? 'Нельзя забанить себя' : undefined}
-              onClick={() => run(u.id, () => adminApi.setIsActive(u.id, !u.isActive))}
+              onClick={() =>
+                run(
+                  u.id,
+                  () => adminApi.setIsActive(u.id, !u.isActive),
+                  u.isActive ? 'Пользователь заблокирован' : 'Пользователь разблокирован',
+                )
+              }
             >
               {u.isActive ? 'Бан' : 'Разбан'}
             </Button>
@@ -204,7 +217,13 @@ export function UsersTab() {
       value={u.headmanRole}
       disabled={busyId === u.id}
       aria-label={`Староста: ${u.displayName}`}
-      onChange={(e) => run(u.id, () => adminApi.setHeadman(u.id, e.target.value))}
+      onChange={(e) =>
+        run(
+          u.id,
+          () => adminApi.setHeadman(u.id, e.target.value),
+          'Права старосты обновлены',
+        )
+      }
     >
       <option value="None">{headmanLabel.None}</option>
       <option value="Headman">{headmanLabel.Headman}</option>

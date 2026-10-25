@@ -10,6 +10,7 @@ import { Input, Textarea } from '../../components/ui/Input';
 import { KebabMenu } from '../../components/ui/KebabMenu';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate } from '../../utils/datetime';
+import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { AnnouncementListItem, Announcement } from '../../types';
 
@@ -90,8 +91,10 @@ export function NewsPage() {
       setDetail(res.data);
       setEditingNews(false);
       setEditError('');
+      notifySuccess('Новость сохранена');
     } catch (err: any) {
       setEditError(err.response?.data?.message || 'Не удалось сохранить');
+      notifyFailure(err, 'Не удалось сохранить');
     }
   };
 
@@ -101,8 +104,10 @@ export function NewsPage() {
     try {
       await newsApi.delete(detail.id);
       navigate('/news');
+      notifySuccess('Новость удалена');
     } catch (err: any) {
       setEditError(err.response?.data?.message || 'Не удалось удалить новость');
+      notifyFailure(err, 'Не удалось удалить новость');
     }
   };
 

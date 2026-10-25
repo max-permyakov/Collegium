@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { shortName } from '../../utils/names';
+import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { StatisticsTab } from './StatisticsTab';
 import { UsersTab } from './UsersTab';
 import { AuditTab } from './AuditTab';
@@ -109,8 +110,10 @@ export function AdminPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
+      notifySuccess('CSV-файл скачан');
+    } catch (err) {
       setError('Не удалось экспортировать CSV');
+      notifyFailure(err, 'Не удалось экспортировать CSV');
     } finally {
       setIsExporting(false);
     }
@@ -124,9 +127,11 @@ export function AdminPage() {
       setShowCreateNews(false);
       setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
       loadData();
+      notifySuccess('Новость создана');
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
       setError(e2.response?.data?.message || 'Ошибка создания новости');
+      notifyFailure(err, 'Ошибка создания новости');
     }
   };
 
@@ -142,9 +147,11 @@ export function AdminPage() {
       setEditingNews(null);
       setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
       loadData();
+      notifySuccess('Новость сохранена');
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
       setError(e2.response?.data?.message || 'Ошибка обновления новости');
+      notifyFailure(err, 'Ошибка обновления новости');
     }
   };
 
@@ -154,9 +161,11 @@ export function AdminPage() {
     try {
       await newsApi.delete(id);
       loadData();
+      notifySuccess('Новость удалена');
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
       setError(e2.response?.data?.message || 'Ошибка удаления новости');
+      notifyFailure(err, 'Ошибка удаления новости');
     }
   };
 
@@ -165,9 +174,11 @@ export function AdminPage() {
     try {
       await newsApi.togglePublished(id);
       loadData();
+      notifySuccess('Статус публикации изменён');
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
       setError(e2.response?.data?.message || 'Ошибка изменения статуса');
+      notifyFailure(err, 'Ошибка изменения статуса');
     }
   };
 
@@ -179,9 +190,11 @@ export function AdminPage() {
       setShowCreateAssignment(false);
       setAssignmentForm({ title: '', description: '', dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), studyGroupId: '' });
       loadData();
+      notifySuccess('Задание создано');
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
       setError(e2.response?.data?.message || 'Ошибка создания задания');
+      notifyFailure(err, 'Ошибка создания задания');
     }
   };
 
@@ -194,9 +207,11 @@ export function AdminPage() {
       setEditingAssignment(null);
       setAssignmentForm({ title: '', description: '', dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), studyGroupId: '' });
       loadData();
+      notifySuccess('Задание сохранено');
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
       setError(e2.response?.data?.message || 'Ошибка обновления задания');
+      notifyFailure(err, 'Ошибка обновления задания');
     }
   };
 
@@ -206,9 +221,11 @@ export function AdminPage() {
     try {
       await assignmentsApi.deleteAssignment(id);
       loadData();
+      notifySuccess('Задание удалено');
     } catch (err) {
       const e2 = err as { response?: { data?: { message?: string } } };
       setError(e2.response?.data?.message || 'Ошибка удаления задания');
+      notifyFailure(err, 'Ошибка удаления задания');
     }
   };
 

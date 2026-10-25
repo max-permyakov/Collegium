@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { collegeMapApi, collegeInfoApi } from '../../services/api';
+import { notifySuccess } from '../../utils/notify';
 import { useAuth } from '../../context/AuthContext';
 import { CollegeMap } from '../../components/college/CollegeMap';
 import { AuditoriumPanel } from '../../components/college/AuditoriumPanel';
@@ -130,6 +131,7 @@ export function CollegeMapPage() {
     onSuccess: async (auditorium) => {
       await queryClient.invalidateQueries({ queryKey: ['college-map'] });
       await queryClient.invalidateQueries({ queryKey: ['college-map-disciplines'] });
+      notifySuccess(editing ? 'Аудитория обновлена' : 'Аудитория добавлена');
       navigate(`/college-info/map?auditorium=${auditorium.id}`);
     },
     onError: (e) => setFormError(getMapError(e)),

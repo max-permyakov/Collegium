@@ -75,6 +75,40 @@ public class NotificationsController : ControllerBase
             : NotFound(new { message = "Уведомление не найдено" });
     }
 
+    [HttpGet("preferences")]
+    public async Task<IActionResult> GetPreferences(CancellationToken ct = default)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var preferences = await _notifications.GetPreferencesAsync(userId, ct);
+        return Ok(new { preferences });
+    }
+
+    /// <summary>Body: { "type": "News", "enabled": false }. Unknown or
+    /// non-configurable types are rejected with 400.</summary>
+    [HttpPut("preferences")]
+    public async Task<IActionResult> SetPreference(
+        [FromBody] UpdateNotificationPreferenceRequest request,
+        CancellationToken ct = default)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Type))
+            return BadRequest(new { message = "Укажите тип уведомления" });
+
+        if (!Enum.TryParse<NotificationType>(request.Type, ignoreCase: false, out var type) ||
+            type is not (NotificationType.News or NotificationType.Assignment or
+                NotificationType.ClubMessage or NotificationType.Comment))
+        {
+            return BadRequest(new { message = "Неизвестный тип уведомления" });
+        }
+
+        var preference = await _notifications.SetPreferenceAsync(userId, type, request.Enabled, ct);
+        return Ok(preference);
+    }
+
     /// <summary>
     /// Sends a test notification to the current user. Guarded by the Admin role
     /// so it cannot be used to spam arbitrary accounts.
@@ -105,3 +139,5 @@ public class NotificationsController : ControllerBase
         return Guid.TryParse(raw, out userId);
     }
 }
+
+public record UpdateNotificationPreferenceRequest(string Type, bool Enabled);

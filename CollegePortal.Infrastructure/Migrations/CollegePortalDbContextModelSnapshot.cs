@@ -106,6 +106,9 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("NotifiedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("PublishedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -125,6 +128,10 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.HasIndex("AuthorId");
 
                     b.HasIndex("StudyGroupId");
+
+                    b.HasIndex("IsPublished", "PublishedAt");
+
+                    b.HasIndex("NotifiedAtUtc", "PublishedAt");
 
                     b.ToTable("Announcements");
                 });
@@ -732,6 +739,32 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDisabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Type")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreferences");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.PushSubscription", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1272,6 +1305,17 @@ namespace CollegePortal.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.NotificationPreference", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
                         .WithMany()

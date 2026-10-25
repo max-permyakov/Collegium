@@ -14,6 +14,21 @@ public class NotificationService : INotificationService
     private const int TitleMaxLength = 200;
     private const int BodyMaxLength = 1000;
 
+    /// <summary>
+    /// Club chat can burst dozens of messages; at most one ClubMessage
+    /// notification per club URL is delivered within this window.
+    /// </summary>
+    private static readonly TimeSpan ClubAggregationWindow = TimeSpan.FromMinutes(10);
+
+    /// <summary>Types users may turn off. System alerts stay always-on.</summary>
+    private static readonly NotificationType[] ConfigurableTypes =
+    [
+        NotificationType.News,
+        NotificationType.Assignment,
+        NotificationType.ClubMessage,
+        NotificationType.Comment
+    ];
+
     private readonly CollegePortalDbContext _dbContext;
     private readonly NotificationQueue _queue;
     private readonly ILogger<NotificationService> _logger;
@@ -42,21 +57,57 @@ public class NotificationService : INotificationService
             return;
 
         var (title, body, url) = Normalize(message);
-        var now = DateTime.UtcNow;
+        var normalized = new NotificationMessage(message.Type, title, body, url);
+        var recipientsAfterPreference = await ApplyPreferencesAsync(recipients, message.Type, ct);
 
-        var notifications = recipients
+        await NotifyUsersInternalAsync(recipientsAfterPreference, normalized, ct);
+    }
+
+    /// <summary>
+    /// Removes users who opted out of <paramref name="type"/>. A missing
+    /// preference row means the type is enabled, so only disabled rows are
+    /// loaded from the preferences table.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> ApplyPreferencesAsync(
+        IReadOnlyCollection<Guid> recipients,
+        NotificationType type,
+        CancellationToken ct)
+    {
+        var disabledUserIds = await _dbContext.NotificationPreferences
+            .AsNoTracking()
+            .Where(p => p.IsDisabled && p.Type == type && recipients.Contains(p.UserId))
+            .Select(p => p.UserId)
+            .ToArrayAsync(ct);
+
+        if (disabledUserIds.Length == 0)
+            return recipients.ToArray();
+
+        return recipients
+            .Where(id => !disabledUserIds.Contains(id))
+            .ToArray();
+    }
+
+    private async Task NotifyUsersInternalAsync(
+        IEnumerable<Guid> userIds,
+        NotificationMessage message,
+        CancellationToken ct)
+    {
+        var notifications = userIds
             .Select(userId => new Notification
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Type = message.Type,
-                Title = title,
-                Body = body,
-                Url = url,
+                Title = message.Title,
+                Body = message.Body,
+                Url = message.Url,
                 IsRead = false,
-                CreatedAt = now
+                CreatedAt = DateTime.UtcNow
             })
             .ToArray();
+
+        if (notifications.Length == 0)
+            return;
 
         _dbContext.Notifications.AddRange(notifications);
         await _dbContext.SaveChangesAsync(ct);
@@ -106,6 +157,102 @@ public class NotificationService : INotificationService
             .ToArrayAsync(ct);
 
         await NotifyUsersAsync(userIds, message, ct);
+    }
+
+    public async Task NotifyClubMembersAsync(
+        Guid clubId,
+        string clubName,
+        NotificationMessage message,
+        Guid excludeUserId,
+        CancellationToken ct = default)
+    {
+        var (title, body, url) = Normalize(message);
+        url ??= $"/clubs/{clubId}";
+
+        // Aggregation: skip when a notification for the same club was created
+        // within the aggregation window. The club id is part of the URL, so
+        // different clubs never collapse into each other.
+        var aggregationCutoff = DateTime.UtcNow - ClubAggregationWindow;
+        var recentExists = await _dbContext.Notifications
+            .AsNoTracking()
+            .AnyAsync(n =>
+                n.Type == NotificationType.ClubMessage &&
+                n.Url == url &&
+                n.CreatedAt >= aggregationCutoff,
+                ct);
+        if (recentExists)
+        {
+            _logger.LogDebug(
+                "Club message notification for club {ClubId} aggregated (one already sent within window)",
+                clubId);
+            return;
+        }
+
+        var userIds = await _dbContext.ClubMembers
+            .AsNoTracking()
+            .Where(m => m.ClubId == clubId && m.UserId != excludeUserId && m.User.IsActive)
+            .Select(m => m.UserId)
+            .ToArrayAsync(ct);
+
+        var deliveredUserIds = await ApplyPreferencesAsync(userIds, message.Type, ct);
+
+        await NotifyUsersInternalAsync(
+            deliveredUserIds,
+            new NotificationMessage(
+                message.Type,
+                $"«{clubName}»: {title}",
+                body,
+                url),
+            ct);
+    }
+
+    public async Task<NotificationPreferenceDto[]> GetPreferencesAsync(Guid userId, CancellationToken ct = default)
+    {
+        var disabledTypes = await _dbContext.NotificationPreferences
+            .AsNoTracking()
+            .Where(p => p.UserId == userId && p.IsDisabled)
+            .Select(p => p.Type)
+            .ToArrayAsync(ct);
+
+        return ConfigurableTypes
+            .Select(type => new NotificationPreferenceDto(
+                type.ToString(),
+                !disabledTypes.Contains(type)))
+            .ToArray();
+    }
+
+    public async Task<NotificationPreferenceDto> SetPreferenceAsync(
+        Guid userId,
+        NotificationType type,
+        bool enabled,
+        CancellationToken ct = default)
+    {
+        if (!ConfigurableTypes.Contains(type))
+            throw new ArgumentException("Notification type is not configurable", nameof(type));
+
+        var preference = await _dbContext.NotificationPreferences
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.Type == type, ct);
+
+        if (preference == null)
+        {
+            preference = new NotificationPreference
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = type,
+                IsDisabled = !enabled,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _dbContext.NotificationPreferences.Add(preference);
+        }
+        else
+        {
+            preference.IsDisabled = !enabled;
+            preference.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+        return new NotificationPreferenceDto(type.ToString(), enabled);
     }
 
     public async Task<NotificationDto[]> GetAsync(

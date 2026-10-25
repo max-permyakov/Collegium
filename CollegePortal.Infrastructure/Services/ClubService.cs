@@ -2,6 +2,7 @@ using System.Globalization;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
+using CollegePortal.Domain.Enums;
 using CollegePortal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -18,11 +19,16 @@ public class ClubService : IClubService
     private const int MaxMessagesLimit = 500;
 
     private readonly CollegePortalDbContext _dbContext;
+    private readonly INotificationService _notifications;
     private readonly ILogger<ClubService> _logger;
 
-    public ClubService(CollegePortalDbContext dbContext, ILogger<ClubService> logger)
+    public ClubService(
+        CollegePortalDbContext dbContext,
+        INotificationService notifications,
+        ILogger<ClubService> logger)
     {
         _dbContext = dbContext;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -440,6 +446,39 @@ public class ClubService : IClubService
             .AsNoTracking()
             .Include(u => u.StudentProfile)
             .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+        // Notify club members asynchronously; a notification failure must not
+        // fail the message that has already been saved.
+        try
+        {
+            var clubName = await _dbContext.Clubs
+                .AsNoTracking()
+                .Where(c => c.Id == clubId)
+                .Select(c => c.Name)
+                .FirstOrDefaultAsync(ct);
+
+            if (!string.IsNullOrEmpty(clubName))
+            {
+                await _notifications.NotifyClubMembersAsync(
+                    clubId,
+                    clubName,
+                    new NotificationMessage(
+                        NotificationType.ClubMessage,
+                        "Новое сообщение",
+                        trimmed,
+                        $"/clubs/{clubId}"),
+                    excludeUserId: userId,
+                    ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to notify club members about message {MessageId} in club {ClubId}",
+                message.Id,
+                clubId);
+        }
 
         return new ClubMessageDto(
             message.Id,

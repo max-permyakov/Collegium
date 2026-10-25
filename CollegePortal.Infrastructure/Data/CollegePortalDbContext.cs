@@ -33,6 +33,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<GameScore> GameScores => Set<GameScore>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -311,6 +312,25 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<NotificationPreference>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Type).HasConversion<int>();
+            // Only one row per (user, type) — an upsert target for preferences.
+            entity.HasIndex(e => new { e.UserId, e.Type }).IsUnique();
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // NotifiedAtUtc powers the delayed-news publication worker.
+        builder.Entity<Announcement>(entity =>
+        {
+            entity.HasIndex(e => new { e.IsPublished, e.PublishedAt });
+            entity.HasIndex(e => new { e.NotifiedAtUtc, e.PublishedAt });
         });
     }
 }

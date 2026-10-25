@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { notifySuccess } from '../../utils/notify';
 import type { AuditoriumDto, BuildingDto, CollegeMapDto, CreateAuditoriumDto, CreateBuildingDto } from '../../types';
 
 const emptyBuildingForm = (): CreateBuildingDto => ({ name: '', description: '', sortOrder: 0 });
@@ -68,6 +69,7 @@ export function MapTab() {
       }
     },
     onSuccess: () => {
+      notifySuccess(editingBuilding ? 'Корпус обновлён' : 'Корпус добавлен');
       setShowBuildingForm(false);
       setEditingBuilding(null);
       setBuildingForm(emptyBuildingForm());
@@ -78,7 +80,10 @@ export function MapTab() {
 
   const deleteBuildingMutation = useMutation({
     mutationFn: (id: string) => collegeMapApi.deleteBuilding(id),
-    onSuccess: () => invalidate(),
+    onSuccess: () => {
+      notifySuccess('Корпус удалён');
+      invalidate();
+    },
     onError: (e) => setError(getMapError(e)),
   });
 
@@ -91,6 +96,7 @@ export function MapTab() {
       }
     },
     onSuccess: () => {
+      notifySuccess(editingAud ? 'Аудитория обновлена' : 'Аудитория добавлена');
       setShowAudForm(false);
       setEditingAud(null);
       setAudForm(defaultAuditoriumForm(filterBuildingId ?? map?.buildings[0]?.id ?? '', mapWidth, mapHeight));
@@ -101,7 +107,10 @@ export function MapTab() {
 
   const deleteAudMutation = useMutation({
     mutationFn: (id: string) => collegeMapApi.deleteAuditorium(id),
-    onSuccess: () => invalidate(),
+    onSuccess: () => {
+      notifySuccess('Аудитория удалена');
+      invalidate();
+    },
     onError: (e) => setError(getMapError(e)),
   });
 

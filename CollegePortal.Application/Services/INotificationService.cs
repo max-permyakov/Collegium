@@ -9,6 +9,9 @@ public record NotificationMessage(
     string Body,
     string? Url = null);
 
+/// <summary>Delivery preference for one notification type.</summary>
+public record NotificationPreferenceDto(string Type, bool Enabled);
+
 public interface INotificationService
 {
     /// <summary>Creates one notification per user and enqueues push delivery.</summary>
@@ -32,6 +35,28 @@ public interface INotificationService
         NotificationMessage message,
         Guid? studyGroupId = null,
         Guid? excludeUserId = null,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Notifies active members of a club except the message author. Club chat
+    /// produces many messages, so delivery is aggregated: at most one
+    /// notification per club per aggregation window.
+    /// </summary>
+    Task NotifyClubMembersAsync(
+        Guid clubId,
+        string clubName,
+        NotificationMessage message,
+        Guid excludeUserId,
+        CancellationToken ct = default);
+
+    /// <summary>Returns the delivery preference of every notifyable type.</summary>
+    Task<NotificationPreferenceDto[]> GetPreferencesAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>Enables or disables one notification type for the user.</summary>
+    Task<NotificationPreferenceDto> SetPreferenceAsync(
+        Guid userId,
+        NotificationType type,
+        bool enabled,
         CancellationToken ct = default);
 
     Task<NotificationDto[]> GetAsync(

@@ -12,6 +12,10 @@ public class Announcement
     public DateTime? UpdatedAt { get; set; }
     public Guid? StudyGroupId { get; set; }
 
+    // Set when notifications about the published announcement were created. The
+    // delayed-publication worker uses it to deliver scheduled news exactly once.
+    public DateTime? NotifiedAtUtc { get; set; }
+
     public ApplicationUser Author { get; set; } = null!;
     public StudyGroup? StudyGroup { get; set; }
 }

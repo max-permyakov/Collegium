@@ -9,6 +9,7 @@ import { Avatar } from '../ui/Avatar';
 import { Input } from '../ui/Input';
 import { KebabMenu } from '../ui/KebabMenu';
 import { formatMoscowDateTime } from '../../utils/datetime';
+import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { AnnouncementListItem } from '../../types';
 
@@ -54,19 +55,33 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
 
   const postMutation = useMutation({
     mutationFn: (text: string) => newsApi.postComment(newsId!, text),
-    onSuccess: () => { setCommentText(''); setError(''); invalidateComments(); },
+    onSuccess: () => {
+      setCommentText('');
+      setError('');
+      invalidateComments();
+      notifySuccess('Комментарий добавлен');
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (commentId: string) => newsApi.deleteComment(commentId),
-    onSuccess: () => { setEditingCommentId(null); invalidateComments(); },
+    onSuccess: () => {
+      setEditingCommentId(null);
+      invalidateComments();
+      notifySuccess('Комментарий удалён');
+    },
     onError: (err) => setError(getError(err)),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ commentId, text }: { commentId: string; text: string }) => newsApi.updateComment(commentId, text),
-    onSuccess: () => { setEditingCommentId(null); setError(''); invalidateComments(); },
+    onSuccess: () => {
+      setEditingCommentId(null);
+      setError('');
+      invalidateComments();
+      notifySuccess('Комментарий изменён');
+    },
     onError: (err) => setError(getError(err)),
   });
 

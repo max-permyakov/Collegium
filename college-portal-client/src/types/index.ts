@@ -302,6 +302,12 @@ export interface AppNotification {
   createdAt: string;
 }
 
+/** Delivery preference of one notification type. */
+export interface NotificationPreference {
+  type: AppNotificationType;
+  enabled: boolean;
+}
+
 /** Payload the service worker forwards to open tabs for foreground pushes. */
 export interface PushMessagePayload {
   type: 'push';

@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { ClubListDto, CreateClubDto } from '../../types';
 
@@ -44,6 +45,7 @@ export function ClubsPage() {
   const createMutation = useMutation({
     mutationFn: (data: CreateClubDto) => clubsApi.create(data),
     onSuccess: () => {
+      notifySuccess('Группа создана');
       queryClient.invalidateQueries({ queryKey: ['clubs'] });
       setShowCreate(false);
       setForm(emptyForm);
@@ -53,7 +55,10 @@ export function ClubsPage() {
 
   const joinMutation = useMutation({
     mutationFn: (id: string) => clubsApi.join(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clubs'] }),
+    onSuccess: () => {
+      notifySuccess('Вы вступили в группу');
+      queryClient.invalidateQueries({ queryKey: ['clubs'] });
+    },
     onError: (err) => setError(getError(err)),
   });
 

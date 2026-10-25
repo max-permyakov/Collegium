@@ -210,11 +210,50 @@ public class AnnouncementService : IAnnouncementService
         return true;
     }
 
+    /// <summary>
+    /// Delivers notifications for scheduled news whose <c>PublishedAt</c> has
+    /// matured but which have never been announced. Called by
+    /// <see cref="Notifications.AnnouncementPublicationWorker"/> every minute.
+    /// </summary>
+    public async Task<int> NotifyDueAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var dueIds = await _dbContext.Announcements
+            .AsNoTracking()
+            .Where(a => a.IsPublished && a.PublishedAt <= now && a.NotifiedAtUtc == null)
+            .OrderBy(a => a.PublishedAt)
+            .Take(50)
+            .Select(a => a.Id)
+            .ToArrayAsync(ct);
+
+        var delivered = 0;
+        foreach (var id in dueIds)
+        {
+            // Reload with tracking; another path (manual publish) may have
+            // delivered the notification between the query and this reload.
+            var announcement = await _dbContext.Announcements.FindAsync(new object[] { id }, ct);
+            if (announcement == null || announcement.NotifiedAtUtc != null)
+                continue;
+
+            await NotifyPublishedAsync(announcement, ct);
+            delivered++;
+        }
+
+        return delivered;
+    }
+
     private static bool IsVisible(Announcement announcement) =>
         announcement.IsPublished && announcement.PublishedAt <= DateTime.UtcNow;
 
     private async Task NotifyPublishedAsync(Announcement announcement, CancellationToken ct)
     {
+        // Every announcement is announced at most once. The manual publish
+        // paths and the delayed-publication worker both go through here, and
+        // NotifiedAtUtc guarantees the job cannot duplicate an already
+        // delivered notification (also suppressing re-publish spam).
+        if (announcement.NotifiedAtUtc != null)
+            return;
+
         var message = new NotificationMessage(
             NotificationType.News,
             "Новая новость",
@@ -236,6 +275,11 @@ public class AnnouncementService : IAnnouncementService
                 excludeUserId: announcement.AuthorId,
                 ct: ct);
         }
+
+        // Marked after the fan-out so a delivery failure can be retried by the
+        // worker on the next sweep.
+        announcement.NotifiedAtUtc = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
     }
 
     // Moderation (editing/deleting someone else's news) is allowed for full

@@ -170,6 +170,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IPushNotificationService, PushNotificationService>();
         services.AddHostedService<PushDeliveryWorker>();
+        services.AddHostedService<AnnouncementPublicationWorker>();
         services.AddHttpContextAccessor();
 
         services.AddHttpClient<IDiaryApiClient, DiaryApiClient>((sp, client) =>

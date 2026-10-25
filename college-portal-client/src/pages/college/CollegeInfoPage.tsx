@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collegeInfoApi, adminApi } from '../../services/api';
+import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -69,8 +70,12 @@ export function CollegeInfoPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['college-teachers'] });
       setActionMessage('Список преподавателей обновлён');
+      notifySuccess('Список преподавателей обновлён');
     },
-    onError: (err) => setActionMessage(`Ошибка: ${getError(err)}`),
+    onError: (err) => {
+      setActionMessage(`Ошибка: ${getError(err)}`);
+      notifyFailure(err, 'Не удалось обновить список преподавателей');
+    },
   });
 
   const options = useMemo(() => {

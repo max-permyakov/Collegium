@@ -12,10 +12,88 @@ import { Badge } from '../../components/ui/Badge';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import { formatMoscowDate, formatMoscowDateTime } from '../../utils/datetime';
-import type { ProfileDto } from '../../types';
+import type { AppNotificationType, NotificationPreference, ProfileDto } from '../../types';
 import { toast } from 'sonner';
+import { notifyFailure, notifySuccess } from '../../utils/notify';
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_BIO_LENGTH = 200;
+
+const PREFERENCE_LABELS: Record<string, string> = {
+  News: 'Новости',
+  Assignment: 'Задания',
+  ClubMessage: 'Сообщения клубов',
+  Comment: 'Комментарии',
+};
+
+/** Per-type notification delivery toggles backed by the server. */
+function NotificationPreferenceToggles() {
+  const queryClient = useQueryClient();
+  const preferencesQuery = useQuery({
+    queryKey: ['notifications', 'preferences'],
+    queryFn: async () => (await notificationsApi.getPreferences()).data.preferences,
+    staleTime: 60_000,
+  });
+
+  const setPreference = useMutation({
+    mutationFn: async (input: { type: AppNotificationType; enabled: boolean }) =>
+      (await notificationsApi.setPreference(input.type, input.enabled)).data,
+    onMutate: async (input) => {
+      const queryKey = ['notifications', 'preferences'] as const;
+      const previous = queryClient.getQueryData<NotificationPreference[]>(queryKey);
+      queryClient.setQueryData<NotificationPreference[]>(queryKey, (current) =>
+        current?.map((item) =>
+          item.type === input.type ? { ...item, enabled: input.enabled } : item,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      queryClient.setQueryData<NotificationPreference[]>(
+        ['notifications', 'preferences'],
+        context?.previous,
+      );
+      toast.error('Не удалось сохранить настройку');
+    },
+    onSuccess: (preference) => {
+      toast.success(
+        preference.enabled
+          ? `Уведомления «${PREFERENCE_LABELS[preference.type] ?? preference.type}» включены`
+          : `Уведомления «${PREFERENCE_LABELS[preference.type] ?? preference.type}» отключены`,
+      );
+    },
+  });
+
+  const preferences = preferencesQuery.data;
+  if (preferencesQuery.isLoading || !preferences) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium uppercase tracking-wide text-dark-textMuted">
+        Типы уведомлений
+      </p>
+      {preferences.map((preference) => (
+        <label
+          key={preference.type}
+          className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-dark-border/40"
+        >
+          <span className="text-sm text-dark-text">
+            {PREFERENCE_LABELS[preference.type] ?? preference.type}
+          </span>
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-primary-500"
+            checked={preference.enabled}
+            disabled={setPreference.isPending}
+            onChange={(event) =>
+              setPreference.mutate({ type: preference.type as AppNotificationType, enabled: event.target.checked })
+            }
+            aria-label={`${PREFERENCE_LABELS[preference.type] ?? preference.type} — ${preference.enabled ? 'включено' : 'отключено'}`}
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
 
 function describePushState(state: PushUiState): string {
   switch (state.state) {
@@ -154,6 +232,7 @@ export function ProfilePage() {
     mutationFn: (data: { bio?: string | null; email?: string | null; phoneNumber?: string | null }) => profileApi.updateMe(data),
     onSuccess: () => {
       setBioError('');
+      notifySuccess('Профиль сохранён');
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
       if (isAdminView && targetUserId) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
@@ -163,12 +242,14 @@ export function ProfilePage() {
     onError: (err) => {
       const e = err as { response?: { data?: { message?: string } } };
       setBioError(e.response?.data?.message || 'Не удалось сохранить био');
+      notifyFailure(err, 'Не удалось сохранить био');
     },
   });
 
   const avatarMutation = useMutation({
     mutationFn: (dataUrl?: string | null) => profileApi.setAvatar(dataUrl),
     onSuccess: async () => {
+      notifySuccess('Аватар обновлён');
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
       if (isAdminView && targetUserId) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
@@ -177,30 +258,37 @@ export function ProfilePage() {
         await refreshUser();
       }
     },
+    onError: (err) => notifyFailure(err, 'Не удалось обновить аватар'),
   });
 
   const roleMutation = useMutation({
     mutationFn: (role: 'Student' | 'Admin') => adminApi.setRole(targetUserId!, role),
-    onSuccess: () => {
+    onSuccess: (_data, role) => {
+      notifySuccess(role === 'Admin' ? 'Пользователь назначен админом' : 'У пользователя сняты права админа');
       queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
+    onError: (err) => notifyFailure(err, 'Не удалось изменить роль'),
   });
 
   const banMutation = useMutation({
     mutationFn: (isActive: boolean) => adminApi.setIsActive(targetUserId!, isActive),
-    onSuccess: () => {
+    onSuccess: (_data, isActive) => {
+      notifySuccess(isActive ? 'Пользователь разблокирован' : 'Пользователь заблокирован');
       queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
+    onError: (err) => notifyFailure(err, 'Не удалось изменить статус'),
   });
 
   const headmanMutation = useMutation({
     mutationFn: (role: string) => adminApi.setHeadman(targetUserId!, role),
     onSuccess: () => {
+      notifySuccess('Права старосты обновлены');
       queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
+    onError: (err) => notifyFailure(err, 'Не удалось обновить права старосты'),
   });
 
   const changeGroupMutation = useMutation({
@@ -208,6 +296,7 @@ export function ProfilePage() {
     onSuccess: async () => {
       setGroupError('');
       setGroupSuccess('Группа обновлена');
+      notifySuccess('Группа обновлена');
       await refreshUser();
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['schedule'] });
@@ -218,6 +307,7 @@ export function ProfilePage() {
       const e = err as { response?: { data?: { message?: string } } };
       setGroupSuccess('');
       setGroupError(e.response?.data?.message || 'Не удалось изменить группу');
+      notifyFailure(err, 'Не удалось изменить группу');
     },
   });
 
@@ -232,9 +322,11 @@ export function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['grades'] });
       queryClient.invalidateQueries({ queryKey: ['rating'] });
       queryClient.invalidateQueries({ queryKey: ['schedule'] });
+      notifySuccess('Дневник привязан');
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } } };
       setLinkError(e.response?.data?.message || 'Не удалось привязать дневник');
+      notifyFailure(err, 'Не удалось привязать дневник');
     } finally {
       setLinkPending(false);
     }
@@ -243,9 +335,11 @@ export function ProfilePage() {
   const recomputeMutation = useMutation({
     mutationFn: () => adminApi.recomputeGrades(targetUserId!),
     onSuccess: () => {
+      notifySuccess('Оценки пересчитаны');
       queryClient.invalidateQueries({ queryKey: ['admin', 'user', targetUserId] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
+    onError: (err) => notifyFailure(err, 'Не удалось пересчитать оценки'),
   });
 
   if (isLoading) {
@@ -415,6 +509,9 @@ export function ProfilePage() {
                       Тест уведомления
                     </Button>
                   )}
+                  <div className="pt-2 border-t border-dark-border/60">
+                    <NotificationPreferenceToggles />
+                  </div>
                 </div>
               )}
             </div>
