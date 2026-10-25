@@ -288,3 +288,28 @@ export type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateC
 export type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher };
 export type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto };
 export type { GameModeId, GameLeaderboard, GameLeaderboardEntry, GameScoreSubmission };
+
+export type AppNotificationType = 'System' | 'News' | 'Assignment' | 'ClubMessage' | 'Comment';
+
+/** A single row of the server-side notification inbox. */
+export interface AppNotification {
+  id: string;
+  type: AppNotificationType;
+  title: string;
+  body: string;
+  url?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+/** Payload the service worker forwards to open tabs for foreground pushes. */
+export interface PushMessagePayload {
+  type: 'push';
+  notification: {
+    id?: string;
+    title: string;
+    body?: string;
+    url?: string;
+    type?: AppNotificationType;
+  };
+}

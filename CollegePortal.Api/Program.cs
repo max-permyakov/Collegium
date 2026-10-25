@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using CollegePortal.Api.Middleware;
 using CollegePortal.Api.Serialization;
@@ -67,6 +68,20 @@ public class Program
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
                     }));
+
+            // Subscription changes are rare; 20/min per account is plenty and
+            // stops a signed-in client from churning rows.
+            options.AddPolicy("push", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                        ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                        ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
         });
 
         builder.Services.AddInfrastructure(builder.Configuration);
@@ -104,9 +119,11 @@ public class Program
 
         app.UseCors("Client");
 
-        app.UseRateLimiter();
-
         app.UseAuthentication();
+
+        // Endpoint policies can partition by the authenticated account, so
+        // authentication must run first.
+        app.UseRateLimiter();
         app.UseMiddleware<BannedUsersMiddleware>();
         app.UseMiddleware<ActivityTrackerMiddleware>();
         app.UseAuthorization();

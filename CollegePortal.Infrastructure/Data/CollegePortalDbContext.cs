@@ -31,6 +31,8 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<UserAuthProvider> UserAuthProviders => Set<UserAuthProvider>();
     public DbSet<EmailLoginCode> EmailLoginCodes => Set<EmailLoginCode>();
     public DbSet<GameScore> GameScores => Set<GameScore>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -280,6 +282,35 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasMany(e => e.Teachers)
                 .WithMany()
                 .UsingEntity(join => join.ToTable("AuditoriumTeachers"));
+        });
+        builder.Entity<PushSubscription>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Endpoint).HasMaxLength(2048);
+            entity.Property(x => x.P256DH).HasMaxLength(512);
+            entity.Property(x => x.Auth).HasMaxLength(128);
+            entity.Property(x => x.UserAgent).HasMaxLength(300);
+            entity.HasIndex(x => x.Endpoint).IsUnique();
+            entity.HasIndex(x => x.UserId);
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Type).HasConversion<int>();
+            entity.Property(e => e.Title).HasMaxLength(200);
+            entity.Property(e => e.Body).HasMaxLength(1000);
+            entity.Property(e => e.Url).HasMaxLength(500);
+            entity.HasIndex(e => new { e.UserId, e.IsRead, e.CreatedAt });
+            entity.HasIndex(e => new { e.PushSentAt, e.CreatedAt });
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

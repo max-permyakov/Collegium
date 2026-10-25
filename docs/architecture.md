@@ -45,6 +45,9 @@
 - `Entities/StudyGroup` — учебная группа
 - `Entities/Announcement` — новости/объявления
 - `Entities/Assignment` — учебные задания
+- `Entities/Notification` — уведомление пользователя (inbox + outbox-поля `PushSentAt`, `PushAttempts`)
+- `Entities/PushSubscription` — Web Push подписка браузера, привязанная к пользователю
+- `Enums/NotificationType` — System, News, Assignment, ClubMessage, Comment
 - `Enums/AuthMethod` — Diary, Email, Google, GitHub, Yandex, Vk
 
 ### Application (CollegePortal.Application)
@@ -53,6 +56,9 @@
 - `Services/IDiaryApiClient` — интерфейс клиента дневника
 - `Services/IEmailSender` — отправка OTP-писем
 - `Services/IOAuthService` — OAuth Authorization Code + PKCE
+- `Services/INotificationService` — создание уведомлений и работа с inbox
+- `Services/IPushNotificationService` — доставка Web Push по подпискам
+- `DTOs/NotificationDtos.cs` — DTO уведомлений
 - `DTOs/AlternativeAuthDtos.cs` — DTO альтернативного входа
 - `DTOs/ExternalApiDtos.cs` — DTO для внешних API
 
@@ -64,11 +70,41 @@
 - `ExternalApis/OAuth/OAuthService` — Google/GitHub/Yandex/VK
 - `Services/AuthService` — Identity, OTP, OAuth, миграция и привязка аккаунтов
 - `Services/SmtpEmailSender` — SMTP-доставка кодов
+- `Services/NotificationService` — fan-out по получателям, inbox, нормализация URL
+- `Services/PushNotificationService` — Web Push (VAPID), retry, удаление мёртвых подписок
+- `Notifications/NotificationQueue` — in-memory `Channel<Guid>` для фоновой отправки
+- `Notifications/PushDeliveryWorker` — hosted service: очередь, outbox-sweeper, retention
+- `ExternalApis/Notifications/PushServiceClientOptions` — конфигурация VAPID
 
 ### Api (CollegePortal.Api)
 - `Program.cs` — точка входа, DI, rate limiting, CORS
 - `Controllers/AuthController` — вход, регистрация, OAuth callbacks
 - `Controllers/ProfileController` — профиль, смена группы, привязка дневника
+- `Controllers/NotificationsController` — inbox: список, unread-count, read/read-all, delete, admin test
+- `Controllers/PushController` — публичный VAPID-ключ, subscribe/unsubscribe
+
+## Уведомления (push + in-app)
+
+1. Доменный сервис (`NotificationService`) создаёт по строке `Notifications` на
+   каждого получателя и кладёт id в `NotificationQueue` (`Channel<Guid>`).
+2. HTTP-запрос не ждёт доставки: `PushDeliveryWorker` разбирает очередь и вызывает
+   `PushNotificationService` в отдельном DI-scope.
+3. `PushNotificationService` отправляет Web Push по всем подпискам пользователя
+   через VAPID, повторяет временные ошибки, удаляет подписки при `404/410` и после
+   трёх `400`.
+4. `PushSentAt`/`PushAttempts` работают как outbox: sweeper раз в минуту добирает
+   неотправленные строки после рестарта; retention чистит старые уведомления и
+   подписки.
+5. Service worker при открытой видимой вкладке пересылает push в страницу
+   (`postMessage`) — клиент показывает toast; иначе показывает системное
+   уведомление. Клик открывает только относительный SPA-путь.
+6. Клиент опрашивает `/api/notifications` и `/unread-count` раз в 60 секунд,
+   дедуплицирует push/polling по id и ведёт счётчик в колокольчике.
+
+Push отключён, если `PushServiceClient:PublicKey`/`PrivateKey` пусты;
+`GET /api/push/public-key` тогда возвращает `{ enabled: false }`, и UI показывает
+состояние «Недоступно». При выходе серверная привязка подписки удаляется, при
+следующем входе — восстанавливается.
 
 ## Внешние интеграции
 
@@ -114,6 +150,8 @@
   - `StudyGroups`
   - `Announcements`
   - `Assignments`
+  - `Notifications`
+  - `PushSubscriptions`
 
 ## Frontend (college-portal-client)
 
@@ -122,6 +160,10 @@
 - TanStack Query для кэширования и синхронизации данных
 - Axios для HTTP клиента
 - Адаптивный дизайн (mobile-first)
+- `context/NotificationsContext` — polling, сообщения service worker, toast (`sonner`), дедупликация
+- `components/notifications/NotificationBell` — счётчик и inbox
+- `services/push.ts` — состояние подписки, включение/отключение, перепривязка при входе
+- `sw.ts` (Workbox injectManifest) — foreground `postMessage`, системные уведомления, `pushsubscriptionchange`
 
 ## Развёртывание
 

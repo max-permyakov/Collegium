@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from '
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import { Layout, AuthLayout } from './components/layout/Layout';
 import { LoginPage } from './pages/auth/LoginPage';
 import { CompleteProfilePage } from './pages/auth/CompleteProfilePage';
@@ -21,7 +22,7 @@ import { CollegeInfoPage } from './pages/college/CollegeInfoPage';
 import { CollegeMapPage } from './pages/college/CollegeMapPage';
 import { GamesPage } from './pages/games/GamesPage';
 import EscapeGamePage from './pages/games/escape/EscapeGamePage';
-
+import { Toaster } from 'sonner';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -171,9 +172,12 @@ function AppRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-right" richColors closeButton />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <NotificationsProvider>
+            <AppRoutes />
+          </NotificationsProvider>
         </AuthProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </BrowserRouter>

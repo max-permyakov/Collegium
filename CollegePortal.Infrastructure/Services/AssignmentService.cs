@@ -1,6 +1,7 @@
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
+using CollegePortal.Domain.Enums;
 using CollegePortal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,11 +11,16 @@ namespace CollegePortal.Infrastructure.Services;
 public class AssignmentService : IAssignmentService
 {
     private readonly CollegePortalDbContext _dbContext;
+    private readonly INotificationService _notifications;
     private readonly ILogger<AssignmentService> _logger;
 
-    public AssignmentService(CollegePortalDbContext dbContext, ILogger<AssignmentService> logger)
+    public AssignmentService(
+        CollegePortalDbContext dbContext,
+        INotificationService notifications,
+        ILogger<AssignmentService> logger)
     {
         _dbContext = dbContext;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -94,6 +100,16 @@ public class AssignmentService : IAssignmentService
         _dbContext.Assignments.Add(assignment);
         await _dbContext.SaveChangesAsync(ct);
 
+        await _notifications.NotifyStudyGroupAsync(
+            assignment.StudyGroupId,
+            new NotificationMessage(
+                NotificationType.Assignment,
+                "Новое задание",
+                assignment.Title,
+                "/assignments"),
+            excludeUserId: createdById,
+            ct: ct);
+
         var creator = await _dbContext.Users.FindAsync(createdById, ct);
 
         return new AssignmentDto(
@@ -131,6 +147,8 @@ public class AssignmentService : IAssignmentService
         if (studyGroup == null)
             throw new ArgumentException("Study group not found");
 
+        var dueAtChanged = assignment.DueAt != dto.DueAt;
+
         assignment.Title = dto.Title;
         assignment.Description = dto.Description;
         assignment.DueAt = dto.DueAt;
@@ -138,6 +156,19 @@ public class AssignmentService : IAssignmentService
         assignment.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(ct);
+
+        if (dueAtChanged)
+        {
+            await _notifications.NotifyStudyGroupAsync(
+                assignment.StudyGroupId,
+                new NotificationMessage(
+                    NotificationType.Assignment,
+                    "Задание обновлено",
+                    $"{assignment.Title}: изменился срок сдачи",
+                    "/assignments"),
+                excludeUserId: createdById,
+                ct: ct);
+        }
 
         return new AssignmentDto(
             assignment.Id,

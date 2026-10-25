@@ -1,9 +1,11 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { profileApi, adminApi, authApi } from '../../services/api';
+import { profileApi, adminApi, authApi, notificationsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationsContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { disablePush, enablePush, getPushUiState, type PushUiState } from '../../services/push';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
@@ -11,13 +13,31 @@ import { Lightbox } from '../../components/ui/Lightbox';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import { formatMoscowDate, formatMoscowDateTime } from '../../utils/datetime';
 import type { ProfileDto } from '../../types';
-
+import { toast } from 'sonner';
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_BIO_LENGTH = 200;
+
+function describePushState(state: PushUiState): string {
+  switch (state.state) {
+    case 'active':
+      return 'Уведомления включены на этом устройстве.';
+    case 'inactive':
+      return 'Получайте уведомления о новостях, заданиях и сообщениях в клубах даже при закрытой вкладке.';
+    case 'denied':
+      return 'Уведомления заблокированы в настройках браузера.';
+    case 'disabled':
+      return 'Push-уведомления не настроены на сервере.';
+    case 'unsupported':
+      return state.iosNeedsInstall
+        ? 'На iPhone уведомления работают только после установки приложения на экран «Домой».'
+        : 'Этот браузер не поддерживает push-уведомления.';
+  }
+}
 
 export function ProfilePage() {
   const { userId } = useParams<{ userId?: string }>();
   const { user, refreshUser, linkDiary } = useAuth();
+  const { refresh: refreshNotifications } = useNotifications();
   const queryClient = useQueryClient();
   const isAdminView = Boolean(userId);
   const targetUserId = userId;
@@ -33,6 +53,75 @@ export function ProfilePage() {
   const [groupSuccess, setGroupSuccess] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+  const [pushState, setPushState] = useState<PushUiState | null>(null);
+  const [loadingPush, setLoadingPush] = useState(false);
+
+  const refreshPushState = async () => {
+    if (isAdminView) return;
+    try {
+      setPushState(await getPushUiState());
+    } catch {
+      setPushState({ state: 'unsupported', iosNeedsInstall: false });
+    }
+  };
+
+  const handleTogglePush = async () => {
+    setLoadingPush(true);
+    try {
+      if (pushState?.state === 'active') {
+        await disablePush();
+        toast.success('Уведомления отключены');
+      } else {
+        const result = await enablePush();
+        if (result.ok) {
+          toast.success('Уведомления включены');
+        } else if (result.state.state === 'denied') {
+          toast.error('Разрешите уведомления в настройках браузера');
+        } else if (result.state.state === 'disabled') {
+          toast.error('Push-уведомления не настроены на сервере');
+        } else if (result.state.state === 'unsupported') {
+          toast.error(
+            result.state.iosNeedsInstall
+              ? 'На iPhone сначала добавьте приложение на экран «Домой»'
+              : 'Браузер не поддерживает push-уведомления',
+          );
+        } else {
+          toast.error('Не удалось включить уведомления');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Ошибка при настройке уведомлений');
+    } finally {
+      setLoadingPush(false);
+      await refreshPushState();
+    }
+  };
+
+  const handleTestPush = async () => {
+    try {
+      await notificationsApi.sendTest();
+      toast.success('Тестовое уведомление отправлено');
+      void refreshNotifications().catch(() => undefined);
+    } catch {
+      toast.error('Не удалось отправить тестовое уведомление');
+    }
+  };
+
+  useEffect(() => {
+    if (isAdminView) return;
+    let cancelled = false;
+    getPushUiState()
+      .then((state) => {
+        if (!cancelled) setPushState(state);
+      })
+      .catch(() => {
+        if (!cancelled) setPushState({ state: 'unsupported', iosNeedsInstall: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdminView]);
 
   const { data: groups = [] } = useQuery<string[]>({
     queryKey: ['auth', 'groups'],
@@ -194,6 +283,7 @@ export function ProfilePage() {
         <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-6 items-start">
             <div className="flex flex-col items-center gap-3">
+              
               <div className="w-32 h-32 rounded-2xl bg-dark-bg border border-dark-border overflow-hidden flex items-center justify-center">
                 {profile.avatarDataUrl ? (
                   <img
@@ -257,6 +347,7 @@ export function ProfilePage() {
                   <div>
                     <span className="text-dark-text">Группа:</span> {profile.studyGroupName}
                   </div>
+                  
                 )}
                 {/* {profile.email && <div><span className="text-dark-text">Email:</span> {profile.email}</div>}
                 {profile.phoneNumber && <div><span className="text-dark-text">Телефон:</span> {profile.phoneNumber}</div>} */}
@@ -266,6 +357,66 @@ export function ProfilePage() {
                 {profile.lastLoginAt && <div><span className="text-dark-text">Последний вход:</span> {formatMoscowDateTime(profile.lastLoginAt)}</div>}
                 <div><span className="text-dark-text">Дата регистрации:</span> {formatMoscowDate(profile.createdAt)}</div>
               </div>
+              {!isAdminView && (
+                <div className="pt-3 border-t border-dark-border space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-dark-text">Уведомления</p>
+                      <p className="text-xs text-dark-textMuted">
+                        {pushState
+                          ? describePushState(pushState)
+                          : 'Проверяем настройки уведомлений…'}
+                      </p>
+                    </div>
+                    {pushState?.state === 'active' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        loading={loadingPush}
+                        onClick={handleTogglePush}
+                      >
+                        Отключить
+                      </Button>
+                    )}
+                    {pushState?.state === 'inactive' && (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        loading={loadingPush}
+                        onClick={handleTogglePush}
+                      >
+                        Включить
+                      </Button>
+                    )}
+                    {pushState?.state === 'denied' && (
+                      <Badge variant="warning">Заблокировано</Badge>
+                    )}
+                    {pushState?.state === 'disabled' && (
+                      <Badge variant="default">Недоступно</Badge>
+                    )}
+                    {pushState?.state === 'unsupported' && (
+                      <Badge variant="default">Не поддерживается</Badge>
+                    )}
+                  </div>
+                  {pushState?.state === 'denied' && (
+                    <p className="text-xs text-dark-textMuted">
+                      Откройте настройки сайта в браузере и разрешите уведомления, затем обновите страницу.
+                    </p>
+                  )}
+                  {pushState?.state === 'disabled' && (
+                    <p className="text-xs text-dark-textMuted">
+                      Администратор должен указать VAPID-ключи в конфигурации сервера.
+                    </p>
+                  )}
+                  {user?.role === 'Admin' && (
+                    <Button type="button" variant="secondary" size="sm" onClick={handleTestPush}>
+                      Тест уведомления
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -341,7 +492,7 @@ export function ProfilePage() {
           </CardContent>
         </Card>
       )}
-
+      
       {!isAdminView && profile.hasDiaryLink === false && (
         <Card>
           <CardHeader>

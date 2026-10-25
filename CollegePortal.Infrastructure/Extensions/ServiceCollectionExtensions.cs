@@ -18,7 +18,11 @@ using CollegePortal.Infrastructure.ExternalApis.Diary;
 using CollegePortal.Infrastructure.ExternalApis.Gosuslugi;
 using CollegePortal.Infrastructure.ExternalApis.OAuth;
 using CollegePortal.Infrastructure.ExternalApis.Schedule;
+using CollegePortal.Infrastructure.ExternalApis.Notifications;
+using CollegePortal.Infrastructure.Notifications;
 using CollegePortal.Infrastructure.Services;
+using Lib.Net.Http.WebPush;
+using Lib.Net.Http.WebPush.Authentication;
 
 namespace CollegePortal.Infrastructure.Extensions;
 
@@ -138,9 +142,34 @@ public static class ServiceCollectionExtensions
         services.Configure<DiaryApiOptions>(configuration.GetSection("ExternalApis:Diary"));
         services.Configure<ScheduleApiOptions>(configuration.GetSection("ExternalApis:Schedule"));
         services.Configure<GosuslugiOptions>(configuration.GetSection("ExternalApis:Gosuslugi"));
-
+        services.Configure<PushServiceClientOptions>(
+            configuration.GetSection("PushServiceClient"));
         services.AddMemoryCache();
+        services.AddSingleton<PushServiceClient>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<PushServiceClientOptions>>().Value;
+            var client = new PushServiceClient();
 
+            // Only wire VAPID when both keys are present. Empty keys would
+            // throw inside VapidAuthentication and break environments that do
+            // not use push (tests, local development).
+            if (options.IsConfigured)
+            {
+                client.DefaultAuthentication = new VapidAuthentication(
+                    options.PublicKey,
+                    options.PrivateKey)
+                {
+                    Subject = options.Subject
+                };
+            }
+
+            return client;
+        });
+
+        services.AddSingleton<NotificationQueue>();
+        services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IPushNotificationService, PushNotificationService>();
+        services.AddHostedService<PushDeliveryWorker>();
         services.AddHttpContextAccessor();
 
         services.AddHttpClient<IDiaryApiClient, DiaryApiClient>((sp, client) =>
@@ -175,7 +204,7 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
             client.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
         });
-
+        
         services.AddScoped<IScheduleProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
         services.AddScoped<IGradesProvider>(sp => sp.GetRequiredService<IDiaryApiClient>());
 

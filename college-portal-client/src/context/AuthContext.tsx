@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi, permissionsApi } from '../services/api';
+import { removePushBinding, syncPushBinding } from '../services/push';
 import type { User, LoginRequest, Permission } from '../types';
 import { ALL_PERMISSIONS } from '../types';
 
@@ -96,6 +97,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
   }, [queryClient, user]);
 
+  // Re-bind an existing browser push subscription to the account that just
+  // signed in (a shared browser keeps its subscription between users).
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    void syncPushBinding();
+  }, [userId]);
+
   const login = async (data: LoginRequest) => {
     const response = await authApi.login(data);
 
@@ -178,6 +187,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      // Forget the server binding while the session cookie is still valid.
+      // The browser subscription stays, so the next login can re-bind it.
+      await removePushBinding();
       await authApi.logout();
     } catch {
       // Ignore logout errors

@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -244,6 +244,26 @@ export const collegeInfoApi = {
   searchSchedule: (type: string, query: string, date?: string) =>
     api.get<CollegeScheduleSearchResult>('/college-info/schedule/search', { params: { type, query, date } }),
   getTeachers: () => api.get<CollegeTeacher[]>('/college-info/teachers'),
+};
+
+export const notificationsApi = {
+  get: (params?: { limit?: number; before?: string }) =>
+    api.get<AppNotification[]>('/notifications', { params }),
+  getUnreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
+  markRead: (id: string) => api.post(`/notifications/${encodeURIComponent(id)}/read`),
+  markAllRead: () => api.post<{ updated: number }>('/notifications/read-all'),
+  remove: (id: string) => api.delete(`/notifications/${encodeURIComponent(id)}`),
+  sendTest: () => api.post<{ sent: boolean }>('/notifications/test'),
+};
+
+export const pushApi = {
+  getPublicKey: () =>
+    api.get<{ enabled: boolean; publicKey: string | null }>('/push/public-key'),
+  subscribe: (data: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    api.post<{ subscribed: boolean }>('/push/subscribe', data),
+  unsubscribe: (endpoint: string) =>
+    api.delete<{ subscribed: boolean }>('/push/subscribe', { params: { endpoint } }),
+  unsubscribeAll: () => api.delete<{ removed: number }>('/push/subscriptions'),
 };
 
 export const collegeMapApi = {

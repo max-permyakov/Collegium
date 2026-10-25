@@ -46,6 +46,9 @@ services:
       OAuth__Yandex__ClientSecret: ${OAUTH_YANDEX_CLIENT_SECRET:-}
       OAuth__Vk__ClientId: ${OAUTH_VK_CLIENT_ID:-}
       OAuth__Vk__ClientSecret: ${OAUTH_VK_CLIENT_SECRET:-}
+      PushServiceClient__PublicKey: ${PUSH_VAPID_PUBLIC_KEY:-}
+      PushServiceClient__PrivateKey: ${PUSH_VAPID_PRIVATE_KEY:-}
+      PushServiceClient__Subject: ${PUSH_VAPID_SUBJECT:-mailto:admin@example.com}
       DataProtection__KeysPath: /keys
       Database__AutoMigrate: "true"
     volumes:

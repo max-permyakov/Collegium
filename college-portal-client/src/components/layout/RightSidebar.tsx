@@ -3,6 +3,7 @@ import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { shortName } from '../../utils/names';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import logo from '../../assets/logo.png';
@@ -175,14 +176,17 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
           {collapsed && (
             <img src={logo} alt="KKEP.ka" className="w-9 h-9 rounded-xl  object-contain flex-shrink-0" />
           )}
-          <button
-            onClick={onToggle}
-            className={`btn-ghost ${collapsed ? 'p-1' : 'p-2'}`}
-            aria-label={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
-            title={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
-          >
-            <ChevronIcon className={`w-5 h-5 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
-          </button>
+          <div className={`flex items-center ${collapsed ? 'flex-col gap-1' : 'gap-1'}`}>
+            <NotificationBell />
+            <button
+              onClick={onToggle}
+              className={`btn-ghost ${collapsed ? 'p-1' : 'p-2'}`}
+              aria-label={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
+              title={collapsed ? 'Развернуть панель' : 'Свернуть панель'}
+            >
+              <ChevronIcon className={`w-5 h-5 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3 px-2" aria-label="Основная навигация">
@@ -261,13 +265,16 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
               <img src={logo} alt="KKEP.ka" className="w-10 h-10 rounded-xl  object-contain flex-shrink-0" />
               <span className="text-lg font-semibold text-dark-text">KKEP.ka</span>
             </div>
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="btn-ghost p-2"
-              aria-label="Закрыть меню"
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <NotificationBell onNavigate={() => setMobileOpen(false)} />
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="btn-ghost p-2"
+                aria-label="Закрыть меню"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto py-3 px-2" aria-label="Основная навигация">

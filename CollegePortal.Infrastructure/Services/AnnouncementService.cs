@@ -1,6 +1,7 @@
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
+using CollegePortal.Domain.Enums;
 using CollegePortal.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,11 +11,16 @@ namespace CollegePortal.Infrastructure.Services;
 public class AnnouncementService : IAnnouncementService
 {
     private readonly CollegePortalDbContext _dbContext;
+    private readonly INotificationService _notifications;
     private readonly ILogger<AnnouncementService> _logger;
 
-    public AnnouncementService(CollegePortalDbContext dbContext, ILogger<AnnouncementService> logger)
+    public AnnouncementService(
+        CollegePortalDbContext dbContext,
+        INotificationService notifications,
+        ILogger<AnnouncementService> logger)
     {
         _dbContext = dbContext;
+        _notifications = notifications;
         _logger = logger;
     }
 
@@ -92,6 +98,9 @@ public class AnnouncementService : IAnnouncementService
         _dbContext.Announcements.Add(announcement);
         await _dbContext.SaveChangesAsync(ct);
 
+        if (IsVisible(announcement))
+            await NotifyPublishedAsync(announcement, ct);
+
         var author = await _dbContext.Users.FindAsync(authorId, ct);
         var studyGroup = dto.StudyGroupId.HasValue 
             ? await _dbContext.StudyGroups.FindAsync(dto.StudyGroupId.Value, ct)
@@ -129,6 +138,8 @@ public class AnnouncementService : IAnnouncementService
                 return null;
         }
 
+        var wasVisible = IsVisible(announcement);
+
         announcement.Title = dto.Title;
         announcement.Body = dto.Body;
         announcement.PublishedAt = dto.PublishedAt;
@@ -137,6 +148,9 @@ public class AnnouncementService : IAnnouncementService
         announcement.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(ct);
+
+        if (!wasVisible && IsVisible(announcement))
+            await NotifyPublishedAsync(announcement, ct);
 
         return new AnnouncementDto(
             announcement.Id,
@@ -184,10 +198,44 @@ public class AnnouncementService : IAnnouncementService
                 return false;
         }
 
+        var wasVisible = IsVisible(announcement);
+
         announcement.IsPublished = !announcement.IsPublished;
         announcement.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
+
+        if (!wasVisible && IsVisible(announcement))
+            await NotifyPublishedAsync(announcement, ct);
+
         return true;
+    }
+
+    private static bool IsVisible(Announcement announcement) =>
+        announcement.IsPublished && announcement.PublishedAt <= DateTime.UtcNow;
+
+    private async Task NotifyPublishedAsync(Announcement announcement, CancellationToken ct)
+    {
+        var message = new NotificationMessage(
+            NotificationType.News,
+            "Новая новость",
+            announcement.Title,
+            "/news");
+
+        if (announcement.StudyGroupId.HasValue)
+        {
+            await _notifications.NotifyStudyGroupAsync(
+                announcement.StudyGroupId.Value,
+                message,
+                announcement.AuthorId,
+                ct);
+        }
+        else
+        {
+            await _notifications.NotifyAllActiveAsync(
+                message,
+                excludeUserId: announcement.AuthorId,
+                ct: ct);
+        }
     }
 
     // Moderation (editing/deleting someone else's news) is allowed for full
