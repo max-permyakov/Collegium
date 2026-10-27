@@ -171,6 +171,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPushNotificationService, PushNotificationService>();
         services.AddHostedService<PushDeliveryWorker>();
         services.AddHostedService<AnnouncementPublicationWorker>();
+
+        // Direct chats: storage options + disk store + background cleanup of
+        // uploads that never became message attachments.
+        services.Configure<ChatStorageOptions>(configuration.GetSection("Chat"));
+        services.AddSingleton<IChatFileStore, ChatFileStore>();
+        services.AddScoped<IChatService, ChatService>();
+        services.AddHostedService<ChatUploadCleanupWorker>();
         services.AddHttpContextAccessor();
 
         services.AddHttpClient<IDiaryApiClient, DiaryApiClient>((sp, client) =>

@@ -134,7 +134,7 @@ public class Notification
     public int PushAttempts { get; set; }
 }
 
-public enum NotificationType { System = 0, News = 1, Assignment = 2, ClubMessage = 3, Comment = 4 }
+public enum NotificationType { System = 0, News = 1, Assignment = 2, ClubMessage = 3, Comment = 4, ChatMessage = 5 }
 ```
 
 Конфигурация EF:
@@ -263,6 +263,7 @@ push-часть.
 | Задание изменено | только если изменился `DueAt` | те же | `Assignment` |
 | Сообщение в клубе | `ClubService.PostMessageAsync` | участники клуба, автор исключён; агрегировать: не чаще 1 уведомления на клуб в 10 минут | `ClubMessage` |
 | Комментарий к новости | `NewsCommentService.CreateAsync` | автор новости | `Comment` |
+| Личное сообщение в чате | `ChatService.SendAsync` | второй участник чата | `ChatMessage` |
 | Оценки | по расписанию (diff при пересчёте) | — | вне MVP |
 
 Важно: отложенная публикация (`PublishedAt` в будущем) не имеет планировщика.

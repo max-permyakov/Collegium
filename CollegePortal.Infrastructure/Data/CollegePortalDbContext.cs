@@ -34,6 +34,9 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<Chat> Chats => Set<Chat>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatUpload> ChatUploads => Set<ChatUpload>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -331,6 +334,60 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
         {
             entity.HasIndex(e => new { e.IsPublished, e.PublishedAt });
             entity.HasIndex(e => new { e.NotifiedAtUtc, e.PublishedAt });
+        });
+
+        builder.Entity<Chat>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            // A normalized ordered pair: the same two users always share one row.
+            entity.HasIndex(e => new { e.User1Id, e.User2Id }).IsUnique();
+            entity.HasOne(e => e.User1)
+                .WithMany()
+                .HasForeignKey(e => e.User1Id)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.User2)
+                .WithMany()
+                .HasForeignKey(e => e.User2Id)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ChatMessage>(entity =>
+        {
+            // bigint identity — monotonic order/pagination key used by the client.
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Text).HasMaxLength(4000);
+            entity.Property(e => e.FileName).HasMaxLength(200);
+            entity.Property(e => e.ContentType).HasMaxLength(120);
+            entity.Property(e => e.StorageKey).HasMaxLength(300);
+            entity.Property(e => e.Kind).HasConversion<int>();
+            entity.HasIndex(e => new { e.ChatId, e.Id });
+            entity.HasOne(e => e.Chat)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(e => e.ChatId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Sender)
+                .WithMany()
+                .HasForeignKey(e => e.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ChatUpload>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).HasConversion<int>();
+            entity.Property(e => e.FileName).HasMaxLength(200);
+            entity.Property(e => e.ContentType).HasMaxLength(120);
+            entity.Property(e => e.StorageKey).HasMaxLength(300);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasOne(e => e.Chat)
+                .WithMany()
+                .HasForeignKey(e => e.ChatId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Uploader)
+                .WithMany()
+                .HasForeignKey(e => e.UploaderId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

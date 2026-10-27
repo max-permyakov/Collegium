@@ -47,7 +47,7 @@
 - `Entities/Assignment` — учебные задания
 - `Entities/Notification` — уведомление пользователя (inbox + outbox-поля `PushSentAt`, `PushAttempts`)
 - `Entities/PushSubscription` — Web Push подписка браузера, привязанная к пользователю
-- `Enums/NotificationType` — System, News, Assignment, ClubMessage, Comment
+- `Enums/NotificationType` — System, News, Assignment, ClubMessage, Comment, ChatMessage
 - `Enums/AuthMethod` — Diary, Email, Google, GitHub, Yandex, Vk
 
 ### Application (CollegePortal.Application)
@@ -110,6 +110,7 @@
 | Создание задания / сдвиг дедлайна | `AssignmentService` | Assignment | студенты группы, автор исключён |
 | Новое сообщение в клубе | `ClubService` | ClubMessage | агрегация: не чаще 1 уведомления на клуб за 10 минут |
 | Новый комментарий к новости | `NewsCommentService` | Comment | автор новости, комментатор исключён |
+| Личное сообщение в чате | `ChatService` | ChatMessage | получатель — второй участник чата; сбой отправки уведомления не блокирует отправку |
 
 Каждая новость анонсируется не более одного раза: `Announcement.NotifiedAtUtc`
 ставится после успешного fan-out; запланированная новость (.IsPublished +
@@ -120,7 +121,7 @@
 `NotificationPreferences` хранит отключённые типы (отсутствие строки =
 «включено»). Fan-out фильтрует получателей до создания строк, поэтому отключённый
 тип не появляется ни в push, ни в inbox. API: `GET/PUT /api/notifications/preferences`
-(News, Assignment, ClubMessage, Comment); UI — карточка «Уведомления» в профиле.
+(News, Assignment, ClubMessage, Comment, ChatMessage); UI — карточка «Уведомления» в профиле.
 
 Push отключён, если `PushServiceClient:PublicKey`/`PrivateKey` пусты;
 `GET /api/push/public-key` тогда возвращает `{ enabled: false }`, и UI показывает

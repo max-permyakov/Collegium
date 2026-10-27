@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { profileApi } from '../../services/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { chatsApi, profileApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
 import type { PublicProfileDto } from '../../types';
@@ -15,6 +17,16 @@ export function PublicProfilePage({ userId }: { userId: string }) {
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const startChatMutation = useMutation({
+    mutationFn: () => chatsApi.findOrCreate(userId),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      navigate(`/chats/${res.data.id}`);
+    },
+  });
 
   const goBack = () => {
     if (location.key !== 'default') navigate(-1);
@@ -73,6 +85,20 @@ export function PublicProfilePage({ userId }: { userId: string }) {
                 {headman && <Badge variant="info">{headman}</Badge>}
                 {profile.studyGroupName && <Badge variant="primary">Группа: {profile.studyGroupName}</Badge>}
               </div>
+              {user && user.id !== profile.id && (
+                <div>
+                  <Button
+                    size="sm"
+                    loading={startChatMutation.isPending}
+                    onClick={() => startChatMutation.mutate()}
+                  >
+                    Написать сообщение
+                  </Button>
+                  {startChatMutation.isError && (
+                    <p className="mt-1 text-xs text-red-400">Не удалось открыть чат</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

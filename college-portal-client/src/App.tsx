@@ -19,6 +19,8 @@ import { ProfilePage } from './pages/profile/ProfilePage';
 import { PublicProfilePage } from './pages/profile/PublicProfilePage';
 import { ClubsPage } from './pages/clubs/ClubsPage';
 import { ClubDetailPage } from './pages/clubs/ClubDetailPage';
+import { ChatsPage } from './pages/chats/ChatsPage';
+import { ChatDetailPage } from './pages/chats/ChatDetailPage';
 import { CollegeInfoPage } from './pages/college/CollegeInfoPage';
 import { CollegeMapPage } from './pages/college/CollegeMapPage';
 import { GamesPage } from './pages/games/GamesPage';
@@ -146,6 +148,9 @@ function AppRoutes() {
         <Route path="news" element={<NewsPage />} />
         <Route path="clubs" element={<ClubsPage />} />
         <Route path="clubs/:clubId" element={<ClubDetailPage />} />
+        <Route path="chats" element={<ChatsPage />}>
+          <Route path=":chatId" element={<ChatDetailPage />} />
+        </Route>
         <Route path="games" element={<GamesPage />} />
         <Route path="games/escape" element={<EscapeGamePage />} />
         <Route path="college-info" element={<CollegeInfoPage />} />

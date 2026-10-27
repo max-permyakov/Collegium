@@ -50,8 +50,10 @@ services:
       PushServiceClient__PrivateKey: ${PUSH_VAPID_PRIVATE_KEY:-}
       PushServiceClient__Subject: ${PUSH_VAPID_SUBJECT:-mailto:admin@example.com}
       DataProtection__KeysPath: /keys
+      Chat__FilesRoot: /data/chat-files
       Database__AutoMigrate: "true"
     volumes:
+      - chatfiles:/data/chat-files
       - dpkeys:/keys
     depends_on:
       - db
@@ -112,6 +114,7 @@ services:
 
 volumes:
   pgdata:
+  chatfiles:
   dpkeys:
   caddy_data:
   caddy_config:

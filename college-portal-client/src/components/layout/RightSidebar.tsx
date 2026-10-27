@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -6,6 +7,7 @@ import { shortName } from '../../utils/names';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { chatsApi } from '../../services/api';
 import logo from '../../assets/logo.png';
 
 interface NavItem {
@@ -90,6 +92,28 @@ const InfoIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const ChatIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+);
+
+/** Индикатор суммы непрочитанных сообщений во всех личных чатах. */
+function UnreadChatsBadge() {
+  const { data } = useQuery({
+    queryKey: ['chats', 'unread-total'],
+    queryFn: async () => (await chatsApi.unreadTotal()).data.count,
+    refetchInterval: 30_000,
+  });
+  const unread = data ?? 0;
+  if (unread <= 0) return null;
+  return (
+    <span className="ml-auto flex-shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none">
+      {unread > 99 ? '99+' : unread}
+    </span>
+  );
+}
+
 const GamepadIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6.5 7h11A3.5 3.5 0 0121 10.5v4A3.5 3.5 0 0117.5 18h-11A3.5 3.5 0 013 14.5v-4A3.5 3.5 0 016.5 7z" />
@@ -123,6 +147,7 @@ const navItems: NavItem[] = [
   { path: '/assignments', label: 'Задания', icon: <ClipboardIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/news', label: 'Новости', icon: <NewspaperIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/clubs', label: 'Кружки', icon: <GroupIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
+  { path: '/chats', label: 'Чаты', icon: <ChatIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/games', label: 'Игры', icon: <GamepadIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/college-info', label: 'Колледж', icon: <InfoIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
   { path: '/college-info/map', label: 'Карта', icon: <MapIcon className="w-5 h-5" />, roles: ['Student', 'Admin'] },
@@ -207,6 +232,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
                 >
                   <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
                   {!collapsed && item.label}
+                  {item.path === '/chats' && !collapsed && <UnreadChatsBadge />}
                 </NavLink>
               </li>
             ))}
@@ -294,6 +320,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
                   >
                     <span className="w-5 h-5 flex-shrink-0">{item.icon}</span>
                     {item.label}
+                    {item.path === '/chats' && <UnreadChatsBadge />}
                   </NavLink>
                 </li>
               ))}

@@ -84,3 +84,7 @@ Thumbs.db
 
 # Crypto/keys
 ECC/
+
+## Chat attachments (streamed binaries on disk)
+Storage/
+[Dd]ata/chat-files/

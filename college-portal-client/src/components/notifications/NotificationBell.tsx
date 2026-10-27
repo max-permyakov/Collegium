@@ -70,11 +70,23 @@ const SystemIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const ChatMessageIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+    />
+  </svg>
+);
+
 const TYPE_STYLES: Record<AppNotificationType, { icon: ReactNode; className: string }> = {
   News: { icon: <NewsIcon className="w-4 h-4" />, className: 'bg-sky-500/15 text-sky-400' },
   Assignment: { icon: <AssignmentIcon className="w-4 h-4" />, className: 'bg-amber-500/15 text-amber-400' },
   ClubMessage: { icon: <ClubIcon className="w-4 h-4" />, className: 'bg-emerald-500/15 text-emerald-400' },
   Comment: { icon: <CommentIcon className="w-4 h-4" />, className: 'bg-violet-500/15 text-violet-400' },
+  ChatMessage: { icon: <ChatMessageIcon className="w-4 h-4" />, className: 'bg-rose-500/15 text-rose-400' },
   System: { icon: <SystemIcon className="w-4 h-4" />, className: 'bg-primary-500/15 text-primary-400' },
 };
 

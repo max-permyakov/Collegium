@@ -329,7 +329,7 @@ public class NotificationServiceTests : IDisposable
 
         var defaults = await _service.GetPreferencesAsync(subscriber.Id);
         defaults.Select(item => item.Type)
-            .Should().BeEquivalentTo(new[] { "News", "Assignment", "ClubMessage", "Comment" });
+            .Should().BeEquivalentTo(new[] { "News", "Assignment", "ClubMessage", "Comment", "ChatMessage" });
         defaults.Should().OnlyContain(item => item.Enabled);
 
         // Disabling News stops News notifications...

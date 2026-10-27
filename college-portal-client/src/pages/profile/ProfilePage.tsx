@@ -23,6 +23,7 @@ const PREFERENCE_LABELS: Record<string, string> = {
   Assignment: 'Задания',
   ClubMessage: 'Сообщения клубов',
   Comment: 'Комментарии',
+  ChatMessage: 'Личные сообщения',
 };
 
 /** Per-type notification delivery toggles backed by the server. */

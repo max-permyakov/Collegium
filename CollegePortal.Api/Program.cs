@@ -20,6 +20,14 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        // Chat attachments are streamed up to 512 MB; the Kestrel default cap
+        // (30 MB) would abort such uploads before the endpoint ever sees them.
+        // Per-request fine-grained caps live on the upload endpoint itself.
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.Limits.MaxRequestBodySize = 537_000_000; // ~512 MB + margin
+        });
+
         builder.Services.AddControllers()
             .AddJsonOptions(options =>
             {

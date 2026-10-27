@@ -293,6 +293,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
 
       void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      // Письмо в личный чат — обновляем список чатов и счётчик непрочитанных.
+      if (notification.type === 'ChatMessage') {
+        void queryClient.invalidateQueries({ queryKey: ['chats'] });
+      }
     };
 
     navigator.serviceWorker.addEventListener('message', handleMessage);

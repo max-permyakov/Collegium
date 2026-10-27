@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -268,6 +268,47 @@ export const pushApi = {
   unsubscribe: (endpoint: string) =>
     api.delete<{ subscribed: boolean }>('/push/subscribe', { params: { endpoint } }),
   unsubscribeAll: () => api.delete<{ removed: number }>('/push/subscriptions'),
+};
+
+export const chatsApi = {
+  list: () => api.get<ChatListItemDto[]>('/chats'),
+  get: (id: string) => api.get<ChatDto>(`/chats/${id}`),
+  findOrCreate: (otherUserId: string) =>
+    api.post<ChatDto>(`/chats/find-or-create/${otherUserId}`),
+  search: (query: string) =>
+    api.get<ChatSearchResultDto>('/chats/search', { params: { q: query } }),
+  getMessages: (
+    id: string,
+    params?: { latest?: number; beforeSeq?: number; afterSeq?: number; limit?: number },
+  ) => api.get<ChatMessageDto[]>(`/chats/${id}/messages`, { params }),
+  send: (id: string, data: { text?: string; uploadId?: string; durationMs?: number }) =>
+    api.post<ChatMessageDto>(`/chats/${id}/messages`, data),
+  upload: (
+    id: string,
+    blob: Blob,
+    kind: ChatUploadKind,
+    fileName: string,
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal,
+  ) =>
+    api.post<ChatUploadDto>(`/chats/${id}/upload`, blob, {
+      params: { kind, fileName },
+      // Raw body upload: the browser supplies the real content type.
+      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+      timeout: 0,
+      signal,
+      onUploadProgress: (event) => {
+        if (event.total && onProgress) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      },
+    }),
+  markRead: (id: string) => api.post<{ updated: boolean }>(`/chats/${id}/read`),
+  deleteMessage: (messageId: number) =>
+    api.delete(`/chats/messages/${messageId}`),
+  unreadTotal: () => api.get<{ count: number }>('/chats/unread-total'),
+  fileUrl: (messageId: number, download = false) =>
+    `${API_BASE_URL}/chats/files/${messageId}${download ? '?download=1' : ''}`,
 };
 
 export const collegeMapApi = {

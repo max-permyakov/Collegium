@@ -6,5 +6,6 @@ public enum NotificationType
     News = 1,
     Assignment = 2,
     ClubMessage = 3,
-    Comment = 4
+    Comment = 4,
+    ChatMessage = 5
 }
