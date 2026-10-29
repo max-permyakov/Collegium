@@ -856,7 +856,7 @@ export function ChatConversation({
 
   if (chatError || !chat) {
     return (
-      <div className="flex flex-col h-full space-y-4">
+      <div className="flex flex-col h-full space-y-4 p-3 lg:p-0">
         <Button
           variant="ghost"
           size="sm"
@@ -888,9 +888,9 @@ export function ChatConversation({
         : 'Сообщений пока нет. Напишите первым!';
 
   return (
-    <div className={`flex flex-col h-full min-w-0 min-h-0 overflow-hidden p-3 sm:p-4 ${className ?? ''}`}>
+    <div className={`flex flex-col h-full min-w-0 min-h-0 overflow-hidden p-0 lg:p-3 xl:p-4 ${className ?? ''}`}>
       {/* Шапка: имя + фото собеседника (или иконка служебного чата) */}
-      <div className="flex items-center gap-3 border-b border-dark-border pb-2">
+      <div className="flex items-center gap-3 border-b border-dark-border px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-0 lg:pt-0">
         <Button
           variant="ghost"
           size="sm"
@@ -938,7 +938,7 @@ export function ChatConversation({
       </div>
 
       {error && (
-        <div className="mt-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
+        <div className="mx-3 mt-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between lg:mx-0">
           <span>{error}</span>
           <Button variant="ghost" size="sm" onClick={() => setError('')}>✕</Button>
         </div>
@@ -948,7 +948,7 @@ export function ChatConversation({
       <div
         ref={chatContainerRef}
         onScroll={onScroll}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 pr-1 pt-3"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 px-3 pt-3 lg:px-0 lg:pr-1"
       >
         {hasOlder && messageList.length > 0 && (
           <div className="text-center pb-1">
@@ -1013,7 +1013,7 @@ export function ChatConversation({
 
       {/* Запись голосового сообщения (строка над полем ввода) */}
       {isRecordingVoice && (
-        <div className="mt-2 flex items-center gap-3 p-3 rounded-xl border border-primary-500/30 bg-primary-500/10">
+        <div className="mx-3 mt-2 flex items-center gap-3 p-3 rounded-xl border border-primary-500/30 bg-primary-500/10 lg:mx-0">
           <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse flex-shrink-0" aria-hidden="true" />
           <span className="text-sm text-dark-text font-mono">{formatDuration(recordingMs)}</span>
           <span className={`text-xs truncate flex-1 min-w-0 ${cancelArmed ? 'text-red-400 font-medium' : 'text-dark-textMuted'}`}>
@@ -1025,7 +1025,7 @@ export function ChatConversation({
       )}
 
       {/* Композер: поле ввода, справа — прикрепить и записать */}
-      <div className="mt-3 pt-3 border-t border-dark-border">
+      <div className="mt-3 border-t border-dark-border px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:px-0 lg:pb-0">
         <div className="flex items-end gap-2">
           <textarea
             ref={composerTextRef}

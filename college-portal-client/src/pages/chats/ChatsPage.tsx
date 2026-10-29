@@ -127,14 +127,14 @@ export function ChatsPage() {
     );
   };
 
-  // Левая панель — список чатов (на телефоне на всю ширину; при открытом чате скрыта).
+  // Левая панель — список чатов (на телефоне на всю ширину и высоту экрана).
   const chatList = (
     <div
-      className={`flex flex-col min-w-0 min-h-0 overflow-hidden rounded-2xl border border-dark-border bg-dark-card h-[calc(100dvh-6rem)] lg:h-full ${
+      className={`flex flex-col min-w-0 min-h-0 overflow-hidden bg-dark-card -mx-4 sm:-mx-6 -mb-20 -mt-4 h-[100dvh] rounded-none border-0 lg:mx-0 lg:mb-0 lg:mt-0 lg:h-full lg:rounded-2xl lg:border lg:border-dark-border ${
         chatId ? 'hidden lg:flex' : ''
       }`}
     >
-      <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2 border-b border-dark-border">
+      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] border-b border-dark-border lg:pt-3">
         <h1 className="text-xl font-bold text-dark-text">Чаты</h1>
         <Button
           variant="ghost"
@@ -228,7 +228,7 @@ export function ChatsPage() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-2 space-y-1">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-1">
         {listQuery.isLoading && <div className="skeleton h-20" />}
 
         {!listQuery.isLoading && (
@@ -283,10 +283,13 @@ export function ChatsPage() {
   );
 
   // Правая панель — открытый чат (2/3 ширины) или подсказка «Открыть чат».
+  // На телефоне переписка занимает весь экран (без «окна» с полями и рамкой).
   const chatPane = (
     <div
-      className={`min-w-0 min-h-0 overflow-hidden rounded-2xl border border-dark-border bg-dark-card/40 lg:col-span-2 ${
-        chatId ? 'flex flex-col h-[calc(100dvh-6rem)] lg:h-full' : 'hidden lg:flex lg:h-full'
+      className={`min-w-0 min-h-0 overflow-hidden bg-dark-card lg:col-span-2 lg:rounded-2xl lg:border lg:border-dark-border lg:bg-dark-card/40 ${
+        chatId
+          ? 'fixed inset-0 z-40 flex h-[100dvh] w-full flex-col lg:static lg:z-auto lg:h-full'
+          : 'hidden lg:flex lg:h-full'
       }`}
     >
       {chatId ? (

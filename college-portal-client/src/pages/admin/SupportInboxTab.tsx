@@ -139,8 +139,10 @@ export function SupportInboxTab() {
 
       {/* Переписка с выбранным пользователем */}
       <div
-        className={`min-w-0 min-h-0 overflow-hidden rounded-2xl border border-dark-border bg-dark-card/40 lg:col-span-2 ${
-          selectedId ? 'flex flex-col h-[70vh] min-h-[26rem] lg:h-full' : 'hidden lg:flex lg:h-full'
+        className={`min-w-0 min-h-0 overflow-hidden bg-dark-card lg:col-span-2 lg:rounded-2xl lg:border lg:border-dark-border lg:bg-dark-card/40 ${
+          selectedId
+            ? 'fixed inset-0 z-40 flex h-[100dvh] w-full flex-col lg:static lg:z-auto lg:h-full'
+            : 'hidden lg:flex lg:h-full'
         }`}
       >
         {selectedId ? (
