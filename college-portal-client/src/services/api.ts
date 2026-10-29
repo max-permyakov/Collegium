@@ -275,6 +275,8 @@ export const chatsApi = {
   get: (id: string) => api.get<ChatDto>(`/chats/${id}`),
   findOrCreate: (otherUserId: string) =>
     api.post<ChatDto>(`/chats/find-or-create/${otherUserId}`),
+  openSaved: () => api.post<ChatDto>('/chats/saved'),
+  openSupport: () => api.post<ChatDto>('/chats/support'),
   search: (query: string) =>
     api.get<ChatSearchResultDto>('/chats/search', { params: { q: query } }),
   getMessages: (
@@ -309,6 +311,11 @@ export const chatsApi = {
   unreadTotal: () => api.get<{ count: number }>('/chats/unread-total'),
   fileUrl: (messageId: number, download = false) =>
     `${API_BASE_URL}/chats/files/${messageId}${download ? '?download=1' : ''}`,
+};
+
+/** Shared support inbox: every user's Support thread with owner + last message. */
+export const adminSupportApi = {
+  list: () => api.get<ChatListItemDto[]>('/admin/support'),
 };
 
 export const collegeMapApi = {

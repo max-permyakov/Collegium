@@ -9,6 +9,7 @@ import { KebabMenu } from '../../components/ui/KebabMenu';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { formatDuration, formatFileSize } from '../../utils/file';
+import { CHAT_TEXT_LIMIT, MAX_MESSAGE_PARTS, splitMessageText } from '../../utils/text';
 import {
   RECORDING_LIMITS,
   recordingFileName,
@@ -20,7 +21,6 @@ import type { ChatDto, ChatMessageDto } from '../../types/chats';
 
 const PAGE_SIZE = 50;
 const POLL_MS = 2500;
-const MAX_TEXT_LENGTH = 4000;
 const MAX_FILE_BYTES = 512 * 1024 * 1024;
 const MAX_VOICE_BYTES = 25 * 1024 * 1024;
 const MAX_CIRCLE_BYTES = 100 * 1024 * 1024;
@@ -81,6 +81,20 @@ const SendIcon = ({ className }: { className?: string }) => (
 const StopIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <rect x="6" y="6" width="12" height="12" rx="2" />
+  </svg>
+);
+
+const SavedIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-4-7 4V5z" />
+  </svg>
+);
+
+const SupportIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" strokeWidth={2} />
+    <circle cx="12" cy="12" r="3.5" strokeWidth={2} />
+    <path strokeLinecap="round" strokeWidth={2} d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4" />
   </svg>
 );
 
@@ -227,64 +241,68 @@ const CircleBubble = memo(function CircleBubble({ message }: { message: ChatMess
 interface MessageBubbleProps {
   message: ChatMessageDto;
   mine: boolean;
+  /** Read receipts only make sense between two different people. */
+  showReceipts: boolean;
   onImageClick: (src: string) => void;
   onDelete: (messageId: number) => void;
 }
 
-const MessageBubble = memo(function MessageBubble({ message, mine: own, onImageClick, onDelete }: MessageBubbleProps) {
-  const deleted = Boolean(message.deletedAt);
-
+const MessageBubble = memo(function MessageBubble({
+  message,
+  mine: own,
+  showReceipts,
+  onImageClick,
+  onDelete,
+}: MessageBubbleProps) {
   return (
-    <div className={`flex items-start gap-1 ${own ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
       <div
         title={formatFullDate(message.createdAt)}
-        className={`max-w-[85%] sm:max-w-md rounded-2xl px-3 py-2 space-y-1 ${
+        className={`relative max-w-[85%] sm:max-w-md rounded-2xl py-2 space-y-1 ${
           own
-            ? 'bg-primary-500 text-white rounded-br-md'
-            : 'bg-dark-card border border-dark-border text-dark-text rounded-bl-md'
+            ? 'pl-3 pr-9 bg-primary-500 text-white rounded-br-md'
+            : 'px-3 bg-dark-card border border-dark-border text-dark-text rounded-bl-md'
         }`}
       >
-        {deleted ? (
-          <p className="text-sm italic opacity-70">Сообщение удалено</p>
-        ) : (
-          <>
-            {message.kind === 'Voice' && <VoiceBubble message={message} mine={own} />}
-            {message.kind === 'VideoCircle' && <CircleBubble message={message} />}
-            {message.kind === 'File' && (
-              isImageContent(message) ? (
-                <img
-                  src={chatsApi.fileUrl(message.id)}
-                  alt={message.fileName ?? 'Изображение'}
-                  className="max-w-xs max-h-64 rounded-xl cursor-zoom-in object-contain"
-                  onClick={() => onImageClick(chatsApi.fileUrl(message.id))}
-                />
-              ) : (
-                <a
-                  href={chatsApi.fileUrl(message.id, true)}
-                  className={`flex items-center gap-2 ${own ? 'text-white' : 'text-primary-400'} hover:underline`}
-                >
-                  <PaperclipIcon className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm truncate max-w-[12rem]">{message.fileName ?? 'Файл'}</span>
-                  <span className="text-[11px] opacity-70 whitespace-nowrap">{formatFileSize(message.sizeBytes)}</span>
-                </a>
-              )
-            )}
-            {message.kind !== 'File' && message.text && (
-              <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
-            )}
-          </>
+        {message.kind === 'Voice' && <VoiceBubble message={message} mine={own} />}
+        {message.kind === 'VideoCircle' && <CircleBubble message={message} />}
+        {message.kind === 'File' && (
+          isImageContent(message) ? (
+            <img
+              src={chatsApi.fileUrl(message.id)}
+              alt={message.fileName ?? 'Изображение'}
+              className="max-w-xs max-h-64 rounded-xl cursor-zoom-in object-contain"
+              onClick={() => onImageClick(chatsApi.fileUrl(message.id))}
+            />
+          ) : (
+            <a
+              href={chatsApi.fileUrl(message.id, true)}
+              className={`flex items-center gap-2 ${own ? 'text-white' : 'text-primary-400'} hover:underline`}
+            >
+              <PaperclipIcon className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm truncate max-w-[12rem]">{message.fileName ?? 'Файл'}</span>
+              <span className="text-[11px] opacity-70 whitespace-nowrap">{formatFileSize(message.sizeBytes)}</span>
+            </a>
+          )
+        )}
+        {message.kind !== 'File' && message.text && (
+          <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
         )}
         <div className={`flex items-center justify-end gap-1 text-[11px] ${own ? 'text-white/70' : 'text-dark-textMuted'}`}>
-          {own && !deleted && <DoubleCheckIcon read={Boolean(message.readAt)} />}
+          {own && showReceipts && <DoubleCheckIcon read={Boolean(message.readAt)} />}
           <span>{formatTime(message.createdAt)}</span>
         </div>
+        {own && (
+          <div className="absolute top-1 right-1">
+            <KebabMenu
+              ariaLabel="Действия с сообщением"
+              triggerClassName="text-white/70 hover:text-white hover:bg-white/15"
+              menuClassName="bottom-full mb-1"
+              items={[{ label: 'Удалить', danger: true, onClick: () => { if (confirm('Удалить сообщение?')) onDelete(message.id); } }]}
+            />
+          </div>
+        )}
       </div>
-      {own && !deleted && (
-        <KebabMenu
-          ariaLabel="Действия с сообщением"
-          items={[{ label: 'Удалить', danger: true, onClick: () => { if (confirm('Удалить сообщение?')) onDelete(message.id); } }]}
-        />
-      )}
     </div>
   );
 });
@@ -309,9 +327,44 @@ interface TaskPayload {
 
 export function ChatDetailPage() {
   const { chatId } = useParams<{ chatId: string }>();
+
+  return <ChatConversation chatId={chatId ?? ''} hideBackOnDesktop />;
+}
+
+interface ChatConversationProps {
+  chatId: string;
+  /** Admin inbox mode: the thread belongs to a user and staff reply as support. */
+  adminView?: boolean;
+  /** Custom back handler (admin inbox keeps the conversation inside the tab). */
+  onBack?: () => void;
+  /** Hide the back button on desktop, where the chat list is always visible. */
+  hideBackOnDesktop?: boolean;
+  backLabel?: string;
+  className?: string;
+}
+
+export function ChatConversation({
+  chatId,
+  adminView = false,
+  onBack,
+  hideBackOnDesktop = false,
+  backLabel = 'Назад к чатам',
+  className,
+}: ChatConversationProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  const goBack = useCallback(() => {
+    if (onBack) onBack();
+    else navigate('/chats');
+  }, [onBack, navigate]);
+
+  /** Refreshes both the regular chat list and the shared support inbox. */
+  const invalidateLists = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['chats'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-support'] });
+  }, [queryClient]);
 
   const [error, setError] = useState('');
   const [messageText, setMessageText] = useState('');
@@ -358,8 +411,18 @@ export function ChatDetailPage() {
       const fetched = res.data;
       setHasOlder(!reachedStartRef.current && fetched.length >= PAGE_SIZE);
       const current = queryClient.getQueryData<ChatMessageDto[]>(['chat-messages', chatId]) ?? [];
+
+      // Merge the newest window: rows inside it that vanished on the server were
+      // deleted for everyone, so drop them locally too. Older history and
+      // messages newer than the window (still in flight) are preserved.
+      const fetchedIds = new Set(fetched.map((m) => m.id));
+      const minId = fetched.length > 0 ? fetched[0].id : null;
+      const maxId = fetched.length > 0 ? fetched[fetched.length - 1].id : null;
       const map = new Map<number, ChatMessageDto>();
-      for (const m of current) map.set(m.id, m);
+      for (const m of current) {
+        const insideWindow = minId !== null && maxId !== null && m.id >= minId && m.id <= maxId;
+        if (!insideWindow || fetchedIds.has(m.id)) map.set(m.id, m);
+      }
       for (const m of fetched) map.set(m.id, m);
       return [...map.values()].sort((a, b) => a.id - b.id);
     },
@@ -397,18 +460,18 @@ export function ChatDetailPage() {
       queryClient.setQueryData<ChatMessageDto[]>(['chat-messages', chatId], (old) =>
         old
           ? old.map((m) =>
-              (!mine(m, user?.id) && !m.readAt && !m.deletedAt)
+              (!mine(m, user?.id) && !m.readAt)
                 ? { ...m, readAt: new Date().toISOString() }
                 : m,
             )
           : old,
       );
-      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      invalidateLists();
     },
   });
 
   const unreadIncoming = messageList.some(
-    (m) => !mine(m, user?.id) && !m.deletedAt && !m.readAt,
+    (m) => !mine(m, user?.id) && !m.readAt,
   );
 
   // Отметка «прочитано», когда открыт чат и есть непрочитанные сообщения.
@@ -427,7 +490,7 @@ export function ChatDetailPage() {
       queryClient.setQueryData<ChatMessageDto[]>(['chat-messages', chatId], (old) =>
         old ? old.filter((m) => m.id !== messageId) : old,
       );
-      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      invalidateLists();
     },
     onError: (err) => setError(isCanceled(err) ? '' : getError(err)),
   });
@@ -475,6 +538,7 @@ export function ChatDetailPage() {
           durationMs: payload.durationMs,
         });
         appendMessage(sent.data);
+        invalidateLists();
         isAtBottomRef.current = true;
         setPendingSends((ps) => ps.filter((p) => p.key !== key));
       } catch (err) {
@@ -487,7 +551,7 @@ export function ChatDetailPage() {
 
     runQueue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, appendMessage]);
+  }, [chatId, appendMessage, invalidateLists]);
 
   useEffect(() => () => {
     abortMap.current.forEach((controller) => controller.abort());
@@ -501,9 +565,20 @@ export function ChatDetailPage() {
   const sendText = () => {
     const text = messageText.trim();
     if (!text || !chatId) return;
+
+    // The backend caps one message at 4000 chars; longer input is sent as a
+    // series of separate messages, split on readable boundaries.
+    const parts = splitMessageText(text, CHAT_TEXT_LIMIT);
+    if (parts.length > MAX_MESSAGE_PARTS) {
+      setError(`Сообщение слишком длинное. Максимум ${MAX_MESSAGE_PARTS * CHAT_TEXT_LIMIT} символов`);
+      return;
+    }
+
     setMessageText('');
     if (composerTextRef.current) composerTextRef.current.style.height = 'auto';
-    enqueueTask({ text: text.slice(0, MAX_TEXT_LENGTH) }, text.slice(0, 60));
+    for (const part of parts) {
+      enqueueTask({ text: part }, part.slice(0, 60));
+    }
   };
 
   const sendFile = (file: File) => {
@@ -720,7 +795,14 @@ export function ChatDetailPage() {
   if (chatError || !chat) {
     return (
       <div className="flex flex-col h-full space-y-4">
-        <Button variant="ghost" size="sm" className="lg:hidden self-start" onClick={() => navigate('/chats')}>← К чатам</Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`self-start ${hideBackOnDesktop ? 'lg:hidden' : ''}`}
+          onClick={goBack}
+        >
+          ← {backLabel}
+        </Button>
         <div className="p-8 text-center text-dark-textMuted rounded-xl border border-dark-border bg-dark-card">
           Чат не найден или доступ закрыт
         </div>
@@ -729,27 +811,68 @@ export function ChatDetailPage() {
   }
 
   const isRecordingVoice = recording?.kind === 'voice';
+  // Saved is always a service thread; Support is one for its owner, while the
+  // admin inbox renders it as a real conversation with the owner.
+  const isSpecial = chat.kind === 'Saved' || (chat.kind === 'Support' && !adminView);
+  const specialTitle = chat.kind === 'Saved' ? 'Избранное' : chat.kind === 'Support' ? 'Поддержка' : '';
+  const specialHint = chat.kind === 'Saved' ? 'Личные заметки и файлы' : 'Опишите проблему — мы поможем';
+  const emptyHint =
+    chat.kind === 'Saved'
+      ? 'Здесь будут ваши заметки и файлы. Сообщения видите только вы.'
+      : chat.kind === 'Support'
+        ? adminView
+          ? 'Пользователь ещё не написал в поддержку.'
+          : 'Опишите проблему или задайте вопрос — поддержка ответит здесь.'
+        : 'Сообщений пока нет. Напишите первым!';
 
   return (
-    <div className="flex flex-col h-full min-w-0 min-h-0">
-      {/* Шапка: имя + фото собеседника */}
+    <div className={`flex flex-col h-full min-w-0 min-h-0 overflow-hidden p-3 sm:p-4 ${className ?? ''}`}>
+      {/* Шапка: имя + фото собеседника (или иконка служебного чата) */}
       <div className="flex items-center gap-3 border-b border-dark-border pb-2">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate('/chats')}
-          aria-label="Назад к чатам"
-          className="p-2 lg:hidden"
+          onClick={goBack}
+          aria-label={backLabel}
+          className={`p-2 ${hideBackOnDesktop ? 'lg:hidden' : ''}`}
         >
           ←
         </Button>
-        <Link to={`/users/${chat.otherUser.id}`} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
-          <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
-            <p className="text-xs text-dark-textMuted truncate hidden sm:block">Перейти в профиль</p>
+        {isSpecial ? (
+          <div className="flex items-center gap-3 min-w-0">
+            <span
+              className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                chat.kind === 'Saved' ? 'bg-amber-500/15 text-amber-400' : 'bg-sky-500/15 text-sky-400'
+              }`}
+            >
+              {chat.kind === 'Saved' ? <SavedIcon className="w-5 h-5" /> : <SupportIcon className="w-5 h-5" />}
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-dark-text truncate">{specialTitle}</p>
+              <p className="text-xs text-dark-textMuted truncate hidden sm:block">{specialHint}</p>
+            </div>
           </div>
-        </Link>
+        ) : adminView ? (
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
+              <p className="text-xs text-dark-textMuted truncate hidden sm:block">
+                {chat.otherUser.studyGroupName
+                  ? `${chat.otherUser.studyGroupName} · обращение в поддержку`
+                  : 'Обращение в поддержку'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <Link to={`/users/${chat.otherUser.id}`} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
+            <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
+              <p className="text-xs text-dark-textMuted truncate hidden sm:block">Перейти в профиль</p>
+            </div>
+          </Link>
+        )}
       </div>
 
       {error && (
@@ -763,7 +886,7 @@ export function ChatDetailPage() {
       <div
         ref={chatContainerRef}
         onScroll={onScroll}
-        className="flex-1 min-h-[12rem] overflow-y-auto overscroll-contain space-y-2 pr-1 pt-3"
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 pr-1 pt-3"
       >
         {hasOlder && messageList.length > 0 && (
           <div className="text-center pb-1">
@@ -777,6 +900,7 @@ export function ChatDetailPage() {
             key={m.id}
             message={m}
             mine={mine(m, user?.id)}
+            showReceipts={!isSpecial}
             onImageClick={handleImageClick}
             onDelete={handleDeleteMessage}
           />
@@ -805,8 +929,8 @@ export function ChatDetailPage() {
           </div>
         ))}
         {messageList.length === 0 && pendingSends.length === 0 && (
-          <p className="text-sm text-dark-textMuted text-center py-10">
-            Сообщений пока нет. Напишите первым!
+          <p className="text-sm text-dark-textMuted text-center py-10 px-4">
+            {emptyHint}
           </p>
         )}
         {!atBottom && (
@@ -817,7 +941,7 @@ export function ChatDetailPage() {
               const el = chatContainerRef.current;
               if (el) el.scrollTop = el.scrollHeight;
             }}
-            className="sticky bottom-2 left-full mr-2 w-10 h-10 rounded-full bg-dark-card border border-dark-border shadow-lg flex items-center justify-center text-dark-text hover:bg-dark-border transition-colors"
+            className="sticky bottom-2 ml-auto mr-2 w-10 h-10 rounded-full bg-dark-card border border-dark-border shadow-lg flex items-center justify-center text-dark-text hover:bg-dark-border transition-colors"
             aria-label="Вниз"
           >
             ↓
@@ -839,14 +963,13 @@ export function ChatDetailPage() {
       )}
 
       {/* Композер: поле ввода, справа — прикрепить и записать */}
-      <div className="mt-3 pt-3 border-t border-dark-border pb-16 lg:pb-0">
+      <div className="mt-3 pt-3 border-t border-dark-border">
         <div className="flex items-end gap-2">
           <textarea
             ref={composerTextRef}
             rows={1}
             value={messageText}
             placeholder="Написать сообщение..."
-            maxLength={MAX_TEXT_LENGTH}
             className="input min-h-[2.5rem] max-h-32 h-10 py-2 resize-none flex-1 min-w-0"
             onChange={(e) => {
               setMessageText(e.target.value);

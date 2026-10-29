@@ -1,3 +1,6 @@
+/** Purpose of a chat row: a real 1:1 conversation, personal notes or support. */
+export type ChatKind = 'Direct' | 'Saved' | 'Support';
+
 export type ChatMessageKind = 'Text' | 'File' | 'Voice' | 'VideoCircle';
 
 /** Upload request type used by POST /api/chats/{id}/upload. */
@@ -24,11 +27,11 @@ export interface ChatMessageDto {
   durationMs?: number | null;
   createdAt: string;
   readAt?: string | null;
-  deletedAt?: string | null;
 }
 
 export interface ChatDto {
   id: string;
+  kind: ChatKind;
   otherUser: ChatUserDto;
   createdAt: string;
 }

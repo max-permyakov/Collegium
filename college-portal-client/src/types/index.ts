@@ -281,7 +281,7 @@ import type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateC
 import type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher } from './college';
 import type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto } from './map';
 import type { GameModeId, GameLeaderboard, GameLeaderboardEntry, GameScoreSubmission } from './games';
-import type { ChatDto, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto } from './chats';
+import type { ChatDto, ChatKind, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto } from './chats';
 
 export type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod };
 export { ALL_PERMISSIONS, PERMISSION_LABELS } from './admin';
@@ -289,7 +289,7 @@ export type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateC
 export type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher };
 export type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto };
 export type { GameModeId, GameLeaderboard, GameLeaderboardEntry, GameScoreSubmission };
-export type { ChatDto, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto };
+export type { ChatDto, ChatKind, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto };
 
 export type AppNotificationType = 'System' | 'News' | 'Assignment' | 'ClubMessage' | 'Comment' | 'ChatMessage';
 

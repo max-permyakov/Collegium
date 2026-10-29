@@ -34,7 +34,7 @@ public class ChatMessage
     /// <summary>Read receipt set by the recipient.</summary>
     public DateTime? ReadAt { get; set; }
 
-    /// <summary>Soft delete: both parties keep seeing a tombstone.</summary>
+    /// <summary>Legacy soft-delete tombstone flag; chat deletions are hard now and leave nothing behind.</summary>
     public DateTime? DeletedAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

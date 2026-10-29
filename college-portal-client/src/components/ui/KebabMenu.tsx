@@ -9,9 +9,13 @@ export interface KebabMenuItem {
 interface KebabMenuProps {
   items: KebabMenuItem[];
   ariaLabel?: string;
+  /** Extra classes for the trigger button (e.g. for bubbles with colored backgrounds). */
+  triggerClassName?: string;
+  /** Positioning classes for the dropdown; defaults to opening below the trigger. */
+  menuClassName?: string;
 }
 
-export function KebabMenu({ items, ariaLabel = 'Меню' }: KebabMenuProps) {
+export function KebabMenu({ items, ariaLabel = 'Меню', triggerClassName, menuClassName }: KebabMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -36,7 +40,7 @@ export function KebabMenu({ items, ariaLabel = 'Меню' }: KebabMenuProps) {
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        className="btn-ghost p-1.5 rounded-lg text-dark-textMuted hover:text-dark-text"
+        className={`btn-ghost p-1 rounded-lg text-dark-textMuted hover:text-dark-text ${triggerClassName ?? ''}`}
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -47,7 +51,9 @@ export function KebabMenu({ items, ariaLabel = 'Меню' }: KebabMenuProps) {
       </button>
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 z-50 min-w-[170px] rounded-xl bg-dark-card border border-dark-border shadow-xl py-1"
+          className={`absolute right-0 z-50 min-w-[170px] rounded-xl bg-dark-card border border-dark-border shadow-xl py-1 ${
+            menuClassName ?? 'top-full mt-1'
+          }`}
           role="menu"
         >
           {items.map((item, i) => (

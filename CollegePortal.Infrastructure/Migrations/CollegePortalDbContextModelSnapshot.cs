@@ -370,6 +370,9 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("LastMessageAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -383,7 +386,7 @@ namespace CollegePortal.Infrastructure.Migrations
 
                     b.HasIndex("User2Id");
 
-                    b.HasIndex("User1Id", "User2Id")
+                    b.HasIndex("User1Id", "User2Id", "Kind")
                         .IsUnique();
 
                     b.ToTable("Chats");

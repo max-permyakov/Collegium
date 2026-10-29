@@ -1,4 +1,5 @@
 using CollegePortal.Application.DTOs;
+using CollegePortal.Domain.Enums;
 
 namespace CollegePortal.Application.Services;
 
@@ -11,10 +12,16 @@ public interface IChatService
     Task<ChatSearchResultDto> SearchAsync(Guid userId, string? query, CancellationToken ct = default);
 
     /// <summary>Chat header payload; null when the chat does not exist or is foreign.</summary>
-    Task<ChatDto?> GetAsync(Guid chatId, Guid userId, CancellationToken ct = default);
+    Task<ChatDto?> GetAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default);
 
     /// <summary>Returns the existing chat between the pair or creates it (race-safe).</summary>
     Task<ChatDto?> FindOrCreateAsync(Guid userId, Guid otherUserId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the caller's «Избранное» (Saved) or «Поддержка» (Support) thread,
+    /// creating it on first access. Both are self-paired and never notify anyone.
+    /// </summary>
+    Task<ChatDto> GetOrCreateSpecialAsync(Guid userId, ChatKind kind, CancellationToken ct = default);
 
     /// <summary>
     /// Messages ordered ascending, cursor-based: afterSeq for polling new ones,
@@ -28,15 +35,16 @@ public interface IChatService
         long? beforeSeq = null,
         long? afterSeq = null,
         int? limit = null,
+        bool isAdmin = false,
         CancellationToken ct = default);
 
     /// <summary>Persists the message (optionally referencing an upload) and notifies the partner.</summary>
-    Task<ChatMessageResult> SendAsync(Guid chatId, Guid userId, SendChatMessageDto dto, CancellationToken ct = default);
+    Task<ChatMessageResult> SendAsync(Guid chatId, Guid userId, SendChatMessageDto dto, bool isAdmin = false, CancellationToken ct = default);
 
     /// <summary>Marks every message of the partner in this chat as read; returns false if foreign.</summary>
-    Task<bool> MarkReadAsync(Guid chatId, Guid userId, CancellationToken ct = default);
+    Task<bool> MarkReadAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default);
 
-    /// <summary>Soft-deletes caller's own message; idempotent.</summary>
+    /// <summary>Deletes the caller's own message for both sides (file included); idempotent.</summary>
     Task<ChatActionResult> DeleteMessageAsync(long messageId, Guid userId, CancellationToken ct = default);
 
     /// <summary>Total number of unread messages across all the user's chats.</summary>
@@ -53,8 +61,12 @@ public interface IChatService
         Stream content,
         string? fileName,
         string? contentType,
+        bool isAdmin = false,
         CancellationToken ct = default);
 
     /// <summary>Access-checked attachment descriptor; null when missing/foreign/deleted.</summary>
-    Task<ChatFileAccess?> GetFileAsync(long messageId, Guid userId, CancellationToken ct = default);
+    Task<ChatFileAccess?> GetFileAsync(long messageId, Guid userId, bool isAdmin = false, CancellationToken ct = default);
+
+    /// <summary>Admin inbox: every Support thread with its owner, last message and unread counter.</summary>
+    Task<ChatListItemDto[]> GetSupportInboxAsync(CancellationToken ct = default);
 }

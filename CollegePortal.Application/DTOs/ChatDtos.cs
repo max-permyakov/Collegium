@@ -11,6 +11,7 @@ public record ChatUserDto(
 
 public record ChatDto(
     Guid Id,
+    ChatKind Kind,
     ChatUserDto OtherUser,
     DateTime CreatedAt);
 
@@ -32,6 +33,7 @@ public record ChatMessageDto(
 
 public record ChatListItemDto(
     Guid Id,
+    ChatKind Kind,
     ChatUserDto OtherUser,
     DateTime CreatedAt,
     ChatMessageDto? LastMessage,

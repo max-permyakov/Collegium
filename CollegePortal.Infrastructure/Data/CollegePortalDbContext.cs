@@ -339,8 +339,10 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
         builder.Entity<Chat>(entity =>
         {
             entity.HasKey(e => e.Id);
-            // A normalized ordered pair: the same two users always share one row.
-            entity.HasIndex(e => new { e.User1Id, e.User2Id }).IsUnique();
+            entity.Property(e => e.Kind).HasConversion<int>();
+            // A normalized ordered pair: the same two users always share one
+            // Direct row. Saved/Support are self-paired, so Kind is part of the key.
+            entity.HasIndex(e => new { e.User1Id, e.User2Id, e.Kind }).IsUnique();
             entity.HasOne(e => e.User1)
                 .WithMany()
                 .HasForeignKey(e => e.User1Id)

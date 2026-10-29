@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
+using CollegePortal.Domain.Enums;
 using CollegePortal.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -64,6 +65,28 @@ public class ChatsController : ControllerBase
         }
     }
 
+    /// <summary>Returns the caller's «Избранное» thread, creating it on first access.</summary>
+    [HttpPost("saved")]
+    public async Task<IActionResult> GetOrCreateSaved(CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        return Ok(await _chatService.GetOrCreateSpecialAsync(userId.Value, ChatKind.Saved, ct));
+    }
+
+    /// <summary>Returns the caller's «Поддержка» thread, creating it on first access.</summary>
+    [HttpPost("support")]
+    public async Task<IActionResult> GetOrCreateSupport(CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        return Ok(await _chatService.GetOrCreateSpecialAsync(userId.Value, ChatKind.Support, ct));
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetChat(Guid id, CancellationToken ct)
     {
@@ -71,7 +94,7 @@ public class ChatsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized();
 
-        var chat = await _chatService.GetAsync(id, userId.Value, ct);
+        var chat = await _chatService.GetAsync(id, userId.Value, User.IsInRole("Admin"), ct);
         return chat == null ? NotFound(new { message = "Чат не найден" }) : Ok(chat);
     }
 
@@ -98,7 +121,8 @@ public class ChatsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized();
 
-        var messages = await _chatService.GetMessagesAsync(id, userId.Value, latest, beforeSeq, afterSeq, limit, ct);
+        var messages = await _chatService.GetMessagesAsync(
+            id, userId.Value, latest, beforeSeq, afterSeq, limit, User.IsInRole("Admin"), ct);
         return messages == null ? NotFound(new { message = "Чат не найден" }) : Ok(messages);
     }
 
@@ -109,7 +133,8 @@ public class ChatsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized();
 
-        var result = await _chatService.SendAsync(id, userId.Value, dto ?? new SendChatMessageDto(null, null, null), ct);
+        var result = await _chatService.SendAsync(
+            id, userId.Value, dto ?? new SendChatMessageDto(null, null, null), User.IsInRole("Admin"), ct);
         if (result.Error != null)
             return BadRequest(new { message = result.Error });
         return Ok(result.Message);
@@ -139,7 +164,8 @@ public class ChatsController : ControllerBase
 
         try
         {
-            var result = await _chatService.SaveUploadAsync(id, userId.Value, kind, Request.Body, fileName, contentType, ct);
+            var result = await _chatService.SaveUploadAsync(
+                id, userId.Value, kind, Request.Body, fileName, contentType, User.IsInRole("Admin"), ct);
             if (result.Error != null)
                 return BadRequest(new { message = result.Error });
             return Ok(result.Upload);
@@ -157,7 +183,7 @@ public class ChatsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized();
 
-        var ok = await _chatService.MarkReadAsync(id, userId.Value, ct);
+        var ok = await _chatService.MarkReadAsync(id, userId.Value, User.IsInRole("Admin"), ct);
         return ok ? Ok(new { updated = true }) : NotFound(new { message = "Чат не найден" });
     }
 
@@ -183,7 +209,7 @@ public class ChatsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized();
 
-        var access = await _chatService.GetFileAsync(messageId, userId.Value, ct);
+        var access = await _chatService.GetFileAsync(messageId, userId.Value, User.IsInRole("Admin"), ct);
         if (access == null)
             return NotFound(new { message = "Файл не найден" });
 

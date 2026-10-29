@@ -63,18 +63,25 @@ public class ChatService : IChatService
 
     public async Task<ChatListItemDto[]> GetListAsync(Guid userId, CancellationToken ct = default)
     {
+        // «Избранное» и «Поддержка» exist for every user and are always listed.
+        await EnsureSpecialChatsAsync(userId, ct);
+
         var chats = await _dbContext.Chats.AsNoTracking()
             .Where(c => c.User1Id == userId || c.User2Id == userId)
             .Select(c => new
             {
                 c.Id,
+                c.Kind,
                 c.CreatedAt,
                 c.LastMessageAt,
                 OtherId = c.User1Id == userId ? c.User2Id : c.User1Id
             })
             .ToListAsync(ct);
 
-        return await BuildListItemsAsync(chats.Select(c => (c.Id, c.OtherId, c.LastMessageAt ?? c.CreatedAt)).ToArray(), userId, ct);
+        return await BuildListItemsAsync(
+            chats.Select(c => (c.Id, c.Kind, c.OtherId, c.LastMessageAt ?? c.CreatedAt)).ToArray(),
+            userId,
+            ct);
     }
 
     public async Task<ChatSearchResultDto> SearchAsync(Guid userId, string? query, CancellationToken ct = default)
@@ -87,6 +94,7 @@ public class ChatService : IChatService
 
         var list = await GetListAsync(userId, ct);
         var chats = list
+            .Where(c => c.Kind == ChatKind.Direct)
             .Where(c => c.OtherUser.DisplayName?.ToLowerInvariant().Contains(lowered) == true)
             .Take(MaxSearchResults)
             .ToArray();
@@ -105,7 +113,7 @@ public class ChatService : IChatService
         return new ChatSearchResultDto(chats, users.ToArray());
     }
 
-    public async Task<ChatDto?> GetAsync(Guid chatId, Guid userId, CancellationToken ct = default)
+    public async Task<ChatDto?> GetAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default)
     {
         _logger.LogDebug("Loading chat {ChatId}", chatId);
 
@@ -116,15 +124,20 @@ public class ChatService : IChatService
 
         var otherId = chat.Other(userId);
         if (otherId == null)
-            return null;
+        {
+            // Admins may open any Support thread; the «other side» is its owner.
+            if (!(isAdmin && chat.Kind == ChatKind.Support))
+                return null;
+            otherId = chat.User1Id;
+        }
 
-        return await BuildChatDtoAsync(chat.Id, otherId.Value, chat.CreatedAt, ct);
+        return await BuildChatDtoAsync(chat.Id, chat.Kind, otherId.Value, chat.CreatedAt, ct);
     }
 
     public async Task<ChatDto?> FindOrCreateAsync(Guid userId, Guid otherUserId, CancellationToken ct = default)
     {
         if (userId == otherUserId)
-            throw new ArgumentException("Н нельзя создать чат с самим собой");
+            throw new ArgumentException("Нельзя создать чат с самим собой");
 
         var targetExists = await _dbContext.Users
             .AsNoTracking()
@@ -135,13 +148,14 @@ public class ChatService : IChatService
         var (user1Id, user2Id) = NormalizePair(userId, otherUserId);
 
         var existing = await _dbContext.Chats.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.User1Id == user1Id && c.User2Id == user2Id, ct);
+            .FirstOrDefaultAsync(c => c.User1Id == user1Id && c.User2Id == user2Id && c.Kind == ChatKind.Direct, ct);
         if (existing != null)
-            return await BuildChatDtoAsync(existing.Id, otherUserId, existing.CreatedAt, ct);
+            return await BuildChatDtoAsync(existing.Id, ChatKind.Direct, otherUserId, existing.CreatedAt, ct);
 
         var chat = new Chat
         {
             Id = Guid.NewGuid(),
+            Kind = ChatKind.Direct,
             User1Id = user1Id,
             User2Id = user2Id,
             CreatedAt = DateTime.UtcNow
@@ -155,15 +169,25 @@ public class ChatService : IChatService
         catch (DbUpdateException)
         {
             // Another request created the same pair concurrently — reload it.
+            _dbContext.Entry(chat).State = EntityState.Detached;
             existing = await _dbContext.Chats.AsNoTracking()
-                .FirstOrDefaultAsync(c => c.User1Id == user1Id && c.User2Id == user2Id, ct);
+                .FirstOrDefaultAsync(c => c.User1Id == user1Id && c.User2Id == user2Id && c.Kind == ChatKind.Direct, ct);
             if (existing == null)
                 throw;
 
-            return await BuildChatDtoAsync(existing.Id, otherUserId, existing.CreatedAt, ct);
+            return await BuildChatDtoAsync(existing.Id, ChatKind.Direct, otherUserId, existing.CreatedAt, ct);
         }
 
-        return await BuildChatDtoAsync(chat.Id, otherUserId, chat.CreatedAt, ct);
+        return await BuildChatDtoAsync(chat.Id, ChatKind.Direct, otherUserId, chat.CreatedAt, ct);
+    }
+
+    public async Task<ChatDto> GetOrCreateSpecialAsync(Guid userId, ChatKind kind, CancellationToken ct = default)
+    {
+        if (kind == ChatKind.Direct)
+            throw new ArgumentException("Прямой чат создаётся через поиск пользователя");
+
+        var chat = await EnsureSpecialChatAsync(userId, kind, ct);
+        return await BuildChatDtoAsync(chat.Id, kind, userId, chat.CreatedAt, ct);
     }
 
     public async Task<ChatMessageDto[]?> GetMessagesAsync(
@@ -173,9 +197,10 @@ public class ChatService : IChatService
         long? beforeSeq = null,
         long? afterSeq = null,
         int? limit = null,
+        bool isAdmin = false,
         CancellationToken ct = default)
     {
-        if (!await IsParticipantAsync(chatId, userId, ct))
+        if (!await CanAccessChatAsync(chatId, userId, isAdmin, ct))
             return null;
 
         var take = Math.Clamp(limit ?? (latest ?? DefaultMessagesLimit), 1, MaxMessagesLimit);
@@ -218,16 +243,21 @@ public class ChatService : IChatService
         return messages.Select(ToDto).ToArray();
     }
 
-    public async Task<ChatMessageResult> SendAsync(Guid chatId, Guid userId, SendChatMessageDto dto, CancellationToken ct = default)
+    public async Task<ChatMessageResult> SendAsync(Guid chatId, Guid userId, SendChatMessageDto dto, bool isAdmin = false, CancellationToken ct = default)
     {
         dto ??= new SendChatMessageDto(null, null, null);
 
         var chat = await _dbContext.Chats
             .FirstOrDefaultAsync(c => c.Id == chatId, ct);
-        if (chat == null || chat.Other(userId) == null)
+        if (chat == null)
             return new ChatMessageResult(null, "Чат не найден");
 
-        var text = dto.Text is null ? null : TextSanitizer.Clean(dto.Text, MaxTextLength);
+        var isParticipant = chat.User1Id == userId || chat.User2Id == userId;
+        var isSupportAdmin = isAdmin && chat.Kind == ChatKind.Support;
+        if (!isParticipant && !isSupportAdmin)
+            return new ChatMessageResult(null, "Чат не найден");
+
+        var text = dto.Text is null ? null : TextSanitizer.CleanChat(dto.Text, MaxTextLength);
 
         ChatUpload? upload = null;
         if (dto.UploadId.HasValue)
@@ -275,26 +305,36 @@ public class ChatService : IChatService
         await _dbContext.SaveChangesAsync(ct);
 
         // The counterpart gets an in-app notification + Web Push. Delivery
-        // failure must not fail the message that is already saved.
-        try
+        // failure must not fail the message that is already saved. Saved
+        // threads have no counterpart; in Support the owner is notified about
+        // staff replies, while owner messages do not notify anyone.
+        Guid? recipientId = null;
+        if (chat.Kind == ChatKind.Direct)
+            recipientId = chat.Other(userId);
+        else if (chat.Kind == ChatKind.Support && chat.User1Id != userId)
+            recipientId = chat.User1Id;
+
+        if (recipientId is Guid recipient)
         {
-            var otherId = chat.Other(userId)!.Value;
-            await _notifications.NotifyUsersAsync(
-                [otherId],
-                new NotificationMessage(
-                    NotificationType.ChatMessage,
-                    senderName,
-                    BuildPreview(message.Kind, message.Text, message.FileName),
-                    $"/chats/{chatId}"),
-                ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Failed to notify chat partner about message {MessageId} in chat {ChatId}",
-                message.Id,
-                chatId);
+            try
+            {
+                await _notifications.NotifyUsersAsync(
+                    [recipient],
+                    new NotificationMessage(
+                        NotificationType.ChatMessage,
+                        senderName,
+                        BuildPreview(message.Kind, message.Text, message.FileName),
+                        $"/chats/{chatId}"),
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to notify chat partner about message {MessageId} in chat {ChatId}",
+                    message.Id,
+                    chatId);
+            }
         }
 
         var sender = await _dbContext.Users
@@ -305,9 +345,9 @@ public class ChatService : IChatService
         return new ChatMessageResult(ToDtoWithSender(message, sender?.DisplayName ?? "", sender?.StudentProfile?.AvatarDataUrl));
     }
 
-    public async Task<bool> MarkReadAsync(Guid chatId, Guid userId, CancellationToken ct = default)
+    public async Task<bool> MarkReadAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default)
     {
-        if (!await IsParticipantAsync(chatId, userId, ct))
+        if (!await CanAccessChatAsync(chatId, userId, isAdmin, ct))
             return false;
 
         await _dbContext.ChatMessages
@@ -328,11 +368,28 @@ public class ChatService : IChatService
         if (message.SenderId != userId)
             return ChatActionResult.Fail("Удалять можно только свои сообщения");
 
-        if (message.DeletedAt != null)
-            return ChatActionResult.Ok();
+        var chatId = message.ChatId;
+        var storageKey = message.StorageKey;
 
-        message.DeletedAt = DateTime.UtcNow;
+        // Hard delete: the row disappears for both participants and no
+        // tombstone is left on either side of the conversation.
+        _dbContext.ChatMessages.Remove(message);
+
+        var chat = await _dbContext.Chats.FirstOrDefaultAsync(c => c.Id == chatId, ct);
+        if (chat != null)
+        {
+            chat.LastMessageAt = await _dbContext.ChatMessages
+                .Where(m => m.ChatId == chatId && m.Id != messageId)
+                .OrderByDescending(m => m.Id)
+                .Select(m => (DateTime?)m.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+        }
+
         await _dbContext.SaveChangesAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(storageKey))
+            _fileStore.Delete(storageKey);
+
         return ChatActionResult.Ok();
     }
 
@@ -345,6 +402,101 @@ public class ChatService : IChatService
                 (m.Chat.User1Id == userId || m.Chat.User2Id == userId))
             .CountAsync(ct);
 
+    public async Task<ChatListItemDto[]> GetSupportInboxAsync(CancellationToken ct = default)
+    {
+        var chats = await _dbContext.Chats.AsNoTracking()
+            // Support threads are created for every user on first list access;
+            // only ones with actual messages are real requests.
+            .Where(c => c.Kind == ChatKind.Support && c.LastMessageAt != null)
+            .Select(c => new { c.Id, c.User1Id, c.CreatedAt, c.LastMessageAt })
+            .ToListAsync(ct);
+
+        if (chats.Count == 0)
+            return [];
+
+        var chatIds = chats.Select(c => c.Id).ToArray();
+        var ownerIds = chats.Select(c => c.User1Id).Distinct().ToArray();
+
+        var owners = await _dbContext.Users.AsNoTracking()
+            .Where(u => ownerIds.Contains(u.Id))
+            .Select(u => new ChatUserDto(
+                u.Id,
+                u.DisplayName,
+                u.StudentProfile != null ? u.StudentProfile.AvatarDataUrl : null,
+                u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
+            .ToDictionaryAsync(u => u.Id, ct);
+
+        var lastMessageIds = await _dbContext.ChatMessages.AsNoTracking()
+            .Where(m => chatIds.Contains(m.ChatId) && m.DeletedAt == null)
+            .GroupBy(m => m.ChatId)
+            .Select(g => new { ChatId = g.Key, MaxId = g.Max(m => m.Id) })
+            .ToListAsync(ct);
+
+        var lastMessageIdSet = lastMessageIds.Select(x => x.MaxId).ToArray();
+        var lastMessages = await _dbContext.ChatMessages.AsNoTracking()
+            .Where(m => lastMessageIdSet.Contains(m.Id))
+            .Select(m => new
+            {
+                m.Id,
+                m.ChatId,
+                m.SenderId,
+                m.Sender.DisplayName,
+                m.Kind,
+                m.Text,
+                m.FileName,
+                m.ContentType,
+                m.SizeBytes,
+                m.DurationMs,
+                m.CreatedAt,
+                m.ReadAt,
+                m.DeletedAt
+            })
+            .ToDictionaryAsync(m => m.ChatId, ct);
+
+        // Unread = messages written by the thread owner and not read by staff yet.
+        var unreadCounts = await _dbContext.ChatMessages.AsNoTracking()
+            .Where(m =>
+                chatIds.Contains(m.ChatId) &&
+                m.ReadAt == null &&
+                m.SenderId == m.Chat.User1Id)
+            .GroupBy(m => m.ChatId)
+            .Select(g => new { ChatId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ChatId, x => x.Count, ct);
+
+        return chats
+            .Select(chat =>
+            {
+                owners.TryGetValue(chat.User1Id, out var owner);
+                lastMessages.TryGetValue(chat.Id, out var last);
+
+                var lastMessage = last == null ? null : new ChatMessageDto(
+                    last.Id,
+                    last.ChatId,
+                    last.SenderId,
+                    last.DisplayName,
+                    null,
+                    last.Kind,
+                    last.Text,
+                    last.FileName,
+                    last.SizeBytes,
+                    last.ContentType,
+                    last.DurationMs,
+                    last.CreatedAt,
+                    last.ReadAt,
+                    last.DeletedAt);
+
+                return new ChatListItemDto(
+                    chat.Id,
+                    ChatKind.Support,
+                    owner ?? new ChatUserDto(chat.User1Id, "Пользователь", null, null),
+                    chat.LastMessageAt ?? chat.CreatedAt,
+                    lastMessage,
+                    unreadCounts.TryGetValue(chat.Id, out var count) ? count : 0);
+            })
+            .OrderByDescending(i => i.LastMessage?.CreatedAt ?? i.CreatedAt)
+            .ToArray();
+    }
+
     public async Task<ChatUploadResult> SaveUploadAsync(
         Guid chatId,
         Guid userId,
@@ -352,9 +504,10 @@ public class ChatService : IChatService
         Stream content,
         string? fileName,
         string? contentType,
+        bool isAdmin = false,
         CancellationToken ct = default)
     {
-        if (!await IsParticipantAsync(chatId, userId, ct))
+        if (!await CanAccessChatAsync(chatId, userId, isAdmin, ct))
             return new ChatUploadResult(null, "Чат не найден");
 
         var chatKindAndLimit = ResolveKind(kind, contentType);
@@ -399,7 +552,7 @@ public class ChatService : IChatService
             upload.SizeBytes));
     }
 
-    public async Task<ChatFileAccess?> GetFileAsync(long messageId, Guid userId, CancellationToken ct = default)
+    public async Task<ChatFileAccess?> GetFileAsync(long messageId, Guid userId, bool isAdmin = false, CancellationToken ct = default)
     {
         var message = await _dbContext.ChatMessages
             .AsNoTracking()
@@ -421,7 +574,7 @@ public class ChatService : IChatService
             string.IsNullOrEmpty(message.StorageKey))
             return null;
 
-        if (!await IsParticipantAsync(message.ChatId, userId, ct))
+        if (!await CanAccessChatAsync(message.ChatId, userId, isAdmin, ct))
             return null;
 
         var contentType = string.IsNullOrWhiteSpace(message.ContentType)
@@ -445,12 +598,81 @@ public class ChatService : IChatService
     private static (Guid First, Guid Second) NormalizePair(Guid a, Guid b) =>
         a.CompareTo(b) <= 0 ? (a, b) : (b, a);
 
-    private async Task<bool> IsParticipantAsync(Guid chatId, Guid userId, CancellationToken ct) =>
-        await _dbContext.Chats.AsNoTracking()
-            .AnyAsync(c => c.Id == chatId && (c.User1Id == userId || c.User2Id == userId), ct);
-
-    private async Task<ChatDto> BuildChatDtoAsync(Guid chatId, Guid otherId, DateTime createdAt, CancellationToken ct)
+    /// <summary>Creates the user's Saved/Support thread on first access (race-safe).</summary>
+    private async Task<Chat> EnsureSpecialChatAsync(Guid userId, ChatKind kind, CancellationToken ct)
     {
+        var existing = await _dbContext.Chats
+            .FirstOrDefaultAsync(c => c.User1Id == userId && c.User2Id == userId && c.Kind == kind, ct);
+        if (existing != null)
+            return existing;
+
+        var chat = new Chat
+        {
+            Id = Guid.NewGuid(),
+            Kind = kind,
+            User1Id = userId,
+            User2Id = userId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.Chats.Add(chat);
+        try
+        {
+            await _dbContext.SaveChangesAsync(ct);
+            return chat;
+        }
+        catch (DbUpdateException)
+        {
+            // Concurrent first access created it — reuse that row.
+            _dbContext.Entry(chat).State = EntityState.Detached;
+            return await _dbContext.Chats
+                .FirstOrDefaultAsync(c => c.User1Id == userId && c.User2Id == userId && c.Kind == kind, ct)
+                ?? throw new InvalidOperationException("Не удалось создать служебный чат");
+        }
+    }
+
+    private async Task EnsureSpecialChatsAsync(Guid userId, CancellationToken ct)
+    {
+        await EnsureSpecialChatAsync(userId, ChatKind.Saved, ct);
+        await EnsureSpecialChatAsync(userId, ChatKind.Support, ct);
+    }
+
+    private static string SpecialDisplayName(ChatKind kind) => kind switch
+    {
+        ChatKind.Saved => "Избранное",
+        ChatKind.Support => "Поддержка",
+        _ => "Пользователь"
+    };
+
+    /// <summary>
+    /// Chat access rule: participants always have access; an admin additionally
+    /// gets read/write access to any Support thread (the shared support inbox).
+    /// </summary>
+    private async Task<bool> CanAccessChatAsync(Guid chatId, Guid userId, bool isAdmin, CancellationToken ct)
+    {
+        var chat = await _dbContext.Chats.AsNoTracking()
+            .Where(c => c.Id == chatId)
+            .Select(c => new { c.Kind, c.User1Id, c.User2Id })
+            .FirstOrDefaultAsync(ct);
+
+        if (chat == null)
+            return false;
+        if (chat.User1Id == userId || chat.User2Id == userId)
+            return true;
+        return isAdmin && chat.Kind == ChatKind.Support;
+    }
+
+    private async Task<ChatDto> BuildChatDtoAsync(Guid chatId, ChatKind kind, Guid otherId, DateTime createdAt, CancellationToken ct)
+    {
+        // Saved is a personal notes thread: the card is synthetic. Direct and
+        // Support both resolve the real user (for Support that is its owner,
+        // which the admin inbox displays).
+        if (kind == ChatKind.Saved)
+        {
+            var self = new ChatUserDto(otherId, SpecialDisplayName(kind), null, null);
+            return new ChatDto(chatId, kind, self, createdAt);
+        }
+
         var other =
             await _dbContext.Users
                 .AsNoTracking()
@@ -463,11 +685,11 @@ public class ChatService : IChatService
                 .FirstOrDefaultAsync(ct)
             ?? new ChatUserDto(otherId, "Пользователь", null, null);
 
-        return new ChatDto(chatId, other, createdAt);
+        return new ChatDto(chatId, kind, other, createdAt);
     }
 
     private async Task<ChatListItemDto[]> BuildListItemsAsync(
-        IReadOnlyCollection<(Guid Id, Guid OtherId, DateTime Activity)> chats,
+        IReadOnlyCollection<(Guid Id, ChatKind Kind, Guid OtherId, DateTime Activity)> chats,
         Guid userId,
         CancellationToken ct)
     {
@@ -528,7 +750,9 @@ public class ChatService : IChatService
             users.TryGetValue(chat.OtherId, out var user);
             lastMessages.TryGetValue(chat.Id, out var last);
 
-            var other = user ?? new ChatUserDto(chat.OtherId, "Пользователь", null, null);
+            var other = chat.Kind == ChatKind.Direct
+                ? user ?? new ChatUserDto(chat.OtherId, "Пользователь", null, null)
+                : new ChatUserDto(chat.OtherId, SpecialDisplayName(chat.Kind), null, null);
 
             var lastMessage = last == null ? null : new ChatMessageDto(
                 last.Id,
@@ -548,6 +772,7 @@ public class ChatService : IChatService
 
             items.Add(new ChatListItemDto(
                 chat.Id,
+                chat.Kind,
                 other,
                 chat.Activity,
                 lastMessage,

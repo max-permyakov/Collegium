@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { newsApi, assignmentsApi, adminApi } from '../../services/api';
+import { newsApi, assignmentsApi, adminApi, adminSupportApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -15,18 +15,21 @@ import { UsersTab } from './UsersTab';
 import { AuditTab } from './AuditTab';
 import { ClubsTab } from './ClubsTab';
 import { MapTab } from './MapTab';
+import { SupportInboxTab } from './SupportInboxTab';
 import { formatMoscowDate, moscowDateTimeInputValue, moscowInputToUtc } from '../../utils/datetime';
-import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto } from '../../types';
+import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto, ChatListItemDto } from '../../types';
 import type { StatisticsDto } from '../../types/admin';
 
 export function AdminPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const canManageUsers = hasPermission('UsersManage');
   const canManageNews = hasPermission('NewsManage');
   const canManageAssignments = hasPermission('AssignmentsManage');
   const canManageClubs = hasPermission('ClubsManage');
   const canManageMap = hasPermission('MapManage');
   const canViewAudit = hasPermission('AuditView');
+  /** Support inbox is guarded by the Admin role on the backend. */
+  const isAdmin = user?.role === 'Admin';
 
   const [announcements, setAnnouncements] = useState<AnnouncementListItem[]>([]);
   const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
@@ -46,6 +49,15 @@ export function AdminPage() {
   });
   const groups = statistics?.groups ?? [];
 
+  // Shared with SupportInboxTab: one cache entry, so the badge and the list agree.
+  const { data: supportInbox } = useQuery<ChatListItemDto[]>({
+    queryKey: ['admin-support'],
+    queryFn: async () => (await adminSupportApi.list()).data,
+    enabled: isAdmin,
+    refetchInterval: 60_000,
+  });
+  const supportUnread = (supportInbox ?? []).reduce((sum, chat) => sum + chat.unreadCount, 0);
+
   const defaultTab = canManageUsers
     ? 'statistics'
     : canViewAudit
@@ -56,7 +68,9 @@ export function AdminPage() {
           ? 'assignments'
           : canManageClubs
             ? 'clubs'
-            : 'map';
+            : isAdmin
+              ? 'support'
+              : 'map';
 
   const [newsForm, setNewsForm] = useState<CreateAnnouncementDto>({
     title: '',
@@ -237,7 +251,7 @@ export function AdminPage() {
     setAssignmentForm({ title: '', description: '', dueAt: moscowDateTimeInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), studyGroupId: '' });
   };
 
-  const hasDashboardTab = canManageUsers || canViewAudit || canManageNews || canManageAssignments || canManageClubs || canManageMap;
+  const hasDashboardTab = canManageUsers || canViewAudit || canManageNews || canManageAssignments || canManageClubs || canManageMap || isAdmin;
 
   if (!hasDashboardTab) {
     return (
@@ -257,7 +271,7 @@ export function AdminPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-dark-text">Панель администратора</h1>
-          <p className="text-dark-textMuted">Пользователи, статистика, аудит, новости и задания</p>
+          <p className="text-dark-textMuted">Пользователи, поддержка, статистика, аудит, новости и задания</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canManageNews && (
@@ -287,6 +301,16 @@ export function AdminPage() {
 
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="w-full flex-wrap gap-1">
+          {isAdmin && (
+            <TabsTrigger value="support">
+              💬 Поддержка
+              {supportUnread > 0 && (
+                <span className="ml-1.5 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-primary-500 text-white text-[11px] font-semibold">
+                  {supportUnread > 99 ? '99+' : supportUnread}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
           {canManageUsers && <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>}
           {canManageUsers && <TabsTrigger value="users">👥 Пользователи</TabsTrigger>}
           {canViewAudit && <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>}
@@ -295,6 +319,12 @@ export function AdminPage() {
           {canManageClubs && <TabsTrigger value="clubs">🎓 Кружки</TabsTrigger>}
           {canManageMap && <TabsTrigger value="map">🗺️ Карта</TabsTrigger>}
         </TabsList>
+
+        {isAdmin && (
+          <TabsContent value="support">
+            <SupportInboxTab />
+          </TabsContent>
+        )}
 
         {canManageUsers && (
           <TabsContent value="statistics">
