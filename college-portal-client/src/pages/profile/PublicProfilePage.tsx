@@ -92,7 +92,7 @@ export function PublicProfilePage({ userId }: { userId: string }) {
                     loading={startChatMutation.isPending}
                     onClick={() => startChatMutation.mutate()}
                   >
-                    Написать сообщение
+                    Открыть чат
                   </Button>
                   {startChatMutation.isError && (
                     <p className="mt-1 text-xs text-red-400">Не удалось открыть чат</p>

@@ -176,6 +176,7 @@ public static class ServiceCollectionExtensions
         // uploads that never became message attachments.
         services.Configure<ChatStorageOptions>(configuration.GetSection("Chat"));
         services.AddSingleton<IChatFileStore, ChatFileStore>();
+        services.AddSingleton<IChatPresenceTracker, ChatPresenceTracker>();
         services.AddScoped<IChatService, ChatService>();
         services.AddHostedService<ChatUploadCleanupWorker>();
         services.AddHttpContextAccessor();

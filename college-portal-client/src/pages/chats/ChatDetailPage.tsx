@@ -19,8 +19,12 @@ import {
 } from './recording';
 import type { ChatDto, ChatMessageDto } from '../../types/chats';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 30;
 const POLL_MS = 2500;
+/** How often the cached window is reconciled (catches messages deleted by others). */
+const FULL_SYNC_MS = 45_000;
+/** Heartbeat while the conversation is open (server TTL is 25 s). */
+const PRESENCE_MS = 10_000;
 const MAX_FILE_BYTES = 512 * 1024 * 1024;
 const MAX_VOICE_BYTES = 25 * 1024 * 1024;
 const MAX_CIRCLE_BYTES = 100 * 1024 * 1024;
@@ -393,6 +397,8 @@ export function ChatConversation({
   const recordingSessionRef = useRef<RecordingSession | null>(null);
   const reachedStartRef = useRef(false);
   const readRequestedRef = useRef(false);
+  const lastFullSyncRef = useRef(0);
+  const olderLoadingRef = useRef(false);
   const holdTimerRef = useRef<number | null>(null);
   const holdingRef = useRef(false);
   const cancelArmedRef = useRef(false);
@@ -402,32 +408,61 @@ export function ChatConversation({
     queryFn: async () => (await chatsApi.get(chatId!)).data,
     enabled: Boolean(chatId),
     retry: false,
+    // The header barely changes: keep it cached so reopening a chat is instant.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
   });
 
   const { data: messages } = useQuery<ChatMessageDto[]>({
     queryKey: ['chat-messages', chatId],
     queryFn: async () => {
-      const res = await chatsApi.getMessages(chatId!, { latest: PAGE_SIZE });
-      const fetched = res.data;
-      setHasOlder(!reachedStartRef.current && fetched.length >= PAGE_SIZE);
-      const current = queryClient.getQueryData<ChatMessageDto[]>(['chat-messages', chatId]) ?? [];
+      const cached = queryClient.getQueryData<ChatMessageDto[]>(['chat-messages', chatId]) ?? [];
+      const newestId = cached.length > 0 ? cached[cached.length - 1].id : null;
+      const needsFullSync =
+        cached.length === 0 || Date.now() - lastFullSyncRef.current > FULL_SYNC_MS;
 
-      // Merge the newest window: rows inside it that vanished on the server were
-      // deleted for everyone, so drop them locally too. Older history and
-      // messages newer than the window (still in flight) are preserved.
-      const fetchedIds = new Set(fetched.map((m) => m.id));
-      const minId = fetched.length > 0 ? fetched[0].id : null;
-      const maxId = fetched.length > 0 ? fetched[fetched.length - 1].id : null;
-      const map = new Map<number, ChatMessageDto>();
-      for (const m of current) {
-        const insideWindow = minId !== null && maxId !== null && m.id >= minId && m.id <= maxId;
-        if (!insideWindow || fetchedIds.has(m.id)) map.set(m.id, m);
+      // First page and the periodic reconciliation fetch only the newest
+      // window; everything in between is an incremental afterSeq request that
+      // usually returns just one message (or nothing).
+      if (needsFullSync) {
+        lastFullSyncRef.current = Date.now();
+        const res = await chatsApi.getMessages(chatId!, { latest: PAGE_SIZE });
+        const fetched = res.data;
+
+        if (cached.length === 0) {
+          setHasOlder(!reachedStartRef.current && fetched.length >= PAGE_SIZE);
+          return fetched;
+        }
+
+        // Rows inside the window that vanished on the server were deleted for
+        // everyone — drop them locally. Older loaded history and messages newer
+        // than the window (still in flight) are preserved.
+        const fetchedIds = new Set(fetched.map((m) => m.id));
+        const minId = fetched.length > 0 ? fetched[0].id : null;
+        const maxId = fetched.length > 0 ? fetched[fetched.length - 1].id : null;
+        const map = new Map<number, ChatMessageDto>();
+        for (const m of cached) {
+          const insideWindow = minId !== null && maxId !== null && m.id >= minId && m.id <= maxId;
+          if (!insideWindow || fetchedIds.has(m.id)) map.set(m.id, m);
+        }
+        for (const m of fetched) map.set(m.id, m);
+        return [...map.values()].sort((a, b) => a.id - b.id);
       }
-      for (const m of fetched) map.set(m.id, m);
+
+      if (newestId === null) return cached;
+
+      const res = await chatsApi.getMessages(chatId!, { afterSeq: newestId, limit: 100 });
+      if (res.data.length === 0) return cached; // same reference: no re-render
+
+      const map = new Map<number, ChatMessageDto>(cached.map((m) => [m.id, m]));
+      for (const m of res.data) map.set(m.id, m);
       return [...map.values()].sort((a, b) => a.id - b.id);
     },
     enabled: Boolean(chatId),
     refetchInterval: POLL_MS,
+    staleTime: 2_000,
+    // Keep each conversation cached while the user browses other chats.
+    gcTime: 30 * 60_000,
   });
 
   const messageList = messages ?? [];
@@ -439,10 +474,32 @@ export function ChatConversation({
     setPendingSends([]);
     reachedStartRef.current = false;
     readRequestedRef.current = false;
+    lastFullSyncRef.current = 0;
+    olderLoadingRef.current = false;
     setHasOlder(true);
     isAtBottomRef.current = true;
     setAtBottom(true);
     queueRef.current = [];
+  }, [chatId]);
+
+  // Heartbeat: tell the server this conversation is on screen, so incoming
+  // messages do not spawn notifications the user is already reading. Sent only
+  // while the tab is visible; stops as soon as the chat closes.
+  useEffect(() => {
+    if (!chatId) return;
+
+    const ping = () => {
+      if (document.visibilityState !== 'visible') return;
+      void chatsApi.presence(chatId).catch(() => undefined);
+    };
+
+    ping();
+    const timer = window.setInterval(ping, PRESENCE_MS);
+    document.addEventListener('visibilitychange', ping);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', ping);
+    };
   }, [chatId]);
 
   const appendMessage = useCallback((message: ChatMessageDto) => {
@@ -741,9 +798,10 @@ export function ChatConversation({
 
   // ---------- Скролл ----------
   const loadOlder = async () => {
-    if (olderLoading || !chatId) return;
+    if (olderLoadingRef.current || !chatId) return;
     const current = queryClient.getQueryData<ChatMessageDto[]>(['chat-messages', chatId]);
     if (!current || current.length === 0) return;
+    olderLoadingRef.current = true;
     setOlderLoading(true);
     try {
       const oldest = current[0];
@@ -766,6 +824,7 @@ export function ChatConversation({
     } catch (err) {
       setError(getError(err));
     } finally {
+      olderLoadingRef.current = false;
       setOlderLoading(false);
     }
   };
@@ -788,6 +847,9 @@ export function ChatConversation({
     const nowAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
     isAtBottomRef.current = nowAtBottom;
     setAtBottom(nowAtBottom);
+
+    // Reaching the top loads the previous page automatically.
+    if (el.scrollTop < 120 && hasOlder) void loadOlder();
   };
 
   if (chatLoading) return <div className="skeleton h-64 lg:h-96" />;

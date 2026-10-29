@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { RoomButton } from '../../components/college/RoomButton';
 import { addDaysISO, formatMoscowTime, moscowDateISO, moscowWeekStartISO } from '../../utils/datetime';
+import { pageCache } from '../../utils/pageCache';
 import type { WeekScheduleResponse, KkepikScheduleResponse } from '../../types';
 
 const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -31,22 +32,35 @@ const teacherShort = (teacher: WeekScheduleResponse['days'][number]['lessons'][n
 
 export function SchedulePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [weekSchedule, setWeekSchedule] = useState<WeekScheduleResponse | null>(null);
-  const [kkepik, setKkepik] = useState<KkepikScheduleResponse | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
+  const startDate = searchParams.get('startDate') || moscowWeekStartISO();
+  const cacheKey = `schedule:week:${startDate}`;
+  const cached = pageCache.get<{ weekSchedule: WeekScheduleResponse | null; kkepik?: KkepikScheduleResponse }>(cacheKey);
+  const [weekSchedule, setWeekSchedule] = useState<WeekScheduleResponse | null>(cached?.weekSchedule ?? null);
+  const [kkepik, setKkepik] = useState<KkepikScheduleResponse | undefined>(cached?.kkepik);
+  const [isLoading, setIsLoading] = useState(!cached);
 
   const loadSchedule = async () => {
-    setIsLoading(true);
+    const cachedWeek = pageCache.get<{ weekSchedule: WeekScheduleResponse | null; kkepik?: KkepikScheduleResponse }>(cacheKey);
+    setIsLoading(!cachedWeek);
+    // Show the cached week immediately when navigating between weeks that were
+    // already visited, instead of the previous week's cards.
+    if (cachedWeek) {
+      setWeekSchedule(cachedWeek.weekSchedule);
+      setKkepik(cachedWeek.kkepik);
+    }
     try {
-      const startDate = searchParams.get('startDate') || moscowWeekStartISO();
       const [scheduleRes, kkepikRes] = await Promise.allSettled([
         scheduleApi.getWeek(startDate),
         scheduleApi.getKkepik(),
       ]);
+      const nextKkepik = kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined;
       if (scheduleRes.status === 'fulfilled') {
         setWeekSchedule(scheduleRes.value.data);
       }
-      setKkepik(kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined);
+      setKkepik(nextKkepik);
+      if (scheduleRes.status === 'fulfilled') {
+        pageCache.set(cacheKey, { weekSchedule: scheduleRes.value.data, kkepik: nextKkepik });
+      }
     } catch (err) {
       console.error('Failed to load schedule:', err);
     } finally {
@@ -56,7 +70,7 @@ export function SchedulePage() {
 
   useEffect(() => {
     loadSchedule();
-  }, [searchParams.get('startDate')]);
+  }, [startDate]);
 
   const navigateWeek = (delta: number) => {
     if (!weekSchedule) return;

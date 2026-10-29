@@ -14,6 +14,7 @@ import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } fr
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
+import { pageCache } from '../../utils/pageCache';
 import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
 
 interface DashboardData {
@@ -37,8 +38,10 @@ const teacherShort = (teacher: Lesson['teacher']) => {
 
 export function HomePage() {
   const { user } = useAuth();
-  const [dashboardData, setDashboardData] = useState<DashboardData>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const cacheKey = `home:dashboard:${user?.id ?? 'guest'}`;
+  const cachedDashboard = pageCache.get<DashboardData>(cacheKey);
+  const [dashboardData, setDashboardData] = useState<DashboardData>(cachedDashboard ?? {});
+  const [isLoading, setIsLoading] = useState(!cachedDashboard);
   const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
 
   const _formatDate = (dateStr: string) =>
@@ -78,7 +81,7 @@ export function HomePage() {
         }
       }
 
-      setDashboardData({
+      const nextData: DashboardData = {
         remainingToday,
         todaySource,
         kkepik: kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined,
@@ -86,7 +89,9 @@ export function HomePage() {
         recentMarks: getRecentMarks(perfRes.status === 'fulfilled' ? perfRes.value.data : null, 6),
         news: newsRes.status === 'fulfilled' ? newsRes.value.data?.slice(0, 3) : [],
         assignments: assignmentsRes.status === 'fulfilled' ? assignmentsRes.value.data?.slice(0, 3) : [],
-      });
+      };
+      pageCache.set(cacheKey, nextData);
+      setDashboardData(nextData);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {

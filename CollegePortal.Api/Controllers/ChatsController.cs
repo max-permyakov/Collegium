@@ -187,6 +187,18 @@ public class ChatsController : ControllerBase
         return ok ? Ok(new { updated = true }) : NotFound(new { message = "Чат не найден" });
     }
 
+    /// <summary>Heartbeat: the caller has this chat open, so new messages need no notification.</summary>
+    [HttpPost("{id:guid}/presence")]
+    public async Task<IActionResult> Presence(Guid id, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var ok = await _chatService.TouchPresenceAsync(id, userId.Value, User.IsInRole("Admin"), ct);
+        return ok ? Ok(new { watching = true }) : NotFound(new { message = "Чат не найден" });
+    }
+
     [HttpDelete("messages/{messageId:long}")]
     public async Task<IActionResult> DeleteMessage(long messageId, CancellationToken ct)
     {

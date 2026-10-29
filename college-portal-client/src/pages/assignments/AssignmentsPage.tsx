@@ -6,20 +6,26 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { formatMoscowDate } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
+import { pageCache } from '../../utils/pageCache';
 import type { AssignmentListItem } from '../../types';
 
+const CACHE_KEY = 'assignments:list';
+
 export function AssignmentsPage() {
-  const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedAssignments = pageCache.get<AssignmentListItem[]>(CACHE_KEY);
+  const [assignments, setAssignments] = useState<AssignmentListItem[]>(cachedAssignments ?? []);
+  const [isLoading, setIsLoading] = useState(!cachedAssignments);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'overdue'>('all');
 
   const loadAssignments = async () => {
-    setIsLoading(true);
+    setIsLoading(!pageCache.get(CACHE_KEY));
     setError('');
     try {
       const response = await assignmentsApi.getMyAssignments();
-      setAssignments(response.data || []);
+      const items = response.data || [];
+      pageCache.set(CACHE_KEY, items);
+      setAssignments(items);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Не удалось загрузить задания');
     } finally {

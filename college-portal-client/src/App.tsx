@@ -1,31 +1,72 @@
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { Layout, AuthLayout } from './components/layout/Layout';
+import { PageFallback } from './components/layout/PageFallback';
 import { InstallPrompt } from './components/layout/InstallPrompt';
-import { LoginPage } from './pages/auth/LoginPage';
-import { CompleteProfilePage } from './pages/auth/CompleteProfilePage';
-import { ClaimPrimaryAdminPage } from './pages/auth/ClaimPrimaryAdminPage';
-import { HomePage } from './pages/home/HomePage';
-import { SchedulePage } from './pages/schedule/SchedulePage';
-import { GradesPage } from './pages/grades/GradesPage';
-import { PerformancePage } from './pages/performance/PerformancePage';
-import { AssignmentsPage } from './pages/assignments/AssignmentsPage';
-import { NewsPage } from './pages/news/NewsPage';
-import { AdminPage } from './pages/admin/AdminPage';
-import { ProfilePage } from './pages/profile/ProfilePage';
-import { PublicProfilePage } from './pages/profile/PublicProfilePage';
-import { ClubsPage } from './pages/clubs/ClubsPage';
-import { ClubDetailPage } from './pages/clubs/ClubDetailPage';
-import { ChatsPage } from './pages/chats/ChatsPage';
-import { ChatDetailPage } from './pages/chats/ChatDetailPage';
-import { CollegeInfoPage } from './pages/college/CollegeInfoPage';
-import { CollegeMapPage } from './pages/college/CollegeMapPage';
-import { GamesPage } from './pages/games/GamesPage';
-import EscapeGamePage from './pages/games/escape/EscapeGamePage';
 import { Toaster } from 'sonner';
+
+// Routes are split per page so the initial bundle only carries the shell and
+// the current page. Chunks are prefetched while the browser is idle, which
+// makes the first visit to each page feel instant without bloating startup.
+const loadLoginPage = () => import('./pages/auth/LoginPage').then(m => ({ default: m.LoginPage }));
+const loadCompleteProfilePage = () => import('./pages/auth/CompleteProfilePage').then(m => ({ default: m.CompleteProfilePage }));
+const loadClaimPrimaryAdminPage = () => import('./pages/auth/ClaimPrimaryAdminPage').then(m => ({ default: m.ClaimPrimaryAdminPage }));
+const loadHomePage = () => import('./pages/home/HomePage').then(m => ({ default: m.HomePage }));
+const loadSchedulePage = () => import('./pages/schedule/SchedulePage').then(m => ({ default: m.SchedulePage }));
+const loadGradesPage = () => import('./pages/grades/GradesPage').then(m => ({ default: m.GradesPage }));
+const loadPerformancePage = () => import('./pages/performance/PerformancePage').then(m => ({ default: m.PerformancePage }));
+const loadAssignmentsPage = () => import('./pages/assignments/AssignmentsPage').then(m => ({ default: m.AssignmentsPage }));
+const loadNewsPage = () => import('./pages/news/NewsPage').then(m => ({ default: m.NewsPage }));
+const loadAdminPage = () => import('./pages/admin/AdminPage').then(m => ({ default: m.AdminPage }));
+const loadProfilePage = () => import('./pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage }));
+const loadPublicProfilePage = () => import('./pages/profile/PublicProfilePage').then(m => ({ default: m.PublicProfilePage }));
+const loadClubsPage = () => import('./pages/clubs/ClubsPage').then(m => ({ default: m.ClubsPage }));
+const loadClubDetailPage = () => import('./pages/clubs/ClubDetailPage').then(m => ({ default: m.ClubDetailPage }));
+const loadChatsPage = () => import('./pages/chats/ChatsPage').then(m => ({ default: m.ChatsPage }));
+const loadChatDetailPage = () => import('./pages/chats/ChatDetailPage').then(m => ({ default: m.ChatDetailPage }));
+const loadCollegeInfoPage = () => import('./pages/college/CollegeInfoPage').then(m => ({ default: m.CollegeInfoPage }));
+const loadCollegeMapPage = () => import('./pages/college/CollegeMapPage').then(m => ({ default: m.CollegeMapPage }));
+const loadGamesPage = () => import('./pages/games/GamesPage').then(m => ({ default: m.GamesPage }));
+const loadEscapeGamePage = () => import('./pages/games/escape/EscapeGamePage');
+
+const LoginPage = lazy(loadLoginPage);
+const CompleteProfilePage = lazy(loadCompleteProfilePage);
+const ClaimPrimaryAdminPage = lazy(loadClaimPrimaryAdminPage);
+const HomePage = lazy(loadHomePage);
+const SchedulePage = lazy(loadSchedulePage);
+const GradesPage = lazy(loadGradesPage);
+const PerformancePage = lazy(loadPerformancePage);
+const AssignmentsPage = lazy(loadAssignmentsPage);
+const NewsPage = lazy(loadNewsPage);
+const AdminPage = lazy(loadAdminPage);
+const ProfilePage = lazy(loadProfilePage);
+const PublicProfilePage = lazy(loadPublicProfilePage);
+const ClubsPage = lazy(loadClubsPage);
+const ClubDetailPage = lazy(loadClubDetailPage);
+const ChatsPage = lazy(loadChatsPage);
+const ChatDetailPage = lazy(loadChatDetailPage);
+const CollegeInfoPage = lazy(loadCollegeInfoPage);
+const CollegeMapPage = lazy(loadCollegeMapPage);
+const GamesPage = lazy(loadGamesPage);
+const EscapeGamePage = lazy(loadEscapeGamePage);
+
+// The heavy game engine loads on demand only, everything else is warmed up.
+const PREFETCHED_ROUTES = [
+  loadHomePage,
+  loadSchedulePage,
+  loadGradesPage,
+  loadPerformancePage,
+  loadAssignmentsPage,
+  loadNewsPage,
+  loadClubsPage,
+  loadChatsPage,
+  loadCollegeInfoPage,
+  loadProfilePage,
+];
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -119,8 +160,28 @@ function UserProfileRoute() {
 }
 
 function AppRoutes() {
+  const { isAuthenticated } = useAuth();
+
+  // Warm the route chunks in the background once the app shell is ready. This
+  // turns later navigations into an instant render instead of a network wait.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      for (const load of PREFETCHED_ROUTES) {
+        void load().catch(() => undefined);
+      }
+    }, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isAuthenticated]);
+
   return (
-    <Routes>
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
       <Route path="/login" element={
         <PublicRoute>
           <AuthLayout>
@@ -171,7 +232,8 @@ function AppRoutes() {
       } />
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }
 

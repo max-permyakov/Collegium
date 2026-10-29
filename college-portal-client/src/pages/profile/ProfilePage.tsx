@@ -1,7 +1,7 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { profileApi, adminApi, authApi, notificationsApi } from '../../services/api';
+import { profileApi, adminApi, authApi, notificationsApi, chatsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationsContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -233,6 +233,16 @@ export function ProfilePage() {
 
   const isViewerAdmin = profile?.isViewerAdmin === true || user?.role === 'Admin';
 
+  // Administrators browse profiles through this management view, so they get
+  // the same "open chat" shortcut as the public profile page.
+  const startChatMutation = useMutation({
+    mutationFn: () => chatsApi.findOrCreate(targetUserId!),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      navigate(`/chats/${res.data.id}`);
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: (data: { bio?: string | null; email?: string | null; phoneNumber?: string | null }) => profileApi.updateMe(data),
     onSuccess: () => {
@@ -456,6 +466,21 @@ export function ProfilePage() {
                 {profile.lastLoginAt && <div><span className="text-dark-text">Последний вход:</span> {formatMoscowDateTime(profile.lastLoginAt)}</div>}
                 <div><span className="text-dark-text">Дата регистрации:</span> {formatMoscowDate(profile.createdAt)}</div>
               </div>
+              {isAdminView && targetUserId !== user?.id && (
+                <div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={startChatMutation.isPending}
+                    onClick={() => startChatMutation.mutate()}
+                  >
+                    Открыть чат
+                  </Button>
+                  {startChatMutation.isError && (
+                    <p className="mt-1 text-xs text-red-400">Не удалось открыть чат</p>
+                  )}
+                </div>
+              )}
               {!isAdminView && (
                 <div className="pt-3 border-t border-dark-border space-y-2">
                   <div className="flex items-start justify-between gap-3">

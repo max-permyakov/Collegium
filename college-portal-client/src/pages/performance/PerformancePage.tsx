@@ -8,6 +8,7 @@ import { DiaryRequiredNotice } from '../../components/DiaryRequiredNotice';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { getMarkValue, getMarkVariant, getRecentMarks } from '../../utils/performance';
 import { formatMoscowDate } from '../../utils/datetime';
+import { pageCache } from '../../utils/pageCache';
 import type { GroupRating, PerformanceResponse, SubjectPerformance } from '../../types';
 
 const formatDate = (dateStr: string): string =>
@@ -31,9 +32,10 @@ const totalMarks = (subject: SubjectPerformance) =>
 
 export function PerformancePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [performance, setPerformance] = useState<PerformanceResponse | null>(null);
+  const cachedPerformance = pageCache.get<PerformanceResponse>('performance:overview');
+  const [performance, setPerformance] = useState<PerformanceResponse | null>(cachedPerformance ?? null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(() => searchParams.get('subject'));
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!cachedPerformance);
   const [error, setError] = useState('');
   const [diaryRequired, setDiaryRequired] = useState(false);
   const [rating, setRating] = useState<GroupRating | null>(null);
@@ -44,11 +46,12 @@ export function PerformancePage() {
   const [participationPending, setParticipationPending] = useState(false);
 
   const loadPerformance = async () => {
-    setIsLoading(true);
+    setIsLoading(!pageCache.get('performance:overview'));
     setError('');
     setDiaryRequired(false);
     try {
       const response = await gradesApi.getPerformance();
+      pageCache.set('performance:overview', response.data);
       setPerformance(response.data);
     } catch (err) {
       const e = err as { response?: { data?: { message?: string; code?: string } } };

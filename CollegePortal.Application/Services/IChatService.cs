@@ -44,6 +44,12 @@ public interface IChatService
     /// <summary>Marks every message of the partner in this chat as read; returns false if foreign.</summary>
     Task<bool> MarkReadAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default);
 
+    /// <summary>
+    /// Heartbeat for an open conversation: while it is fresh, messages in this
+    /// chat do not create notifications for this user. False when access is denied.
+    /// </summary>
+    Task<bool> TouchPresenceAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default);
+
     /// <summary>Deletes the caller's own message for both sides (file included); idempotent.</summary>
     Task<ChatActionResult> DeleteMessageAsync(long messageId, Guid userId, CancellationToken ct = default);
 

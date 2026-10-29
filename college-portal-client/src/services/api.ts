@@ -306,6 +306,8 @@ export const chatsApi = {
       },
     }),
   markRead: (id: string) => api.post<{ updated: boolean }>(`/chats/${id}/read`),
+  /** Heartbeat while a conversation is open: suppresses its notifications. */
+  presence: (id: string) => api.post<{ watching: boolean }>(`/chats/${id}/presence`),
   deleteMessage: (messageId: number) =>
     api.delete(`/chats/messages/${messageId}`),
   unreadTotal: () => api.get<{ count: number }>('/chats/unread-total'),

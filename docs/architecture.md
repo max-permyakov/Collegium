@@ -82,7 +82,7 @@
 - `Controllers/ProfileController` — профиль, смена группы, привязка дневника
 - `Controllers/NotificationsController` — inbox: список, unread-count, read/read-all, delete, admin test
 - `Controllers/PushController` — публичный VAPID-ключ, subscribe/unsubscribe
-- `Controllers/ChatsController` — личные чаты, «Избранное», «Поддержка», вложения, read-receipts
+- `Controllers/ChatsController` — личные чаты, «Избранное», «Поддержка», вложения, read-receipts, presence-heartbeat открытого чата
 - `Controllers/AdminSupportController` — инбокс поддержки (только роль Admin): список обращений; чтение и ответы идут через `/api/chats`, где админу открыт доступ к Support-тредам
 
 ## Уведомления (push + in-app)
@@ -112,7 +112,7 @@
 | Создание задания / сдвиг дедлайна | `AssignmentService` | Assignment | студенты группы, автор исключён |
 | Новое сообщение в клубе | `ClubService` | ClubMessage | агрегация: не чаще 1 уведомления на клуб за 10 минут |
 | Новый комментарий к новости | `NewsCommentService` | Comment | автор новости, комментатор исключён |
-| Личное сообщение в чате | `ChatService` | ChatMessage | получатель — второй участник Direct-чата; «Избранное» уведомлений не создаёт; в «Поддержке» владельца уведомляет только ответ администратора; сбой отправки уведомления не блокирует отправку |
+| Личное сообщение в чате | `ChatService` | ChatMessage | получатель — второй участник Direct-чата; «Избранное» уведомлений не создаёт; в «Поддержке» владельца уведомляет только ответ администратора; уведомление пропускается, если получатель сейчас читает этот чат; сбой отправки уведомления не блокирует отправку |
 
 Каждая новость анонсируется не более одного раза: `Announcement.NotifiedAtUtc`
 ставится после успешного fan-out; запланированная новость (.IsPublished +
@@ -183,6 +183,8 @@ Push отключён, если `PushServiceClient:PublicKey`/`PrivateKey` пу�
 - React 18 + TypeScript + Vite
 - React Router для навигации
 - TanStack Query для кэширования и синхронизации данных
+- `App.tsx` — маршруты грузятся лениво (`React.lazy` + `Suspense`), чанки прогреваются в простое после входа, поэтому стартовый бандл содержит только оболочку и текущую страницу
+- `utils/pageCache.ts` — небольшой in-memory кэш данных страниц (10 минут, очищается при входе/выходе): повторный заход на Главную, Расписание, Оценки, Успеваемость, Задания и Новости рисуется сразу, а свежие данные подгружаются в фоне
 - Axios для HTTP клиента
 - Адаптивный дизайн (mobile-first)
 - `context/NotificationsContext` — polling, сообщения service worker, toast (`sonner`), дедупликация

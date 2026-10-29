@@ -5,6 +5,7 @@ import { authApi, permissionsApi } from '../services/api';
 import { removePushBinding, syncPushBinding } from '../services/push';
 import type { User, LoginRequest, Permission } from '../types';
 import { ALL_PERMISSIONS } from '../types';
+import { pageCache } from '../utils/pageCache';
 
 interface AuthContextType {
   user: User | null;
@@ -92,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setPermissions([]);
       queryClient.clear();
+      pageCache.clear();
     };
     window.addEventListener('auth:unauthorized', onUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized);
@@ -109,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.login(data);
 
     queryClient.clear();
+    pageCache.clear();
     setUser(response.data);
     setSessionExpired(false);
     await loadPermissions();
@@ -119,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.diaryLogin(login, passwordHash);
 
     queryClient.clear();
+    pageCache.clear();
     setUser(response.data);
     setSessionExpired(false);
     await loadPermissions();
@@ -133,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.verifyEmailCode(email, code);
     if (response.data.user) {
       queryClient.clear();
+      pageCache.clear();
       setUser(response.data.user);
       setSessionExpired(false);
       await loadPermissions();
@@ -149,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }) => {
     const response = await authApi.completeEmailRegistration(data);
     queryClient.clear();
+    pageCache.clear();
     setUser(response.data);
     setSessionExpired(false);
     await loadPermissions();
@@ -162,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }) => {
     const response = await authApi.completeProfile(data);
     queryClient.clear();
+    pageCache.clear();
     setUser(response.data);
     setSessionExpired(false);
     await loadPermissions();
@@ -171,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const passwordHash = await hashDiaryPassword(password);
     const response = await authApi.linkDiary(login, passwordHash);
     queryClient.clear();
+    pageCache.clear();
     setUser(response.data);
     setSessionExpired(false);
     await loadPermissions();
@@ -180,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.claimPrimaryAdmin(password);
 
     queryClient.clear();
+    pageCache.clear();
     setUser(response.data);
     setSessionExpired(false);
     await loadPermissions();
@@ -195,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore logout errors
     } finally {
       queryClient.clear();
+      pageCache.clear();
       setUser(null);
       setPermissions([]);
     }

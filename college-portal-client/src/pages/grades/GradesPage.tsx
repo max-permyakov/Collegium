@@ -5,21 +5,27 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../comp
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { DiaryRequiredNotice } from '../../components/DiaryRequiredNotice';
+import { pageCache } from '../../utils/pageCache';
 import type { SubjectGrade } from '../../types';
 
+const CACHE_KEY = 'grades:list';
+
 export function GradesPage() {
-  const [grades, setGrades] = useState<SubjectGrade[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedGrades = pageCache.get<SubjectGrade[]>(CACHE_KEY);
+  const [grades, setGrades] = useState<SubjectGrade[]>(cachedGrades ?? []);
+  const [isLoading, setIsLoading] = useState(!cachedGrades);
   const [error, setError] = useState('');
   const [diaryRequired, setDiaryRequired] = useState(false);
 
   const loadGrades = async () => {
-    setIsLoading(true);
+    setIsLoading(!pageCache.get(CACHE_KEY));
     setError('');
     setDiaryRequired(false);
     try {
       const response = await gradesApi.getGrades();
-      setGrades(response.data?.subjects || []);
+      const subjects = response.data?.subjects || [];
+      pageCache.set(CACHE_KEY, subjects);
+      setGrades(subjects);
     } catch (err: any) {
       if (err.response?.data?.code === 'diary_required') {
         setDiaryRequired(true);

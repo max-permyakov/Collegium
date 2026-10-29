@@ -12,6 +12,7 @@ import { NewsViewerModal } from '../../components/news/NewsViewerModal';
 import { formatMoscowDate } from '../../utils/datetime';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
+import { pageCache } from '../../utils/pageCache';
 import type { AnnouncementListItem, Announcement } from '../../types';
 
 export function NewsPage() {
@@ -20,9 +21,14 @@ export function NewsPage() {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
 
-  const [news, setNews] = useState<AnnouncementListItem[]>([]);
-  const [detail, setDetail] = useState<Announcement | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const listCacheKey = `news:list:${user?.studentProfile?.studyGroupId ?? 'all'}`;
+  const detailCacheKey = params.id ? `news:detail:${params.id}` : '';
+  const cachedNews = isDetail ? undefined : pageCache.get<AnnouncementListItem[]>(listCacheKey);
+  const cachedDetail = isDetail ? pageCache.get<Announcement>(detailCacheKey) : undefined;
+
+  const [news, setNews] = useState<AnnouncementListItem[]>(cachedNews ?? []);
+  const [detail, setDetail] = useState<Announcement | null>(cachedDetail ?? null);
+  const [isLoading, setIsLoading] = useState(!cachedNews && !cachedDetail);
   const [error, setError] = useState('');
   const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
   const [editingNews, setEditingNews] = useState(false);
@@ -33,15 +39,26 @@ export function NewsPage() {
     formatMoscowDate(dateStr, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const loadNews = async () => {
-    setIsLoading(true);
+    const cacheKey = isDetail && params.id ? `news:detail:${params.id}` : listCacheKey;
+    const cachedValue = pageCache.get(cacheKey);
+    setIsLoading(!cachedValue);
+    // Switching between two cached pages must not keep showing the previous
+    // one while the network request is in flight.
+    if (cachedValue) {
+      if (isDetail) setDetail(cachedValue as Announcement);
+      else setNews(cachedValue as AnnouncementListItem[]);
+    }
     setError('');
     try {
       if (isDetail && params.id) {
         const response = await newsApi.getById(params.id);
+        pageCache.set(cacheKey, response.data);
         setDetail(response.data);
       } else {
         const response = await newsApi.getNews(user?.studentProfile?.studyGroupId);
-        setNews(response.data || []);
+        const items = response.data || [];
+        pageCache.set(cacheKey, items);
+        setNews(items);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Не удалось загрузить новости');
@@ -89,6 +106,7 @@ export function NewsPage() {
         isPublished: detail.isPublished,
       });
       setDetail(res.data);
+      if (detailCacheKey) pageCache.set(detailCacheKey, res.data);
       setEditingNews(false);
       setEditError('');
       notifySuccess('Новость сохранена');
@@ -103,6 +121,8 @@ export function NewsPage() {
     if (!confirm('Удалить новость?')) return;
     try {
       await newsApi.delete(detail.id);
+      pageCache.delete(detailCacheKey);
+      pageCache.delete(listCacheKey);
       navigate('/news');
       notifySuccess('Новость удалена');
     } catch (err: any) {

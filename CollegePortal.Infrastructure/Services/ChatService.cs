@@ -47,17 +47,20 @@ public class ChatService : IChatService
     private readonly CollegePortalDbContext _dbContext;
     private readonly INotificationService _notifications;
     private readonly IChatFileStore _fileStore;
+    private readonly IChatPresenceTracker _presence;
     private readonly ILogger<ChatService> _logger;
 
     public ChatService(
         CollegePortalDbContext dbContext,
         INotificationService notifications,
         IChatFileStore fileStore,
+        IChatPresenceTracker presence,
         ILogger<ChatService> logger)
     {
         _dbContext = dbContext;
         _notifications = notifications;
         _fileStore = fileStore;
+        _presence = presence;
         _logger = logger;
     }
 
@@ -316,24 +319,37 @@ public class ChatService : IChatService
 
         if (recipientId is Guid recipient)
         {
-            try
+            // No notification for a message the recipient is already looking at;
+            // the open conversation receives it through its own polling.
+            if (_presence.IsViewing(recipient, chatId))
             {
-                await _notifications.NotifyUsersAsync(
-                    [recipient],
-                    new NotificationMessage(
-                        NotificationType.ChatMessage,
-                        senderName,
-                        BuildPreview(message.Kind, message.Text, message.FileName),
-                        $"/chats/{chatId}"),
-                    ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Failed to notify chat partner about message {MessageId} in chat {ChatId}",
+                _logger.LogDebug(
+                    "Skipping chat notification for message {MessageId}: recipient {RecipientId} is viewing chat {ChatId}",
                     message.Id,
+                    recipient,
                     chatId);
+            }
+            else
+            {
+                try
+                {
+                    await _notifications.NotifyUsersAsync(
+                        [recipient],
+                        new NotificationMessage(
+                            NotificationType.ChatMessage,
+                            senderName,
+                            BuildPreview(message.Kind, message.Text, message.FileName),
+                            $"/chats/{chatId}"),
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to notify chat partner about message {MessageId} in chat {ChatId}",
+                        message.Id,
+                        chatId);
+                }
             }
         }
 
@@ -354,6 +370,15 @@ public class ChatService : IChatService
             .Where(m => m.ChatId == chatId && m.SenderId != userId && m.ReadAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(m => m.ReadAt, DateTime.UtcNow), ct);
 
+        return true;
+    }
+
+    public async Task<bool> TouchPresenceAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default)
+    {
+        if (!await CanAccessChatAsync(chatId, userId, isAdmin, ct))
+            return false;
+
+        _presence.Touch(userId, chatId);
         return true;
     }
 

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import { RightSidebar } from './RightSidebar';
+import { PageFallback } from './PageFallback';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -14,7 +15,9 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-dark-bg">
       <div className={`min-h-screen transition-[padding] duration-300 ${sidebarCollapsed ? 'lg:pr-16' : 'lg:pr-64'}`}>
         <main className="page-container pb-20 lg:pb-4">
-          {children || <Outlet />}
+          <Suspense fallback={<PageFallback />}>
+            {children || <Outlet />}
+          </Suspense>
         </main>
       </div>
       <RightSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((c) => !c)} />
@@ -26,7 +29,9 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 safe-top safe-bottom">
       <div className="w-full max-w-md">
-        {children}
+        <Suspense fallback={<PageFallback />}>
+          {children}
+        </Suspense>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { notificationsApi } from '../services/api';
@@ -53,7 +53,14 @@ interface ToastNotification {
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+
+  // Read inside callbacks without re-subscribing the push listener on navigation.
+  const pathnameRef = useRef(location.pathname);
+  useEffect(() => {
+    pathnameRef.current = location.pathname;
+  }, [location.pathname]);
 
   const isAuthenticated = Boolean(user);
 
@@ -218,6 +225,18 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const showToast = useCallback(
     (notification: ToastNotification) => {
+      // A message in the conversation that is on screen right now needs no
+      // toast: the user is already reading it (the server also suppresses the
+      // notification while a presence heartbeat is fresh).
+      if (
+        notification.type === 'ChatMessage' &&
+        notification.url &&
+        pathnameRef.current === notification.url
+      ) {
+        if (notification.id) void markRead(notification.id).catch(() => undefined);
+        return;
+      }
+
       const openPayload = () => {
         if (notification.id) {
           void markRead(notification.id).catch(() => undefined);
