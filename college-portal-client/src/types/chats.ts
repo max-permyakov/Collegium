@@ -40,6 +40,7 @@ export interface ChatDto {
 export interface ChatListItemDto extends ChatDto {
   lastMessage?: ChatMessageDto | null;
   unreadCount: number;
+  isPinned?: boolean;
 }
 
 export interface ChatUploadDto {

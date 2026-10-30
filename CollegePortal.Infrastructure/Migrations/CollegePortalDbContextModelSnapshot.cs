@@ -370,11 +370,23 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("HiddenByUser1")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("HiddenByUser2")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("Kind")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("LastMessageAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("PinnedByUser1")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PinnedByUser2")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("User1Id")
                         .HasColumnType("uuid");

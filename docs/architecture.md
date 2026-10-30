@@ -82,7 +82,7 @@
 - `Controllers/ProfileController` — профиль, смена группы, привязка дневника
 - `Controllers/NotificationsController` — inbox: список, unread-count, read/read-all, delete, admin test
 - `Controllers/PushController` — публичный VAPID-ключ, subscribe/unsubscribe
-- `Controllers/ChatsController` — личные чаты, «Избранное», «Поддержка», вложения, read-receipts, presence-heartbeat открытого чата, статус собеседника («в сети/печатает/записывает») через `GET /{id}/presence`, индикатор активности `POST /{id}/status`, редактирование `PATCH messages/{id}` и пересылка `POST messages/{id}/forward`
+- `Controllers/ChatsController` — личные чаты, «Избранное», «Поддержка», вложения, read-receipts, presence-heartbeat открытого чата, статус собеседника («в сети/печатает/записывает») через `GET /{id}/presence`, индикатор активности `POST /{id}/status`, редактирование `PATCH messages/{id}`, пересылка `POST messages/{id}/forward`, закрепление `POST /{id}/pin` и удаление для себя `DELETE /{id}` (чат скрывается до нового сообщения от собеседника)
 - `Controllers/AdminSupportController` — инбокс поддержки (только роль Admin): список обращений; чтение и ответы идут через `/api/chats`, где админу открыт доступ к Support-тредам
 
 ## Уведомления (push + in-app)

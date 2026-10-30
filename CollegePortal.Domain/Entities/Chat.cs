@@ -26,6 +26,18 @@ public class Chat
     /// <summary>Timestamp of the newest message; null until the first send.</summary>
     public DateTime? LastMessageAt { get; set; }
 
+    /// <summary>The chat is pinned at the top of User1's list.</summary>
+    public bool PinnedByUser1 { get; set; }
+
+    /// <summary>The chat is pinned at the top of User2's list.</summary>
+    public bool PinnedByUser2 { get; set; }
+
+    /// <summary>User1 deleted the chat from their list (a new message brings it back).</summary>
+    public bool HiddenByUser1 { get; set; }
+
+    /// <summary>User2 deleted the chat from their list (a new message brings it back)</summary>
+    public bool HiddenByUser2 { get; set; }
+
     public ApplicationUser User1 { get; set; } = null!;
     public ApplicationUser User2 { get; set; } = null!;
     public ICollection<ChatMessage> Messages { get; set; } = new List<ChatMessage>();

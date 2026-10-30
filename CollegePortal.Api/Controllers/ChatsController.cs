@@ -263,6 +263,30 @@ public class ChatsController : ControllerBase
         return presence == null ? NotFound(new { message = "Чат не найден" }) : Ok(presence);
     }
 
+    /// <summary>Закрепить / открепить чат в списке вызывающего.</summary>
+    [HttpPost("{id:guid}/pin")]
+    public async Task<IActionResult> SetPinned(Guid id, [FromBody] SetChatPinnedDto? dto, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var ok = await _chatService.SetPinnedAsync(id, userId.Value, dto?.Pinned ?? false, ct);
+        return ok ? Ok(new { pinned = dto?.Pinned ?? false }) : NotFound(new { message = "Чат не найден" });
+    }
+
+    /// <summary>Удалить чат из списка вызывающего (не удаляет и не скрывает его у собеседника).</summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteChat(Guid id, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _chatService.DeleteChatAsync(id, userId.Value, ct);
+        return result.Success ? Ok() : BadRequest(new { message = result.Error });
+    }
+
     /// <summary>
     /// Streams a chat attachment with cookie auth (works for img/video/audio
     /// and plain downloads) and HTTP range processing so media controls seek.

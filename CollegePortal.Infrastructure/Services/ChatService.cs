@@ -71,18 +71,22 @@ public class ChatService : IChatService
 
         var chats = await _dbContext.Chats.AsNoTracking()
             .Where(c => c.User1Id == userId || c.User2Id == userId)
+            // Скрытый удаляется самостоятельно: список не показывает его, пока собеседник снова не напишет.
+            .Where(c => c.User1Id != userId || !c.HiddenByUser1)
+            .Where(c => c.User2Id != userId || !c.HiddenByUser2)
             .Select(c => new
             {
                 c.Id,
                 c.Kind,
                 c.CreatedAt,
                 c.LastMessageAt,
+                Pinned = c.User1Id == userId ? c.PinnedByUser1 : c.PinnedByUser2,
                 OtherId = c.User1Id == userId ? c.User2Id : c.User1Id
             })
             .ToListAsync(ct);
 
         return await BuildListItemsAsync(
-            chats.Select(c => (c.Id, c.Kind, c.OtherId, c.LastMessageAt ?? c.CreatedAt)).ToArray(),
+            chats.Select(c => (c.Id, c.Kind, c.OtherId, c.LastMessageAt ?? c.CreatedAt, c.Pinned)).ToArray(),
             userId,
             ct);
     }
@@ -319,6 +323,10 @@ public class ChatService : IChatService
 
         if (recipientId is Guid recipient)
         {
+            // Удалённый чат возвращается в список получателя, когда ему снова пишут.
+            if (chat.User1Id == recipient) chat.HiddenByUser1 = false;
+            if (chat.User2Id == recipient) chat.HiddenByUser2 = false;
+
             // No notification for a message the recipient is already looking at;
             // the open conversation receives it through its own polling.
             if (_presence.IsViewing(recipient, chatId))
@@ -587,6 +595,37 @@ public class ChatService : IChatService
         // TouchLastSeen runs on the sender's own heartbeats, including this
         // chat's heartbeat loop, so the requester never sees themselves cold.
         return new ChatPresenceDto(isOnline, _presence.GetActivity(otherId, chatId), lastSeen);
+    }
+
+    public async Task<bool> SetPinnedAsync(Guid chatId, Guid userId, bool pinned, CancellationToken ct = default)
+    {
+        var chat = await _dbContext.Chats
+            .FirstOrDefaultAsync(c => c.Id == chatId && (c.User1Id == userId || c.User2Id == userId), ct);
+        if (chat == null)
+            return false;
+
+        if (chat.User1Id == userId) chat.PinnedByUser1 = pinned;
+        else chat.PinnedByUser2 = pinned;
+
+        await _dbContext.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<ChatActionResult> DeleteChatAsync(Guid chatId, Guid userId, CancellationToken ct = default)
+    {
+        var chat = await _dbContext.Chats
+            .FirstOrDefaultAsync(c => c.Id == chatId && (c.User1Id == userId || c.User2Id == userId), ct);
+        if (chat == null)
+            return ChatActionResult.Fail("Чат не найден");
+
+        if (chat.Kind != ChatKind.Direct)
+            return ChatActionResult.Fail("Служебные чаты удалить нельзя");
+
+        if (chat.User1Id == userId) chat.HiddenByUser1 = true;
+        else chat.HiddenByUser2 = true;
+
+        await _dbContext.SaveChangesAsync(ct);
+        return ChatActionResult.Ok();
     }
 
     public Task<int> UnreadTotalAsync(Guid userId, CancellationToken ct = default) =>
@@ -887,7 +926,7 @@ public class ChatService : IChatService
     }
 
     private async Task<ChatListItemDto[]> BuildListItemsAsync(
-        IReadOnlyCollection<(Guid Id, ChatKind Kind, Guid OtherId, DateTime Activity)> chats,
+        IReadOnlyCollection<(Guid Id, ChatKind Kind, Guid OtherId, DateTime Activity, bool Pinned)> chats,
         Guid userId,
         CancellationToken ct)
     {
@@ -976,11 +1015,13 @@ public class ChatService : IChatService
                 other,
                 chat.Activity,
                 lastMessage,
-                unreadCounts.TryGetValue(chat.Id, out var count) ? count : 0));
+                unreadCounts.TryGetValue(chat.Id, out var count) ? count : 0,
+                chat.Pinned));
         }
 
         return items
-            .OrderByDescending(i => i.LastMessage?.CreatedAt ?? i.CreatedAt)
+            .OrderByDescending(i => i.IsPinned)
+            .ThenByDescending(i => i.LastMessage?.CreatedAt ?? i.CreatedAt)
             .ToArray();
     }
 

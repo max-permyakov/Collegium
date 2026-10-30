@@ -306,6 +306,12 @@ export const chatsApi = {
       },
     }),
   markRead: (id: string) => api.post<{ updated: boolean }>(`/chats/${id}/read`),
+  /** Закрепить чат в списке вызывающего. */
+  pin: (id: string, pinned: boolean) => api.post<{ pinned: boolean }>(`/chats/${id}/pin`, { pinned }),
+  /** Удалить чат из своего списка (собеседник его сохраняет). */
+  remove: (id: string) => api.delete(`/chats/${id}`),
+  /** Загружает вложение как Blob (для проигрывания кружков через object URL). */
+  fileBlob: (messageId: number) => api.get(`/chats/files/${messageId}`, { responseType: 'blob' }),
   /** Heartbeat while a conversation is open: suppresses its notifications. */
   presence: (id: string) => api.post<{ watching: boolean }>(`/chats/${id}/presence`),
   /** Header status of the conversation partner (online / typing / recording / last seen). */

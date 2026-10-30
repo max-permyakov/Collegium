@@ -41,6 +41,30 @@ const getError = (err: unknown) => {
 const isCanceled = (err: unknown) =>
   (err as { code?: string })?.code === 'ERR_CANCELED' || (err as { name?: string })?.name === 'CanceledError';
 
+/** Проверка, что записанный файл вообще декодируется: битая запись никогда не отправляется. */
+const ensurePlayable = (blob: Blob, kind: 'audio' | 'video') =>
+  new Promise<boolean>((resolve) => {
+    if (blob.size === 0) {
+      resolve(false);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const probe = document.createElement(kind) as HTMLMediaElement;
+    let settled = false;
+    const done = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      resolve(ok);
+    };
+    const timer = window.setTimeout(() => done(false), 4000);
+    probe.onloadedmetadata = () => done(true);
+    probe.onerror = () => done(false);
+    probe.preload = 'metadata';
+    probe.src = url;
+  });
+
 const formatTime = (value: string) =>
   formatMoscowDateTime(value, { hour: '2-digit', minute: '2-digit' });
 
@@ -229,40 +253,110 @@ const CircleBubble = memo(function CircleBubble({
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
+  /**
+   * Видео загружаем авторизованным запросом как Blob и играем через object URL:
+   * если файл не отдаётся сервером или не декодируется, показываем понятную
+   * ошибку со ссылкой «Скачать», а не «мертвый» кружок.
+   */
+  const [state, setState] = useState<{ url: string | null; error: string | null; muted: boolean }>({
+    url: null,
+    error: null,
+    muted: true,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ url: null, error: null, muted: true });
+    chatsApi.fileBlob(message.id)
+      .then((res) => {
+        if (!cancelled) setState({ url: URL.createObjectURL(res.data), error: null, muted: true });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ url: null, error: 'Кружок не удалось открыть', muted: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [message.id]);
+
+  // Отзываем object URL, когда чашка уходит с экрана.
+  useEffect(() => () => {
+    if (state.url) URL.revokeObjectURL(state.url);
+  }, [state.url]);
 
   const toggle = () => {
     const el = ref.current;
     if (!el) return;
-    if (el.paused) void el.play().catch(() => undefined);
-    else el.pause();
+    if (el.paused) {
+      el.muted = false;
+      el.play().catch(() => {
+        // Браузер запретил запуск со звуком — стартуем без звука, кнопка вкл. звук остаётся.
+        el.muted = true;
+        setState((s) => ({ ...s, muted: true }));
+        void el.play().catch(() => undefined);
+      });
+    } else {
+      el.pause();
+    }
   };
 
   // При воспроизведении кружок увеличивается примерно на треть.
   const idleSize = 'w-40 h-40 sm:w-48 sm:h-48';
   const playingSize = 'w-52 h-52 sm:w-64 sm:h-64';
 
+  if (state.error) {
+    return (
+      <div className={`${idleSize} rounded-full bg-dark-card border border-dark-border flex flex-col items-center justify-center gap-2 px-3 text-center relative`}>
+        <div className="absolute top-1.5 right-1.5">
+          <KebabMenu
+            ariaLabel="Действия с сообщением"
+            triggerClassName="text-dark-textMuted hover:text-dark-text hover:bg-dark-border"
+            menuClassName="top-full mt-1"
+            items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
+          />
+        </div>
+        <p className="text-[11px] text-red-400 leading-tight">{state.error}</p>
+        <button
+          type="button"
+          onClick={() => onDownload(message.id)}
+          className="text-[11px] text-primary-400 underline"
+        >
+          Скачать
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={playing ? 'relative z-10' : 'relative'}>
-      <video
-        ref={ref}
-        src={chatsApi.fileUrl(message.id)}
-        preload="metadata"
-        playsInline
-        onClick={toggle}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
-        className={`${playing ? playingSize : idleSize} rounded-full object-cover cursor-pointer bg-black/50 transition-[width,height] duration-200 ease-out`}
-        aria-label="Видеосообщение-кружок"
-      />
-      {!playing && (
-        <div
-          className={`absolute inset-0 flex items-center justify-center ${idleSize} rounded-full bg-black/25 text-white pointer-events-none`}
+      {state.url ? (
+        <video
+          ref={ref}
+          src={state.url}
+          preload="metadata"
+          playsInline
+          muted={state.muted}
+          onClick={toggle}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onEnded={() => setPlaying(false)}
+          className={`${playing ? playingSize : idleSize} rounded-full object-cover cursor-pointer bg-black/50 transition-[width,height] duration-200 ease-out`}
+          aria-label="Видеосообщение-кружок"
+        />
+      ) : (
+        <div className={`${idleSize} rounded-full bg-black/50 animate-pulse`} />
+      )}
+      {!playing && !state.error && (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="Воспроизвести кружок"
+          className={`absolute inset-0 flex items-center justify-center ${idleSize} rounded-full bg-black/25 text-white hover:bg-black/10 transition-colors`}
         >
           <svg viewBox="0 0 24 24" className="w-10 h-10 drop-shadow" fill="currentColor" aria-hidden="true">
             <path d="M8 5l11 7-11 7z" />
           </svg>
-        </div>
+        </button>
       )}
       {/* Мета-плашка поверх видео: длительность · время · галочки */}
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/60 text-white text-[11px] pointer-events-none">
@@ -959,6 +1053,12 @@ export function ChatConversation({
         return;
       }
       if (!chatId) return;
+      // Сломанный файл не уходит в чат — иначе он навсегда остаётся непросматриваемым.
+      const playable = await ensurePlayable(blob, kind === 'voice' ? 'audio' : 'video');
+      if (!playable) {
+        setError('Запись не удалась — попробуйте ещё раз');
+        return;
+      }
       enqueueTask(
         { upload: { blob, kind, fileName: recordingFileName(kind, blob.type) }, durationMs },
         kind === 'voice' ? '🎤 Голосовое сообщение' : '🎥 Кружок',

@@ -38,7 +38,8 @@ public record ChatListItemDto(
     ChatUserDto OtherUser,
     DateTime CreatedAt,
     ChatMessageDto? LastMessage,
-    int UnreadCount);
+    int UnreadCount,
+    bool IsPinned = false);
 
 /// <summary>Body of POST /api/chats/{id}/messages. The message kind comes
 /// from the referenced upload when present, otherwise it is Text.</summary>
@@ -83,6 +84,9 @@ public record ForwardChatMessageDto(Guid TargetChatId);
 
 /// <summary>Body of POST /api/chats/{id}/status; null clears the activity.</summary>
 public record SetChatActivityDto(string? Activity);
+
+/// <summary>Body of POST /api/chats/{id}/pin.</summary>
+public record SetChatPinnedDto(bool Pinned);
 
 /// <summary>Header status of the conversation partner: online, typing/recording or last seen.</summary>
 public record ChatPresenceDto(

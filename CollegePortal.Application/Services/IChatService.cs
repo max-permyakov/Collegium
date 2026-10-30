@@ -62,6 +62,15 @@ public interface IChatService
     /// <summary>Typing / recording indicator for the chat; null clears it. False when foreign.</summary>
     Task<bool> SetActivityAsync(Guid chatId, Guid userId, string? activity, CancellationToken ct = default);
 
+    /// <summary>Pins or unpins the chat at the top of caller's list; false when foreign.</summary>
+    Task<bool> SetPinnedAsync(Guid chatId, Guid userId, bool pinned, CancellationToken ct = default);
+
+    /// <summary>
+    /// Removes the caller's Direct chat from their list (hides it; a new message
+    /// from the partner makes it visible again). Service chats cannot be deleted.
+    /// </summary>
+    Task<ChatActionResult> DeleteChatAsync(Guid chatId, Guid userId, CancellationToken ct = default);
+
     /// <summary>Header status of the direct conversation partner; null when foreign.</summary>
     Task<ChatPresenceDto?> GetPresenceAsync(Guid chatId, Guid userId, CancellationToken ct = default);
 

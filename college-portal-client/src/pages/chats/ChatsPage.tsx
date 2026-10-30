@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
+import { KebabMenu } from '../../components/ui/KebabMenu';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { itemTime, messagePreview } from '../../utils/chatPreview';
 import type { ChatKind, ChatListItemDto, ChatUserDto } from '../../types/chats';
@@ -77,6 +78,40 @@ export function ChatsPage() {
       navigate(`/chats/${res.data.id}`);
     },
   });
+
+  const pinMutation = useMutation({
+    mutationFn: (payload: { id: string; pinned: boolean }) => chatsApi.pin(payload.id, payload.pinned),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chats'] }),
+    onError: (err) => {
+      const e = err as { response?: { data?: { message?: string } } };
+      // Список подтянется к серверу при следующем опросе даже при ошибке.
+      console.warn('Не удалось закрепить чат:', e.response?.data?.message ?? err);
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+    },
+  });
+
+  const deleteChatMutation = useMutation({
+    mutationFn: (id: string) => chatsApi.remove(id),
+    onSuccess: (_d, id) => {
+      queryClient.setQueryData<ChatListItemDto[]>(['chats'], (old) =>
+        old ? old.filter((c) => c.id !== id) : old,
+      );
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      if (chatId === id) navigate('/chats');
+    },
+    onError: (err) => {
+      const e = err as { response?: { data?: { message?: string } } };
+      console.warn('Не удалось удалить чат:', e.response?.data?.message ?? err);
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+    },
+  });
+
+  const handlePin = (chat: ChatListItemDto) => pinMutation.mutate({ id: chat.id, pinned: !chat.isPinned });
+  const handleDeleteChat = (chat: ChatListItemDto) => {
+    if (confirm(`Удалить чат с «${chat.otherUser.displayName}» из вашего списка?`)) {
+      deleteChatMutation.mutate(chat.id);
+    }
+  };
 
   const chats = useMemo(() => listQuery.data ?? [], [listQuery.data]);
   const savedChat = chats.find((c) => c.kind === 'Saved');
@@ -249,33 +284,51 @@ export function ChatsPage() {
           const unread = chat.unreadCount;
           const active = chat.id === chatId;
           return (
-            <Link
+            <div
               key={chat.id}
-              to={`/chats/${chat.id}`}
-              className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+              className={`flex items-center gap-1 p-3 pr-1 rounded-xl transition-colors ${
                 active ? 'bg-primary-500/15 border border-primary-500/30' : 'border border-transparent hover:bg-dark-border/60'
               }`}
             >
-              <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-dark-text' : 'font-medium text-dark-text'}`}>
-                    {chat.otherUser.displayName}
-                  </p>
-                  {last && <span className="text-xs text-dark-textMuted shrink-0">{itemTime(last.createdAt)}</span>}
+              <Link
+                to={`/chats/${chat.id}`}
+                className="flex items-center gap-3 flex-1 min-w-0"
+              >
+                <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-dark-text' : 'font-medium text-dark-text'}`}>
+                      {chat.otherUser.displayName}
+                    </p>
+                    {last && <span className="text-xs text-dark-textMuted shrink-0">{itemTime(last.createdAt)}</span>}
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-sm truncate ${unread > 0 ? 'text-dark-text font-medium' : 'text-dark-textMuted'}`}>
+                      {messagePreview(last, user?.id) || 'Нет сообщений'}
+                    </p>
+                    {unread > 0 && (
+                      <span className="flex-shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-primary-500 text-white text-[11px] font-semibold">
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <p className={`text-sm truncate ${unread > 0 ? 'text-dark-text font-medium' : 'text-dark-textMuted'}`}>
-                    {messagePreview(last, user?.id) || 'Нет сообщений'}
-                  </p>
-                  {unread > 0 && (
-                    <span className="flex-shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-primary-500 text-white text-[11px] font-semibold">
-                      {unread > 99 ? '99+' : unread}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Link>
+                {chat.isPinned && (
+                  <svg className="w-4 h-4 shrink-0 text-dark-textMuted mr-1" fill="currentColor" viewBox="0 0 24 24" aria-label="Закреплённый чат">
+                    <title>Закреплён</title>
+                    <path d="M16 3l5 5-2.5 1L15 12l-1 6-2-2-4.5 4.5L6 19l4.5-4.5-2-2 6-1L18 8z" />
+                  </svg>
+                )}
+              </Link>
+              <KebabMenu
+                ariaLabel="Действия с чатом"
+                menuClassName="top-full mt-1"
+                items={[
+                  { label: chat.isPinned ? 'Открепить' : 'Закрепить', onClick: () => handlePin(chat) },
+                  { label: 'Удалить чат', danger: true, onClick: () => handleDeleteChat(chat) },
+                ]}
+              />
+            </div>
           );
         })}
       </div>
