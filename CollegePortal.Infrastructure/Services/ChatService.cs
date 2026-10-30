@@ -814,9 +814,12 @@ public class ChatService : IChatService
         if (!await CanAccessChatAsync(message.ChatId, userId, isAdmin, ct))
             return null;
 
-        var contentType = string.IsNullOrWhiteSpace(message.ContentType)
+        // Прогоняем через SanitizeContentType и старые записи в базе: у сообщений,
+        // сохранённых до фикса, тип может содержать параметры MediaRecorder
+        // («video/webm;codecs=vp8,opus»), которые ASP.NET отказывается выдавать заголовком.
+        var contentType = SanitizeContentType(string.IsNullOrWhiteSpace(message.ContentType)
             ? MediaTypeNames.Application.Octet
-            : message.ContentType!;
+            : message.ContentType!);
         var fileName = string.IsNullOrWhiteSpace(message.FileName) ? "файл" : message.FileName!;
 
         // Only browser-safe families render inline; everything is forced to
@@ -1074,11 +1077,16 @@ public class ChatService : IChatService
     private static string SanitizeContentType(string? raw)
     {
         var type = (raw ?? string.Empty).Trim().ToLowerInvariant();
-        if (type.Length == 0)
+
+        // MediaRecorder сохраняет типы вида «video/webm;codecs=vp8,opus»: параметры
+        // с запятой нельзя выдать заголовком Content-Type (ASP.NET отвечает
+        // «The header contains invalid values»). Храним и отдаём только базовый
+        // тип («video/webm») — для проигрывателя этого достаточно.
+        var baseType = type.Split(';', 2)[0].Trim();
+        if (baseType.Length == 0 || baseType.Length > 120 || !baseType.Contains('/'))
             return MediaTypeNames.Application.Octet;
-        if (type.Length > 120)
-            return MediaTypeNames.Application.Octet;
-        return type;
+
+        return baseType;
     }
 
     private static string BuildPreview(ChatMessageKind kind, string? text, string? fileName)
