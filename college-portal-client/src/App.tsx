@@ -28,6 +28,7 @@ const loadClubsPage = () => import('./pages/clubs/ClubsPage').then(m => ({ defau
 const loadClubDetailPage = () => import('./pages/clubs/ClubDetailPage').then(m => ({ default: m.ClubDetailPage }));
 const loadChatsPage = () => import('./pages/chats/ChatsPage').then(m => ({ default: m.ChatsPage }));
 const loadChatDetailPage = () => import('./pages/chats/ChatDetailPage').then(m => ({ default: m.ChatDetailPage }));
+const loadSharePage = () => import('./pages/chats/SharePage').then(m => ({ default: m.SharePage }));
 const loadCollegeInfoPage = () => import('./pages/college/CollegeInfoPage').then(m => ({ default: m.CollegeInfoPage }));
 const loadCollegeMapPage = () => import('./pages/college/CollegeMapPage').then(m => ({ default: m.CollegeMapPage }));
 const loadGamesPage = () => import('./pages/games/GamesPage').then(m => ({ default: m.GamesPage }));
@@ -49,6 +50,7 @@ const ClubsPage = lazy(loadClubsPage);
 const ClubDetailPage = lazy(loadClubDetailPage);
 const ChatsPage = lazy(loadChatsPage);
 const ChatDetailPage = lazy(loadChatDetailPage);
+const SharePage = lazy(loadSharePage);
 const CollegeInfoPage = lazy(loadCollegeInfoPage);
 const CollegeMapPage = lazy(loadCollegeMapPage);
 const GamesPage = lazy(loadGamesPage);
@@ -212,6 +214,8 @@ function AppRoutes() {
         <Route path="chats" element={<ChatsPage />}>
           <Route path=":chatId" element={<ChatDetailPage />} />
         </Route>
+        {/* Android «Поделиться → KKEP.ka» (manifest share_target) приёмник */}
+        <Route path="share" element={<SharePage />} />
         <Route path="games" element={<GamesPage />} />
         <Route path="games/escape" element={<EscapeGamePage />} />
         <Route path="college-info" element={<CollegeInfoPage />} />

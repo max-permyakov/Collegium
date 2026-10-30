@@ -23,6 +23,17 @@ export default defineConfig({
         display: 'standalone',
         background_color: '#0f172a',
         theme_color: '#0f172a',
+        // Приём Android-«поделиться → KKEP.ka»: текст/ссылки приходят на /share.
+        share_target: {
+          action: '/share',
+          method: 'GET',
+          enctype: 'application/x-www-form-urlencoded',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url',
+          },
+        },
         icons: [
           {
             src: 'pwa-192x192.png',

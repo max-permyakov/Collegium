@@ -53,6 +53,18 @@ public interface IChatService
     /// <summary>Deletes the caller's own message for both sides (file included); idempotent.</summary>
     Task<ChatActionResult> DeleteMessageAsync(long messageId, Guid userId, CancellationToken ct = default);
 
+    /// <summary>Edits the text of the sender's own plain-text message; stamps EditedAt.</summary>
+    Task<ChatMessageResult> EditMessageAsync(long messageId, Guid userId, UpdateChatMessageDto dto, CancellationToken ct = default);
+
+    /// <summary>Copies a message (text and attachment blob included) into another chat of the user.</summary>
+    Task<ChatMessageResult> ForwardMessageAsync(long messageId, Guid userId, Guid targetChatId, bool isAdmin = false, CancellationToken ct = default);
+
+    /// <summary>Typing / recording indicator for the chat; null clears it. False when foreign.</summary>
+    Task<bool> SetActivityAsync(Guid chatId, Guid userId, string? activity, CancellationToken ct = default);
+
+    /// <summary>Header status of the direct conversation partner; null when foreign.</summary>
+    Task<ChatPresenceDto?> GetPresenceAsync(Guid chatId, Guid userId, CancellationToken ct = default);
+
     /// <summary>Total number of unread messages across all the user's chats.</summary>
     Task<int> UnreadTotalAsync(Guid userId, CancellationToken ct = default);
 

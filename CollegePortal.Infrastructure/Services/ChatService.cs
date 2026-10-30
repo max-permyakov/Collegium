@@ -418,6 +418,177 @@ public class ChatService : IChatService
         return ChatActionResult.Ok();
     }
 
+    public async Task<ChatMessageResult> EditMessageAsync(long messageId, Guid userId, UpdateChatMessageDto dto, CancellationToken ct = default)
+    {
+        var message = await _dbContext.ChatMessages
+            .Include(m => m.Sender).ThenInclude(u => u.StudentProfile)
+            .FirstOrDefaultAsync(m => m.Id == messageId, ct);
+
+        if (message == null)
+            return new ChatMessageResult(null, "Сообщение не найдено");
+
+        if (message.SenderId != userId)
+            return new ChatMessageResult(null, "Редактировать можно только свои сообщения");
+
+        if (message.Kind != ChatMessageKind.Text || message.StorageKey != null)
+            return new ChatMessageResult(null, "Этот тип сообщения редактировать нельзя");
+
+        var text = TextSanitizer.CleanChat(dto.Text ?? string.Empty, MaxTextLength);
+        if (string.IsNullOrWhiteSpace(text))
+            return new ChatMessageResult(null, "Сообщение пустое");
+
+        message.Text = text;
+        message.EditedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(ct);
+
+        return new ChatMessageResult(ToDto(message));
+    }
+
+    public async Task<ChatMessageResult> ForwardMessageAsync(long messageId, Guid userId, Guid targetChatId, bool isAdmin = false, CancellationToken ct = default)
+    {
+        var message = await _dbContext.ChatMessages.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == messageId && m.DeletedAt == null, ct);
+        if (message == null)
+            return new ChatMessageResult(null, "Сообщение не найдено");
+
+        if (!await CanAccessChatAsync(message.ChatId, userId, isAdmin, ct))
+            return new ChatMessageResult(null, "Сообщение не найдено");
+
+        var sourceChat = await _dbContext.Chats.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == message.ChatId, ct);
+        if (sourceChat == null)
+            return new ChatMessageResult(null, "Сообщение не найдено");
+
+        var targetChat = await _dbContext.Chats
+            .FirstOrDefaultAsync(c => c.Id == targetChatId, ct);
+        if (targetChat == null)
+            return new ChatMessageResult(null, "Чат не найден");
+
+        var isParticipant = targetChat.User1Id == userId || targetChat.User2Id == userId;
+        var isSupportAdmin = isAdmin && targetChat.Kind == ChatKind.Support;
+        if (!isParticipant && !isSupportAdmin)
+            return new ChatMessageResult(null, "Чат не найден");
+
+        // Each message owns its binary: the forwarder gets a private copy so
+        // that hard-deleting one of the two messages cannot break the other.
+        string? storageKey = null;
+        if (!string.IsNullOrWhiteSpace(message.StorageKey))
+        {
+            try
+            {
+                await using var stream = File.OpenRead(_fileStore.GetPath(message.StorageKey));
+                storageKey = (await _fileStore.SaveAsync(stream, ct)).StorageKey;
+            }
+            catch (FileNotFoundException)
+            {
+                storageKey = null;
+            }
+        }
+
+        var isMedia = message.Kind is ChatMessageKind.Voice or ChatMessageKind.VideoCircle;
+        var text = message.Text is null ? null : TextSanitizer.CleanChat(message.Text, MaxTextLength);
+        var forwarderName = await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => u.DisplayName)
+            .FirstOrDefaultAsync(ct) ?? "Пользователь";
+
+        var copy = new ChatMessage
+        {
+            ChatId = targetChatId,
+            SenderId = userId,
+            Kind = message.Kind,
+            Text = text,
+            FileName = message.FileName,
+            ContentType = message.ContentType,
+            SizeBytes = message.SizeBytes,
+            StorageKey = storageKey,
+            DurationMs = isMedia ? message.DurationMs : null,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.ChatMessages.Add(copy);
+        targetChat.LastMessageAt = copy.CreatedAt;
+        await _dbContext.SaveChangesAsync(ct);
+
+        // Same fan-out rules as a fresh message; the recipient's open chat
+        // receives the copy through polling instead of a notification.
+        Guid? recipientId = null;
+        if (targetChat.Kind == ChatKind.Direct)
+            recipientId = targetChat.Other(userId);
+        else if (targetChat.Kind == ChatKind.Support && targetChat.User1Id != userId)
+            recipientId = targetChat.User1Id;
+
+        if (recipientId is Guid recipient)
+        {
+            if (_presence.IsViewing(recipient, targetChatId))
+            {
+                _logger.LogDebug(
+                    "Skipping forwarded-message notification for message {MessageId}: recipient {RecipientId} is viewing chat {ChatId}",
+                    copy.Id,
+                    recipient,
+                    targetChatId);
+            }
+            else
+            {
+                try
+                {
+                    await _notifications.NotifyUsersAsync(
+                        [recipient],
+                        new NotificationMessage(
+                            NotificationType.ChatMessage,
+                            forwarderName,
+                            BuildPreview(message.Kind, message.Text, message.FileName),
+                            $"/chats/{targetChatId}"),
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to notify chat partner about forwarded message {MessageId} into chat {ChatId}",
+                        copy.Id,
+                        targetChatId);
+                }
+            }
+        }
+
+        var forwarder = await _dbContext.Users
+            .AsNoTracking()
+            .Include(u => u.StudentProfile)
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+        return new ChatMessageResult(ToDtoWithSender(copy, forwarderName, forwarder?.StudentProfile?.AvatarDataUrl));
+    }
+
+    public async Task<bool> SetActivityAsync(Guid chatId, Guid userId, string? activity, CancellationToken ct = default)
+    {
+        if (activity is not (null or "typing" or "recordingVoice" or "recordingCircle"))
+            return false;
+
+        if (!await CanAccessChatAsync(chatId, userId, isAdmin: false, ct))
+            return false;
+
+        _presence.SetActivity(userId, chatId, activity);
+        return true;
+    }
+
+    public async Task<ChatPresenceDto?> GetPresenceAsync(Guid chatId, Guid userId, CancellationToken ct = default)
+    {
+        var chat = await _dbContext.Chats.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == chatId && (c.User1Id == userId || c.User2Id == userId), ct);
+        if (chat == null)
+            return null;
+
+        var otherId = chat.Other(userId) ?? userId;
+        var lastSeen = _presence.GetLastSeen(otherId);
+        var isOnline = lastSeen != null && DateTime.UtcNow - lastSeen <= ChatPresenceTracker.OnlineWindow;
+
+        // TouchLastSeen runs on the sender's own heartbeats, including this
+        // chat's heartbeat loop, so the requester never sees themselves cold.
+        return new ChatPresenceDto(isOnline, _presence.GetActivity(otherId, chatId), lastSeen);
+    }
+
     public Task<int> UnreadTotalAsync(Guid userId, CancellationToken ct = default) =>
         _dbContext.ChatMessages.AsNoTracking()
             .Where(m =>
@@ -474,7 +645,8 @@ public class ChatService : IChatService
                 m.DurationMs,
                 m.CreatedAt,
                 m.ReadAt,
-                m.DeletedAt
+                m.DeletedAt,
+                m.EditedAt
             })
             .ToDictionaryAsync(m => m.ChatId, ct);
 
@@ -508,7 +680,8 @@ public class ChatService : IChatService
                     last.DurationMs,
                     last.CreatedAt,
                     last.ReadAt,
-                    last.DeletedAt);
+                    last.DeletedAt,
+                    last.EditedAt);
 
                 return new ChatListItemDto(
                     chat.Id,
@@ -755,7 +928,8 @@ public class ChatService : IChatService
                 m.DurationMs,
                 m.CreatedAt,
                 m.ReadAt,
-                m.DeletedAt
+                m.DeletedAt,
+                m.EditedAt
             })
             .ToDictionaryAsync(m => m.ChatId, ct);
 
@@ -793,7 +967,8 @@ public class ChatService : IChatService
                 last.DurationMs,
                 last.CreatedAt,
                 last.ReadAt,
-                last.DeletedAt);
+                last.DeletedAt,
+                last.EditedAt);
 
             items.Add(new ChatListItemDto(
                 chat.Id,
@@ -903,5 +1078,6 @@ public class ChatService : IChatService
             m.DurationMs,
             m.CreatedAt,
             m.ReadAt,
-            m.DeletedAt);
+            m.DeletedAt,
+            m.EditedAt);
 }

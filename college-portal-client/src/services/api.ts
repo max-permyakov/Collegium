@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -308,6 +308,15 @@ export const chatsApi = {
   markRead: (id: string) => api.post<{ updated: boolean }>(`/chats/${id}/read`),
   /** Heartbeat while a conversation is open: suppresses its notifications. */
   presence: (id: string) => api.post<{ watching: boolean }>(`/chats/${id}/presence`),
+  /** Header status of the conversation partner (online / typing / recording / last seen). */
+  getPresence: (id: string) => api.get<ChatPresenceDto>(`/chats/${id}/presence`),
+  /** Typing / recording indicator; call with null to clear. */
+  setStatus: (id: string, activity: 'typing' | 'recordingVoice' | 'recordingCircle' | null) =>
+    api.post<{ active: boolean }>(`/chats/${id}/status`, { activity }),
+  editMessage: (messageId: number, text: string) =>
+    api.patch<ChatMessageDto>(`/chats/messages/${messageId}`, { text }),
+  forwardMessage: (messageId: number, targetChatId: string) =>
+    api.post<ChatMessageDto>(`/chats/messages/${messageId}/forward`, { targetChatId }),
   deleteMessage: (messageId: number) =>
     api.delete(`/chats/messages/${messageId}`),
   unreadTotal: () => api.get<{ count: number }>('/chats/unread-total'),

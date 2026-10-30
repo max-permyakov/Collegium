@@ -34,6 +34,9 @@ public class ChatMessage
     /// <summary>Read receipt set by the recipient.</summary>
     public DateTime? ReadAt { get; set; }
 
+    /// <summary>Set when the sender edited the text of a message.</summary>
+    public DateTime? EditedAt { get; set; }
+
     /// <summary>Legacy soft-delete tombstone flag; chat deletions are hard now and leave nothing behind.</summary>
     public DateTime? DeletedAt { get; set; }
 

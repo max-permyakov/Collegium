@@ -27,6 +27,7 @@ export interface ChatMessageDto {
   durationMs?: number | null;
   createdAt: string;
   readAt?: string | null;
+  editedAt?: string | null;
 }
 
 export interface ChatDto {
@@ -52,4 +53,11 @@ export interface ChatUploadDto {
 export interface ChatSearchResultDto {
   chats: ChatListItemDto[];
   users: ChatUserDto[];
+}
+
+/** Header status of the direct conversation partner. */
+export interface ChatPresenceDto {
+  isOnline: boolean;
+  activity?: 'typing' | 'recordingVoice' | 'recordingCircle' | null;
+  lastSeenAt?: string | null;
 }

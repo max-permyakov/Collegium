@@ -5,7 +5,7 @@ import { chatsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
-import { KebabMenu } from '../../components/ui/KebabMenu';
+import { KebabMenu, type KebabMenuItem } from '../../components/ui/KebabMenu';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { formatDuration, formatFileSize } from '../../utils/file';
@@ -17,7 +17,7 @@ import {
   type RecordingKind,
   type RecordingSession,
 } from './recording';
-import type { ChatDto, ChatMessageDto } from '../../types/chats';
+import type { ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto } from '../../types/chats';
 
 const PAGE_SIZE = 30;
 const POLL_MS = 2500;
@@ -47,16 +47,30 @@ const formatTime = (value: string) =>
 const formatFullDate = (value: string) =>
   formatMoscowDateTime(value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
+/** «Была в 14:05» для сегодняшнего дня, «была 28.10 14:05» для предыдущих. */
+const formatLastSeen = (value: string) => {
+  const d = new Date(value);
+  const text = new Date().toDateString() === d.toDateString()
+    ? `в ${formatMoscowDateTime(value, { hour: '2-digit', minute: '2-digit' })}`
+    : formatMoscowDateTime(value, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return text;
+};
+
 const isImageContent = (message: ChatMessageDto) => (message.contentType ?? '').startsWith('image/');
 
 const mine = (message: ChatMessageDto, userId?: string): boolean => message.senderId === userId;
 
-const DoubleCheckIcon = ({ read }: { read: boolean }) => (
-  <svg viewBox="0 0 24 24" className={`w-4 h-3.5 ${read ? 'text-sky-300' : 'text-white/60'}`} fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M17 7l-8.5 9L5 12.5" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7l-8.5 9-1.6-1.7" />
-  </svg>
-);
+const TickIcon = ({ read }: { read: boolean }) =>
+  read ? (
+    <svg viewBox="0 0 24 24" className="w-4 h-3.5 text-sky-300" fill="none" stroke="currentColor" strokeWidth={2.5} aria-label="Прочитано" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 7l-8.5 9L5 12.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 7l-8.5 9-1.6-1.7" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" className="w-4 h-3.5 text-white/60" fill="none" stroke="currentColor" strokeWidth={2.5} aria-label="Отправлено" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 7l-8.5 9L5 12.5" />
+    </svg>
+  );
 
 const MicIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -196,7 +210,23 @@ const VoiceBubble = memo(function VoiceBubble({
   );
 });
 
-const CircleBubble = memo(function CircleBubble({ message }: { message: ChatMessageDto }) {
+const CircleBubble = memo(function CircleBubble({
+  message,
+  own,
+  showReceipts,
+  onDownload,
+  onForward,
+  onShare,
+  onDelete,
+}: {
+  message: ChatMessageDto;
+  own: boolean;
+  showReceipts: boolean;
+  onDownload: (messageId: number) => void;
+  onForward: (message: ChatMessageDto) => void;
+  onShare: (message: ChatMessageDto) => void;
+  onDelete: (messageId: number) => void;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -207,8 +237,12 @@ const CircleBubble = memo(function CircleBubble({ message }: { message: ChatMess
     else el.pause();
   };
 
+  // При воспроизведении кружок увеличивается примерно на треть.
+  const idleSize = 'w-40 h-40 sm:w-48 sm:h-48';
+  const playingSize = 'w-52 h-52 sm:w-64 sm:h-64';
+
   return (
-    <div className="relative">
+    <div className={playing ? 'relative z-10' : 'relative'}>
       <video
         ref={ref}
         src={chatsApi.fileUrl(message.id)}
@@ -218,29 +252,67 @@ const CircleBubble = memo(function CircleBubble({ message }: { message: ChatMess
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
-        className="w-40 h-40 sm:w-48 sm:h-48 rounded-full object-cover cursor-pointer bg-black/50"
+        className={`${playing ? playingSize : idleSize} rounded-full object-cover cursor-pointer bg-black/50 transition-[width,height] duration-200 ease-out`}
         aria-label="Видеосообщение-кружок"
       />
       {!playing && (
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label="Воспроизвести кружок"
-          className="absolute inset-0 flex items-center justify-center w-40 h-40 sm:w-48 sm:h-48 rounded-full bg-black/25 text-white hover:bg-black/10 transition-colors"
+        <div
+          className={`absolute inset-0 flex items-center justify-center ${idleSize} rounded-full bg-black/25 text-white pointer-events-none`}
         >
           <svg viewBox="0 0 24 24" className="w-10 h-10 drop-shadow" fill="currentColor" aria-hidden="true">
             <path d="M8 5l11 7-11 7z" />
           </svg>
-        </button>
+        </div>
       )}
-      {message.durationMs ? (
-        <span className="absolute bottom-3 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/50 text-white text-[11px] pointer-events-none">
-          {formatDuration(message.durationMs)}
-        </span>
-      ) : null}
+      {/* Мета-плашка поверх видео: длительность · время · галочки */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/60 text-white text-[11px] pointer-events-none">
+        {message.durationMs ? <span>{formatDuration(message.durationMs)}</span> : null}
+        <span>{formatTime(message.createdAt)}</span>
+        {own && showReceipts && <TickIcon read={Boolean(message.readAt)} />}
+      </div>
+      <div className="absolute top-2 right-2">
+        <KebabMenu
+          ariaLabel="Действия с сообщением"
+          triggerClassName="text-white/90 hover:text-white hover:bg-white/20 bg-black/30"
+          menuClassName="top-full mt-1"
+          items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
+        />
+      </div>
     </div>
   );
 });
+
+interface MessageActionHandlers {
+  onDelete: (messageId: number) => void;
+  onForward: (message: ChatMessageDto) => void;
+  onShare: (message: ChatMessageDto) => void;
+  onDownload: (messageId: number) => void;
+  onStartEdit?: (message: ChatMessageDto) => void;
+}
+
+/** Список «⋮»-действий для сообщения: зависит от автора и типа контента. */
+const buildMenuItems = (message: ChatMessageDto, own: boolean, h: MessageActionHandlers): KebabMenuItem[] => {
+  const download = { label: 'Скачать', onClick: () => h.onDownload(message.id) };
+  const forward = { label: 'Переслать', onClick: () => h.onForward(message) };
+  const share = { label: 'Поделиться', onClick: () => h.onShare(message) };
+
+  if (!own) {
+    const items = [forward, share];
+    if (message.kind !== 'Text') items.push(download);
+    return items;
+  }
+
+  const items: KebabMenuItem[] = [];
+  if (message.kind === 'Text') items.push({ label: 'Изменить', onClick: () => h.onStartEdit?.(message) });
+  items.push(forward, share);
+  if (message.kind !== 'Text') items.push(download);
+  items.push({
+    label: 'Удалить',
+    danger: true,
+    onClick: () => { if (confirm('Удалить сообщение?')) h.onDelete(message.id); },
+  });
+  return items;
+};
 
 interface MessageBubbleProps {
   message: ChatMessageDto;
@@ -249,6 +321,10 @@ interface MessageBubbleProps {
   showReceipts: boolean;
   onImageClick: (src: string) => void;
   onDelete: (messageId: number) => void;
+  onForward: (message: ChatMessageDto) => void;
+  onShare: (message: ChatMessageDto) => void;
+  onDownload: (messageId: number) => void;
+  onStartEdit?: (message: ChatMessageDto) => void;
 }
 
 const MessageBubble = memo(function MessageBubble({
@@ -257,9 +333,42 @@ const MessageBubble = memo(function MessageBubble({
   showReceipts,
   onImageClick,
   onDelete,
+  onForward,
+  onShare,
+  onDownload,
+  onStartEdit,
 }: MessageBubbleProps) {
+  // Кружки живут вне «облачка»: это просто видео в круге с мета-плашкой.
+  if (message.kind === 'VideoCircle') {
+    return (
+      <div className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
+        <CircleBubble
+          message={message}
+          own={own}
+          showReceipts={showReceipts}
+          onDownload={onDownload}
+          onForward={onForward}
+          onShare={onShare}
+          onDelete={onDelete}
+        />
+      </div>
+    );
+  }
+
+  const kebabTrigger = own
+    ? 'text-white/70 hover:text-white hover:bg-white/15'
+    : 'text-dark-textMuted/70 hover:text-dark-text hover:bg-dark-border/60';
+
   return (
-    <div className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex items-start ${own ? 'justify-end' : 'justify-start'}`}>
+      {!own && (
+        <KebabMenu
+          ariaLabel="Действия с сообщением"
+          triggerClassName={`opacity-30 hover:opacity-100 ${kebabTrigger}`}
+          menuClassName="bottom-full mb-1"
+          items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
+        />
+      )}
       <div
         title={formatFullDate(message.createdAt)}
         className={`relative max-w-[85%] sm:max-w-md rounded-2xl py-2 space-y-1 ${
@@ -269,7 +378,6 @@ const MessageBubble = memo(function MessageBubble({
         }`}
       >
         {message.kind === 'Voice' && <VoiceBubble message={message} mine={own} />}
-        {message.kind === 'VideoCircle' && <CircleBubble message={message} />}
         {message.kind === 'File' && (
           isImageContent(message) ? (
             <img
@@ -293,7 +401,8 @@ const MessageBubble = memo(function MessageBubble({
           <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p>
         )}
         <div className={`flex items-center justify-end gap-1 text-[11px] ${own ? 'text-white/70' : 'text-dark-textMuted'}`}>
-          {own && showReceipts && <DoubleCheckIcon read={Boolean(message.readAt)} />}
+          {message.editedAt && <span title={formatFullDate(message.editedAt)}>изменено</span>}
+          {own && showReceipts && <TickIcon read={Boolean(message.readAt)} />}
           <span>{formatTime(message.createdAt)}</span>
         </div>
         {own && (
@@ -302,7 +411,7 @@ const MessageBubble = memo(function MessageBubble({
               ariaLabel="Действия с сообщением"
               triggerClassName="text-white/70 hover:text-white hover:bg-white/15"
               menuClassName="bottom-full mb-1"
-              items={[{ label: 'Удалить', danger: true, onClick: () => { if (confirm('Удалить сообщение?')) onDelete(message.id); } }]}
+              items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onStartEdit })}
             />
           </div>
         )}
@@ -383,6 +492,18 @@ export function ChatConversation({
   /** Выбранный режим записи: клик по кнопке переключает микрофон ↔ камера. */
   const [recordMode, setRecordMode] = useState<RecordingKind>('voice');
   const [cancelArmed, setCancelArmed] = useState(false);
+  /** Сообщение, текст которого сейчас редактируется в композере. */
+  const [editing, setEditing] = useState<ChatMessageDto | null>(null);
+  /** Сообщение, для которого открыты варианты «Переслать». */
+  const [forwardSource, setForwardSource] = useState<ChatMessageDto | null>(null);
+  /** Короткая зелёная плашка «Переслано / Скопировано». */
+  const [flashMessage, setFlashMessage] = useState('');
+  /** Показано приглашение drag & drop. */
+  const [dragOverFiles, setDragOverFiles] = useState(false);
+  const dragDepthRef = useRef(0);
+  const flashTimerRef = useRef<number | null>(null);
+  const lastTypingSentRef = useRef(0);
+  const typingClearTimerRef = useRef<number | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const composerTextRef = useRef<HTMLTextAreaElement>(null);
@@ -412,6 +533,30 @@ export function ChatConversation({
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
   });
+
+  /** Статус собеседника (в сети / печатает / записывает) показываем только в прямых чатах. */
+  const showPartnerStatus = chat?.kind === 'Direct' && !adminView;
+  const { data: partnerPresence } = useQuery<ChatPresenceDto>({
+    queryKey: ['chat-presence', chatId],
+    queryFn: async () => (await chatsApi.getPresence(chatId!)).data,
+    enabled: showPartnerStatus && Boolean(chatId),
+    refetchInterval: 4_000,
+    retry: false,
+  });
+
+  const partnerStatusText = showPartnerStatus && partnerPresence
+    ? partnerPresence.activity === 'typing'
+      ? 'печатает…'
+      : partnerPresence.activity === 'recordingVoice'
+        ? 'записывает голос…'
+        : partnerPresence.activity === 'recordingCircle'
+          ? 'записывает видео…'
+          : partnerPresence.isOnline
+            ? 'в сети'
+            : partnerPresence.lastSeenAt
+              ? `был(а) ${formatLastSeen(partnerPresence.lastSeenAt)}`
+              : 'не в сети'
+    : null;
 
   const { data: messages } = useQuery<ChatMessageDto[]>({
     queryKey: ['chat-messages', chatId],
@@ -472,6 +617,8 @@ export function ChatConversation({
     setError('');
     setMessageText('');
     setPendingSends([]);
+    setEditing(null);
+    setForwardSource(null);
     reachedStartRef.current = false;
     readRequestedRef.current = false;
     lastFullSyncRef.current = 0;
@@ -554,6 +701,95 @@ export function ChatConversation({
 
   const handleDeleteMessage = useCallback((messageId: number) => deleteMessageMutation.mutate(messageId), [deleteMessageMutation]);
   const handleImageClick = useCallback((src: string) => setPreviewImage(src), []);
+
+  const showFlash = useCallback((text: string) => {
+    setFlashMessage(text);
+    if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlashMessage(''), 2500);
+  }, []);
+
+  useEffect(() => () => {
+    if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+  }, []);
+
+  /** «Поделиться» наружу: Web Share API, иначе буфер обмена. */
+  const handleShareMessage = useCallback(async (message: ChatMessageDto) => {
+    const isText = message.kind === 'Text';
+    if (isText && !message.text) return;
+    const payload: ShareData = isText
+      ? { title: 'KKEP.ka', text: message.text! }
+      : { title: 'KKEP.ka', text: message.fileName ?? 'Вложение', url: new URL(chatsApi.fileUrl(message.id, true), window.location.origin).href };
+    try {
+      if (navigator.share) {
+        await navigator.share(payload);
+        return;
+      }
+    } catch (err) {
+      // Пользователь закрыл системную панель — это не ошибка.
+      if ((err as Error).name === 'AbortError') return;
+    }
+    try {
+      await navigator.clipboard.writeText(isText ? message.text! : payload.url!);
+      showFlash(isText ? 'Текст скопирован' : 'Ссылка скопирована');
+    } catch {
+      setError('Не удалось поделиться сообщением');
+    }
+  }, [showFlash]);
+
+  const editMessageMutation = useMutation({
+    mutationFn: (payload: { messageId: number; text: string }) => chatsApi.editMessage(payload.messageId, payload.text),
+    onSuccess: (data) => {
+      const edited = data.data;
+      queryClient.setQueryData<ChatMessageDto[]>(['chat-messages', chatId], (old) =>
+        old ? old.map((m) => (m.id === edited.id ? edited : m)) : old,
+      );
+      invalidateLists();
+      setEditing(null);
+      setMessageText('');
+      if (composerTextRef.current) composerTextRef.current.style.height = 'auto';
+    },
+    onError: (err) => setError(isCanceled(err) ? '' : getError(err)),
+  });
+
+  const handleStartEdit = useCallback((message: ChatMessageDto) => {
+    if (document.visibilityState !== 'visible') return;
+    setEditing(message);
+    setMessageText(message.text ?? '');
+    composerTextRef.current?.focus();
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    setEditing(null);
+    setMessageText('');
+    if (composerTextRef.current) composerTextRef.current.style.height = 'auto';
+  }, []);
+
+  const forwardMutation = useMutation({
+    mutationFn: (payload: { messageId: number; targetChatId: string }) =>
+      chatsApi.forwardMessage(payload.messageId, payload.targetChatId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['chat-messages', vars.targetChatId] });
+      invalidateLists();
+      setForwardSource(null);
+      showFlash('Сообщение переслано');
+    },
+    onError: (err) => setError(isCanceled(err) ? '' : getError(err)),
+  });
+
+  const handleForwardMessage = useCallback((message: ChatMessageDto) => setForwardSource(message), []);
+  const handleDownloadMessage = useCallback((messageId: number) => {
+    window.location.assign(chatsApi.fileUrl(messageId, true));
+  }, []);
+
+  // Список чатов для выбора адресата пересылки (используем общий кеш списка).
+  const { data: forwardChats } = useQuery<ChatListItemDto[]>({
+    queryKey: ['chats'],
+    queryFn: async () => (await chatsApi.list()).data,
+    enabled: Boolean(forwardSource),
+    refetchOnMount: false,
+  });
+  const forwardTargets = (forwardChats ?? [])
+    .filter((c) => c.id !== chatId && (c.kind === 'Direct' || c.kind === 'Saved'));
 
   // ---------- Очередь отправки ----------
   function runQueue() {
@@ -645,6 +881,16 @@ export function ChatConversation({
       return;
     }
     enqueueTask({ upload: { blob: file, kind: 'file', fileName: file.name } }, `📎 ${file.name}`);
+  };
+
+  const saveEdit = () => {
+    if (!editing) return;
+    const text = messageText.trim();
+    if (!text) {
+      setError('Сообщение не может быть пустым');
+      return;
+    }
+    editMessageMutation.mutate({ messageId: editing.id, text });
   };
 
   // ---------- Запись голосовых / кружков ----------
@@ -796,6 +1042,40 @@ export function ChatConversation({
     return () => window.removeEventListener('keydown', onKey);
   }, [recording]);
 
+  // Индикатор «печатает…» для собеседника: слать не чаще 2 с, гасить через 3 с.
+  const notifyTyping = useCallback(() => {
+    if (!chatId || editing) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current >= 2000) {
+      lastTypingSentRef.current = now;
+      void chatsApi.setStatus(chatId, 'typing').catch(() => undefined);
+    }
+    if (typingClearTimerRef.current !== null) window.clearTimeout(typingClearTimerRef.current);
+    typingClearTimerRef.current = window.setTimeout(() => {
+      lastTypingSentRef.current = 0;
+      typingClearTimerRef.current = null;
+      void chatsApi.setStatus(chatId, null).catch(() => undefined);
+    }, 3000);
+  }, [chatId, editing]);
+
+  useEffect(() => () => {
+    if (typingClearTimerRef.current !== null) window.clearTimeout(typingClearTimerRef.current);
+  }, []);
+
+  // Индикатор «записывает голос / видео» для собеседника пока идёт запись.
+  useEffect(() => {
+    if (!chatId || !recording) return;
+    const activity = recording.kind === 'voice' ? 'recordingVoice' : 'recordingCircle';
+    void chatsApi.setStatus(chatId, activity).catch(() => undefined);
+    const timer = window.setInterval(() => {
+      void chatsApi.setStatus(chatId, activity).catch(() => undefined);
+    }, 3000);
+    return () => {
+      window.clearInterval(timer);
+      void chatsApi.setStatus(chatId, null).catch(() => undefined);
+    };
+  }, [chatId, recording]);
+
   // ---------- Скролл ----------
   const loadOlder = async () => {
     if (olderLoadingRef.current || !chatId) return;
@@ -888,7 +1168,38 @@ export function ChatConversation({
         : 'Сообщений пока нет. Напишите первым!';
 
   return (
-    <div className={`flex flex-col h-full min-w-0 min-h-0 overflow-hidden p-0 lg:p-3 xl:p-4 ${className ?? ''}`}>
+    <div
+      className={`flex flex-col h-full min-w-0 min-h-0 overflow-hidden p-0 lg:p-3 xl:p-4 relative ${className ?? ''}`}
+      onDragEnter={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        dragDepthRef.current += 1;
+        setDragOverFiles(true);
+      }}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+      }}
+      onDragLeave={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (dragDepthRef.current === 0) setDragOverFiles(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        dragDepthRef.current = 0;
+        setDragOverFiles(false);
+        for (const file of Array.from(e.dataTransfer.files)) sendFile(file);
+      }}
+    >
+      {dragOverFiles && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-primary-500/25 backdrop-blur-sm pointer-events-none">
+          <div className="px-5 py-3.5 rounded-2xl bg-dark-card border-2 border-dashed border-primary-500 text-primary-400 font-medium shadow-xl">
+            Отпустите, чтобы отправить файл
+          </div>
+        </div>
+      )}
       {/* Шапка: имя + фото собеседника (или иконка служебного чата) */}
       <div className="flex items-center gap-3 border-b border-dark-border px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-0 lg:pt-0">
         <Button
@@ -931,7 +1242,7 @@ export function ChatConversation({
             <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
-              <p className="text-xs text-dark-textMuted truncate hidden sm:block">Перейти в профиль</p>
+              <p className="text-xs text-dark-textMuted truncate">{partnerStatusText ?? 'Перейти в профиль'}</p>
             </div>
           </Link>
         )}
@@ -965,6 +1276,10 @@ export function ChatConversation({
             showReceipts={!isSpecial}
             onImageClick={handleImageClick}
             onDelete={handleDeleteMessage}
+            onForward={handleForwardMessage}
+            onShare={handleShareMessage}
+            onDownload={handleDownloadMessage}
+            onStartEdit={handleStartEdit}
           />
         ))}
         {pendingSends.map((p) => (
@@ -1026,15 +1341,34 @@ export function ChatConversation({
 
       {/* Композер: поле ввода, справа — прикрепить и записать */}
       <div className="mt-3 border-t border-dark-border px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:px-0 lg:pb-0">
+        {editing && (
+          <div className="mb-2 flex items-center gap-2 p-2 rounded-xl bg-primary-500/10 border border-primary-500/30 text-sm">
+            <svg className="w-4 h-4 text-primary-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span className="flex-1 min-w-0 truncate text-dark-text">
+              Изменить сообщение: {editing.text}
+            </span>
+            <button
+              type="button"
+              onClick={cancelEditing}
+              aria-label="Отменить редактирование"
+              className="text-dark-textMuted hover:text-dark-text px-2"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             ref={composerTextRef}
             rows={1}
             value={messageText}
-            placeholder="Написать сообщение..."
+            placeholder={editing ? 'Изменить сообщение...' : 'Написать сообщение...'}
             className="input min-h-[2.5rem] max-h-32 h-10 py-2 resize-none flex-1 min-w-0"
             onChange={(e) => {
               setMessageText(e.target.value);
+              notifyTyping();
               const el = e.target;
               el.style.height = 'auto';
               el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
@@ -1042,7 +1376,8 @@ export function ChatConversation({
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
-                sendText();
+                if (editing) saveEdit();
+                else sendText();
               }
             }}
           />
@@ -1082,11 +1417,18 @@ export function ChatConversation({
           </button>
           <Button
             className="flex-shrink-0 px-3"
-            aria-label="Отправить сообщение"
+            aria-label={editing ? 'Сохранить изменения' : 'Отправить сообщение'}
+            title={editing ? 'Сохранить изменения' : 'Отправить'}
             disabled={!messageText.trim() || Boolean(recording)}
-            onClick={sendText}
+            onClick={editing ? saveEdit : sendText}
           >
-            <SendIcon className="w-5 h-5" />
+            {editing ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <SendIcon className="w-5 h-5" />
+            )}
           </Button>
         </div>
       </div>
@@ -1109,6 +1451,62 @@ export function ChatConversation({
             <Button variant="secondary" onClick={handleCancelRecording}>Отменить</Button>
             <Button onClick={handleStopRecording}>Отправить</Button>
           </div>
+        </div>
+      )}
+
+      {/* Выбор чата-адресата для пересылки */}
+      {forwardSource && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setForwardSource(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Переслать сообщение"
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-dark-card border border-dark-border shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 pt-4 pb-2 text-sm font-semibold text-dark-text">
+              Переслать {forwardSource.kind === 'Text' ? 'сообщение' : 'вложение'}
+            </div>
+            <div className="max-h-80 overflow-y-auto px-2 pb-2">
+              {forwardTargets.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={forwardMutation.isPending}
+                  onClick={() => forwardMutation.mutate({ messageId: forwardSource.id, targetChatId: c.id })}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-dark-border text-left disabled:opacity-50"
+                >
+                  {c.kind === 'Saved' ? (
+                    <span className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-amber-500/15 text-amber-400 text-lg">
+                      <SavedIcon className="w-4 h-4" />
+                    </span>
+                  ) : (
+                    <Avatar src={c.otherUser.avatarDataUrl || undefined} name={c.otherUser.displayName} size="sm" />
+                  )}
+                  <span className="min-w-0 text-sm text-dark-text truncate">
+                    {c.kind === 'Saved' ? 'Избранное' : c.otherUser.displayName}
+                  </span>
+                </button>
+              ))}
+              {forwardChats && forwardTargets.length === 0 && (
+                <p className="px-3 py-4 text-sm text-dark-textMuted text-center">
+                  Нет других чатов для пересылки
+                </p>
+              )}
+            </div>
+            <div className="px-3 py-2 border-t border-dark-border flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setForwardSource(null)}>Отмена</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {flashMessage && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm shadow-lg pointer-events-none">
+          {flashMessage}
         </div>
       )}
 

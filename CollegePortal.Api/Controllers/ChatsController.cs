@@ -210,6 +210,59 @@ public class ChatsController : ControllerBase
         return result.Success ? Ok() : BadRequest(new { message = result.Error });
     }
 
+    [HttpPatch("messages/{messageId:long}")]
+    public async Task<IActionResult> EditMessage(long messageId, [FromBody] UpdateChatMessageDto? dto, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _chatService.EditMessageAsync(messageId, userId.Value, dto ?? new UpdateChatMessageDto(""), ct);
+        if (result.Error != null)
+            return BadRequest(new { message = result.Error });
+        return Ok(result.Message);
+    }
+
+    [HttpPost("messages/{messageId:long}/forward")]
+    public async Task<IActionResult> ForwardMessage(long messageId, [FromBody] ForwardChatMessageDto? dto, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        if (dto == null)
+            return BadRequest(new { message = "Не передан чат назначения" });
+
+        var result = await _chatService.ForwardMessageAsync(messageId, userId.Value, dto.TargetChatId, User.IsInRole("Admin"), ct);
+        if (result.Error != null)
+            return BadRequest(new { message = result.Error });
+        return Ok(result.Message);
+    }
+
+    /// <summary>Typing / recording indicator; empty or missing activity clears it.</summary>
+    [HttpPost("{id:guid}/status")]
+    public async Task<IActionResult> SetStatus(Guid id, [FromBody] SetChatActivityDto? dto, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var ok = await _chatService.SetActivityAsync(id, userId.Value, dto?.Activity, ct);
+        return ok ? Ok(new { active = true }) : NotFound(new { message = "Чат не найден" });
+    }
+
+    /// <summary>Header status of the conversation partner for the direct chat.</summary>
+    [HttpGet("{id:guid}/presence")]
+    public async Task<IActionResult> GetPresence(Guid id, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var presence = await _chatService.GetPresenceAsync(id, userId.Value, ct);
+        return presence == null ? NotFound(new { message = "Чат не найден" }) : Ok(presence);
+    }
+
     /// <summary>
     /// Streams a chat attachment with cookie auth (works for img/video/audio
     /// and plain downloads) and HTTP range processing so media controls seek.

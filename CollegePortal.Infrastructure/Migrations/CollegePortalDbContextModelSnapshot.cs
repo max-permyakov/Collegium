@@ -416,6 +416,9 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<int?>("DurationMs")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("EditedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("FileName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");

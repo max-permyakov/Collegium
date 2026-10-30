@@ -29,7 +29,8 @@ public record ChatMessageDto(
     int? DurationMs,
     DateTime CreatedAt,
     DateTime? ReadAt,
-    DateTime? DeletedAt);
+    DateTime? DeletedAt,
+    DateTime? EditedAt = null);
 
 public record ChatListItemDto(
     Guid Id,
@@ -75,3 +76,16 @@ public record ChatFileAccess(
     string FileName,
     DateTime CreatedAt,
     bool Inline);
+
+public record UpdateChatMessageDto(string Text);
+
+public record ForwardChatMessageDto(Guid TargetChatId);
+
+/// <summary>Body of POST /api/chats/{id}/status; null clears the activity.</summary>
+public record SetChatActivityDto(string? Activity);
+
+/// <summary>Header status of the conversation partner: online, typing/recording or last seen.</summary>
+public record ChatPresenceDto(
+    bool IsOnline,
+    string? Activity,
+    DateTime? LastSeenAt);
