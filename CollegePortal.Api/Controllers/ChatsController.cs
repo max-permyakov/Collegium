@@ -18,11 +18,13 @@ public class ChatsController : ControllerBase
 
     private readonly IChatService _chatService;
     private readonly IChatFileStore _fileStore;
+    private readonly ILogger<ChatsController> _logger;
 
-    public ChatsController(IChatService chatService, IChatFileStore fileStore)
+    public ChatsController(IChatService chatService, IChatFileStore fileStore, ILogger<ChatsController> logger)
     {
         _chatService = chatService;
         _fileStore = fileStore;
+        _logger = logger;
     }
 
     [HttpGet("unread-total")]
@@ -290,6 +292,8 @@ public class ChatsController : ControllerBase
     /// <summary>
     /// Streams a chat attachment with cookie auth (works for img/video/audio
     /// and plain downloads) and HTTP range processing so media controls seek.
+    /// Каждая ошибка логируется и возвращается с текстом — «пустые» 500 не дают
+    /// разглядеть настоящую причину сбоя выдачи файла.
     /// </summary>
     [HttpGet("files/{messageId:long}")]
     public async Task<IActionResult> GetFile(long messageId, CancellationToken ct)
@@ -298,24 +302,62 @@ public class ChatsController : ControllerBase
         if (!userId.HasValue)
             return Unauthorized();
 
-        var access = await _chatService.GetFileAsync(messageId, userId.Value, User.IsInRole("Admin"), ct);
+        ChatFileAccess? access;
+        try
+        {
+            access = await _chatService.GetFileAsync(messageId, userId.Value, User.IsInRole("Admin"), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Reading chat file metadata failed for message {MessageId}", messageId);
+            return StatusCode(500, new { message = $"Ошибка чтения метаданных файла: {ex.Message}" });
+        }
+
         if (access == null)
             return NotFound(new { message = "Файл не найден" });
 
-        var path = _fileStore.GetPath(access.StorageKey);
-        if (!System.IO.File.Exists(path))
-            return NotFound(new { message = "Файл не найден" });
-
-        Response.Headers.CacheControl = "private, max-age=3600";
-        var lastModified = new DateTimeOffset(access.CreatedAt, TimeSpan.Zero);
-
-        var forceDownload = Request.Query.ContainsKey("download");
-        return new PhysicalFileResult(path, access.ContentType)
+        string path;
+        try
         {
-            FileDownloadName = forceDownload || !access.Inline ? access.FileName : string.Empty,
-            LastModified = lastModified,
-            EnableRangeProcessing = true
-        };
+            path = _fileStore.GetPath(access.StorageKey);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(
+                "Message {MessageId} has a broken storage key {StorageKey}: {Error}",
+                messageId,
+                access.StorageKey,
+                ex.Message);
+            return NotFound(new { message = "Некорректный путь файла" });
+        }
+
+        if (!System.IO.File.Exists(path))
+        {
+            _logger.LogWarning(
+                "Chat file is missing on disk: {Path} (message {MessageId})",
+                path,
+                messageId);
+            return NotFound(new { message = "Файл не найден на сервере" });
+        }
+
+        try
+        {
+            Response.Headers.CacheControl = "private, max-age=3600";
+            var lastModified = new DateTimeOffset(access.CreatedAt, TimeSpan.Zero);
+
+            var forceDownload = Request.Query.ContainsKey("download");
+            return new PhysicalFileResult(path, access.ContentType)
+            {
+                FileDownloadName = forceDownload || !access.Inline ? access.FileName : string.Empty,
+                LastModified = lastModified,
+                EnableRangeProcessing = true
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Serving chat file {Path} (message {MessageId}) failed", path, messageId);
+            return StatusCode(500, new { message = $"Не удалось выдать файл: {ex.Message}" });
+        }
     }
 
     private Guid? GetCurrentUserId()

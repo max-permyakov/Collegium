@@ -271,8 +271,11 @@ const CircleBubble = memo(function CircleBubble({
       .then((res) => {
         if (!cancelled) setState({ url: URL.createObjectURL(res.data), error: null, muted: true });
       })
-      .catch(() => {
-        if (!cancelled) setState({ url: null, error: 'Кружок не удалось открыть', muted: true });
+      .catch((err) => {
+        if (cancelled) return;
+        const e = err as { response?: { data?: { message?: string }; status?: number } };
+        const detail = e.response?.data?.message ?? (e.response ? `сервер вернул ${e.response.status}` : 'нет соединения');
+        setState({ url: null, error: `Кружок не удалось открыть: ${detail}`, muted: true });
       });
     return () => {
       cancelled = true;
