@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { authApi, permissionsApi } from '../services/api';
-import { removePushBinding, syncPushBinding } from '../services/push';
+import { removePushBinding, syncPushBinding, maybePromptPush } from '../services/push';
 import type { User, LoginRequest, Permission } from '../types';
 import { ALL_PERMISSIONS } from '../types';
 import { pageCache } from '../utils/pageCache';
@@ -107,25 +107,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void syncPushBinding();
   }, [userId]);
 
-  const login = async (data: LoginRequest) => {
-    const response = await authApi.login(data);
-
+  const applySignedIn = useCallback((signedIn: User) => {
     queryClient.clear();
     pageCache.clear();
-    setUser(response.data);
+    setUser(signedIn);
     setSessionExpired(false);
-    await loadPermissions();
+    void loadPermissions();
+    // Notifications are on by request: ask right after a successful login.
+    void maybePromptPush(signedIn.id);
+  }, [queryClient, loadPermissions]);
+
+  const login = async (data: LoginRequest) => {
+    const response = await authApi.login(data);
+    applySignedIn(response.data);
   };
 
   const diaryLogin = async (login: string, password: string) => {
     const passwordHash = await hashDiaryPassword(password);
     const response = await authApi.diaryLogin(login, passwordHash);
-
-    queryClient.clear();
-    pageCache.clear();
-    setUser(response.data);
-    setSessionExpired(false);
-    await loadPermissions();
+    applySignedIn(response.data);
   };
 
   const requestEmailCode = async (email: string) => {
@@ -136,11 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyEmailCode = async (email: string, code: string) => {
     const response = await authApi.verifyEmailCode(email, code);
     if (response.data.user) {
-      queryClient.clear();
-      pageCache.clear();
-      setUser(response.data.user);
-      setSessionExpired(false);
-      await loadPermissions();
+      applySignedIn(response.data.user);
     }
     return response.data;
   };
@@ -153,11 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     groupName: string;
   }) => {
     const response = await authApi.completeEmailRegistration(data);
-    queryClient.clear();
-    pageCache.clear();
-    setUser(response.data);
-    setSessionExpired(false);
-    await loadPermissions();
+    applySignedIn(response.data);
   };
 
   const completeProfile = async (data: {
@@ -167,31 +159,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     groupName: string;
   }) => {
     const response = await authApi.completeProfile(data);
-    queryClient.clear();
-    pageCache.clear();
-    setUser(response.data);
-    setSessionExpired(false);
-    await loadPermissions();
+    applySignedIn(response.data);
   };
 
   const linkDiary = async (login: string, password: string) => {
     const passwordHash = await hashDiaryPassword(password);
     const response = await authApi.linkDiary(login, passwordHash);
-    queryClient.clear();
-    pageCache.clear();
-    setUser(response.data);
-    setSessionExpired(false);
-    await loadPermissions();
+    applySignedIn(response.data);
   };
 
   const claimPrimaryAdmin = async (password: string) => {
     const response = await authApi.claimPrimaryAdmin(password);
-
-    queryClient.clear();
-    pageCache.clear();
-    setUser(response.data);
-    setSessionExpired(false);
-    await loadPermissions();
+    applySignedIn(response.data);
   };
 
   const logout = async () => {

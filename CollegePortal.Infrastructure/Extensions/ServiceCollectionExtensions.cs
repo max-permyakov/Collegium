@@ -234,6 +234,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdminPermissionService, AdminPermissionService>();
         services.AddScoped<IRatingService, RatingService>();
         services.AddScoped<IGameService, GameService>();
+        services.AddScoped<IAchievementService, AchievementService>();
 
         services.AddHostedService<KkepikScheduleSyncService>();
 

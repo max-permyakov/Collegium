@@ -160,6 +160,7 @@ export interface Announcement {
   publishedAt: string;
   authorId: string;
   authorName: string;
+  imageUrl?: string | null;
   isPublished: boolean;
   createdAt: string;
   updatedAt?: string;
@@ -175,6 +176,7 @@ export interface AnnouncementListItem {
   authorId: string;
   authorName: string;
   authorAvatar?: string | null;
+  imageUrl?: string | null;
   isPublished: boolean;
   createdAt: string;
   studyGroupId?: string;
@@ -187,6 +189,7 @@ export interface CreateAnnouncementDto {
   publishedAt: string;
   studyGroupId?: string;
   isPublished: boolean;
+  imageUrl?: string | null;
 }
 
 export interface UpdateAnnouncementDto {
@@ -195,6 +198,23 @@ export interface UpdateAnnouncementDto {
   publishedAt: string;
   isPublished: boolean;
   studyGroupId?: string;
+  imageUrl?: string | null;
+}
+
+/** Result of POST /news/image: the file key id and its public URL. */
+export interface NewsImageDto {
+  id: string;
+  url: string;
+}
+
+/** One catalog achievement with its unlock state for the requesting user. */
+export interface AchievementDto {
+  code: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  unlockedAt?: string | null;
 }
 
 export interface NewsCommentDto {
@@ -283,7 +303,9 @@ import type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, Auditori
 import type { GameModeId, GameLeaderboard, GameLeaderboardEntry, GameScoreSubmission } from './games';
 import type { ChatDto, ChatKind, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto, ChatPresenceDto } from './chats';
 
-export type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod };
+export type { AchievementDto, NewsImageDto };
+
+export type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, StatisticsContentDto, StatisticsDailyPoint, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod };
 export { ALL_PERMISSIONS, PERMISSION_LABELS } from './admin';
 export type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto };
 export type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher };

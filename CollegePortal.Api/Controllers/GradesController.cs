@@ -47,6 +47,28 @@ public class GradesController : ControllerBase
         return Ok(performance);
     }
 
+    /// <summary>
+    /// Manual refresh requested by the student: pulls the diary dashboard again
+    /// and persists the new average mark in the database, so group ratings read
+    /// the stored value without per-user admin recalculations.
+    /// </summary>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _gradesService.RefreshGradesAsync(userId.Value, ct);
+        if (result == null)
+            return DiaryRequired();
+
+        if (!result.Success)
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = result.Error });
+
+        return Ok(new { averageMark = result.AverageMark });
+    }
+
     private ObjectResult DiaryRequired() => StatusCode(
         StatusCodes.Status403Forbidden,
         new { code = "diary_required", message = "Оценки доступны после привязки дневника" });

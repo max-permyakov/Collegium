@@ -12,6 +12,9 @@ public class Announcement
     public DateTime? UpdatedAt { get; set; }
     public Guid? StudyGroupId { get; set; }
 
+    /// <summary>Optional cover image URL, served from /api/news/files/{key}.</summary>
+    public string? ImageUrl { get; set; }
+
     // Set when notifications about the published announcement were created. The
     // delayed-publication worker uses it to deliver scheduled news exactly once.
     public DateTime? NotifiedAtUtc { get; set; }

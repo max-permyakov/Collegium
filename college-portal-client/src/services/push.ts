@@ -1,4 +1,5 @@
-import { pushApi } from './api';
+import { toast } from 'sonner';
+import { pushApi, authApi } from './api';
 
 export type PushState = 'unsupported' | 'disabled' | 'denied' | 'inactive' | 'active';
 
@@ -271,5 +272,36 @@ export async function removePushBinding(): Promise<void> {
     await pushApi.unsubscribe(subscription.endpoint);
   } catch (error) {
     console.warn('Не удалось отвязать push-подписку', error);
+  }
+}
+
+/**
+ * Asks once per browser session, right after a successful sign-in, whether the
+ * user wants push notifications. Notifications are enabled by consent only —
+ * the request happens at the moment of login instead of a settings toggle.
+ */
+export async function maybePromptPush(userId: string): Promise<void> {
+  try {
+    const state = await getPushUiState();
+    if (state.state !== 'inactive') return;
+
+    const sessionKey = `pushPrompted:${userId}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, '1');
+
+    toast('Включить уведомления?', {
+      description: 'Новости, задания и новые оценки — одним касанием.',
+      duration: 12000,
+      action: {
+        label: 'Включить',
+        onClick: () => {
+          enablePush().catch((error) => {
+            if (error instanceof PushConfigError) toast.error(error.message);
+          });
+        },
+      },
+    });
+  } catch {
+    // State probing failures must never break the login flow.
   }
 }

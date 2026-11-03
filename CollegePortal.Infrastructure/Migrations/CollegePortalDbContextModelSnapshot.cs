@@ -103,6 +103,10 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");
 
@@ -215,6 +219,10 @@ namespace CollegePortal.Infrastructure.Migrations
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
+
+                    b.Property<string>("TelegramUserName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
@@ -1099,6 +1107,31 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("StudyGroups");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.UserAchievement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("UnlockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("UserAchievements");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.UserAuthProvider", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1570,6 +1603,17 @@ namespace CollegePortal.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("StudyGroup");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.UserAchievement", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

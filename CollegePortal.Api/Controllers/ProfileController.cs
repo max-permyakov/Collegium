@@ -12,10 +12,12 @@ namespace CollegePortal.Api.Controllers;
 public class ProfileController : ControllerBase
 {
     private readonly IProfileService _profileService;
+    private readonly IAchievementService _achievementService;
 
-    public ProfileController(IProfileService profileService)
+    public ProfileController(IProfileService profileService, IAchievementService achievementService)
     {
         _profileService = profileService;
+        _achievementService = achievementService;
     }
 
     [HttpGet("me")]
@@ -27,6 +29,18 @@ public class ProfileController : ControllerBase
 
         var profile = await _profileService.GetProfileAsync(userId.Value, ct);
         return profile == null ? NotFound() : Ok(profile);
+    }
+
+    // Lazily evaluates + persists new unlocks, so a GET is fine here.
+    [HttpGet("me/achievements")]
+    public async Task<IActionResult> GetMyAchievements(CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var achievements = await _achievementService.GetForUserAsync(userId.Value, ct);
+        return Ok(new AchievementsResponseDto(achievements.ToArray()));
     }
 
     // Contact-free profile of another user, available to any authenticated user.

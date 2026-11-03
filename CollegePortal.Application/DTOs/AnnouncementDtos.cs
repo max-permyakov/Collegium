@@ -11,7 +11,8 @@ public record AnnouncementDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     Guid? StudyGroupId,
-    string? StudyGroupName
+    string? StudyGroupName,
+    string? ImageUrl
 );
 
 public record CreateAnnouncementDto(
@@ -19,7 +20,8 @@ public record CreateAnnouncementDto(
     string Body,
     DateTime PublishedAt,
     bool IsPublished,
-    Guid? StudyGroupId
+    Guid? StudyGroupId,
+    string? ImageUrl
 );
 
 public record UpdateAnnouncementDto(
@@ -27,7 +29,8 @@ public record UpdateAnnouncementDto(
     string Body,
     DateTime PublishedAt,
     bool IsPublished,
-    Guid? StudyGroupId
+    Guid? StudyGroupId,
+    string? ImageUrl
 );
 
 public record AnnouncementListDto(
@@ -41,7 +44,13 @@ public record AnnouncementListDto(
     bool IsPublished,
     DateTime CreatedAt,
     Guid? StudyGroupId,
-    string? StudyGroupName
+    string? StudyGroupName,
+    string? ImageUrl
+);
+
+public record NewsImageDto(
+    Guid Id,
+    string Url
 );
 
 public record NewsCommentDto(

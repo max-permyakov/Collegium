@@ -37,6 +37,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<Chat> Chats => Set<Chat>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<ChatUpload> ChatUploads => Set<ChatUpload>();
+    public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -46,6 +47,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
         {
             entity.Property(e => e.DisplayName).HasMaxLength(200);
             entity.Property(e => e.Role).HasMaxLength(50);
+            entity.Property(e => e.TelegramUserName).HasMaxLength(100);
             entity.Property(e => e.RegistrationSource).HasConversion<int>();
             entity.Property(e => e.LastAuthMethod).HasConversion<int?>();
         });
@@ -89,6 +91,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Title).HasMaxLength(500);
             entity.Property(e => e.Body).HasMaxLength(5000);
+            entity.Property(e => e.ImageUrl).HasMaxLength(300);
             entity.HasOne(e => e.Author)
                 .WithMany()
                 .HasForeignKey(e => e.AuthorId)
@@ -390,6 +393,18 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
                 .WithMany()
                 .HasForeignKey(e => e.UploaderId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<UserAchievement>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            // One unlock per achievement per user.
+            entity.HasIndex(e => new { e.UserId, e.Code }).IsUnique();
+            entity.Property(e => e.Code).HasMaxLength(64);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

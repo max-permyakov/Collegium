@@ -178,6 +178,31 @@ public class AdminService : IAdminService
             .Take(5)
             .ToListAsync(ct);
 
+        var chatMessages = await _dbContext.ChatMessages
+            .CountAsync(m => m.DeletedAt == null, ct);
+        var clubMessages = await _dbContext.ClubMessages.CountAsync(ct);
+        var newsComments = await _dbContext.NewsComments.CountAsync(ct);
+        var totalChats = await _dbContext.Chats.CountAsync(ct);
+        var totalClubs = await _dbContext.Clubs.CountAsync(ct);
+        var pushSubscriptions = await _dbContext.PushSubscriptions.CountAsync(ct);
+
+        var registrationsFrom = now.AddDays(-29).Date;
+        var registrationDates = await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.CreatedAt >= registrationsFrom)
+            .Select(u => u.CreatedAt.Date)
+            .ToArrayAsync(ct);
+        var registrationsByDay = registrationDates
+            .GroupBy(d => d)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var registrationsPerDay = Enumerable.Range(0, 30)
+            .Select(offset => registrationsFrom.AddDays(offset))
+            .Select(day => new StatisticsDailyPoint(
+                day.ToString("yyyy-MM-dd"),
+                registrationsByDay.TryGetValue(day, out var count) ? count : 0
+            ))
+            .ToArray();
+
         return new StatisticsDto(
             totalUsers,
             onlineUsers,
@@ -194,7 +219,9 @@ public class AdminService : IAdminService
                 s.DisplayName,
                 s.GroupName,
                 s.AverageMark!.Value
-            )).ToArray()
+            )).ToArray(),
+            new StatisticsContentDto(chatMessages, clubMessages, newsComments, totalChats, totalClubs, pushSubscriptions),
+            registrationsPerDay
         );
     }
 

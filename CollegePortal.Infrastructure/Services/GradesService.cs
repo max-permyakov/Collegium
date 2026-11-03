@@ -60,4 +60,42 @@ public class GradesService : IGradesService
 
         return await _gradesProvider.GetPerformanceAsync(studentProfile.ExternalStudentId.Value, ct);
     }
+
+    public async Task<GradesRefreshResult?> RefreshGradesAsync(Guid userId, CancellationToken ct = default)
+    {
+        var studentProfile = await _dbContext.StudentProfiles
+            .FirstOrDefaultAsync(sp => sp.UserId == userId, ct);
+
+        if (studentProfile == null || studentProfile.ExternalStudentId == null)
+        {
+            _logger.LogWarning("Student profile or diary link not found for user {UserId}", userId);
+            return null;
+        }
+
+        try
+        {
+            var subjects = await _gradesProvider.GetDashboardAsync(studentProfile.ExternalStudentId.Value, ct);
+            if (subjects == null || subjects.Length == 0)
+            {
+                studentProfile.AverageMark = null;
+                studentProfile.GradesCachedAt = DateTime.UtcNow;
+                studentProfile.UpdatedAt = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync(ct);
+                return new GradesRefreshResult(true, null, null);
+            }
+
+            var average = Math.Round(subjects.Average(s => s.Mark), 2);
+            studentProfile.AverageMark = (decimal)average;
+            studentProfile.GradesCachedAt = DateTime.UtcNow;
+            studentProfile.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(ct);
+
+            return new GradesRefreshResult(true, null, (decimal)average);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh grades cache for user {UserId}", userId);
+            return new GradesRefreshResult(false, "Не удалось получить данные из дневника (возможно, сессия истекла)");
+        }
+    }
 }

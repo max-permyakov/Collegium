@@ -16,6 +16,9 @@ public class ApplicationUser : IdentityUser<Guid>
     public DateTime? LastLoginAt { get; set; }
     public DateTime? LastActivityAt { get; set; }
 
+    /// <summary>Contact handle the user opted to share on their profile (Telegram @username).</summary>
+    public string? TelegramUserName { get; set; }
+
     public StudentProfile? StudentProfile { get; set; }
     public ICollection<UserAuthProvider> AuthProviders { get; set; } = new List<UserAuthProvider>();
 }

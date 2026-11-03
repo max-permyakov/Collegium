@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, NewsImageDto, AchievementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -149,6 +149,12 @@ export const scheduleApi = {
 export const gradesApi = {
   getGrades: () => api.get<GradesResponse>('/grades'),
   getPerformance: () => api.get<PerformanceResponse>('/grades/performance'),
+  /** Пересчитать и сохранить средний балл в БД (источник рейтинга группы). */
+  refresh: () => api.post<{ averageMark: number }>('/grades/refresh'),
+};
+
+export const achievementsApi = {
+  getMe: () => api.get<{ achievements: AchievementDto[] }>('/profile/me/achievements'),
 };
 
 export const ratingApi = {
@@ -175,6 +181,14 @@ export const newsApi = {
   postComment: (id: string, text: string) => api.post<NewsCommentDto>(`/news/${id}/comments`, { text }),
   deleteComment: (commentId: string) => api.delete(`/news/comments/${commentId}`),
   updateComment: (commentId: string, text: string) => api.put(`/news/comments/${commentId}`, { text }),
+  /** Raw-body upload of a news cover image; returns its public URL. */
+  uploadImage: (blob: Blob, fileName: string) =>
+    api.post<NewsImageDto>(`/news/image`, blob, {
+      params: { fileName },
+      // Raw body upload: the browser supplies the real content type.
+      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+      timeout: 60000,
+    }),
 };
 
 export const assignmentsApi = {
@@ -189,7 +203,15 @@ export const assignmentsApi = {
 export const profileApi = {
   getMe: () => api.get<ProfileDto>('/profile/me'),
   getUser: (id: string) => api.get<PublicProfileDto>(`/profile/${id}`),
-  updateMe: (data: { bio?: string | null; email?: string | null; phoneNumber?: string | null }) => api.put('/profile/me', data),
+  updateMe: (
+    data: {
+      bio?: string | null;
+      email?: string | null;
+      phoneNumber?: string | null;
+      displayName?: string | null;
+      telegramUserName?: string | null;
+    },
+  ) => api.put('/profile/me', data),
   setAvatar: (dataUrl?: string | null) => api.post('/profile/me/avatar', { dataUrl }),
   clearAvatar: () => api.delete('/profile/me/avatar'),
   changeGroup: (groupName: string) => api.put('/profile/me/group', { groupName }),

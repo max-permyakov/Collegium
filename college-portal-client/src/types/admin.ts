@@ -81,6 +81,22 @@ export interface StatisticsDto {
   groups: StatisticsGroupDto[];
   logins: StatisticsLoginsDto;
   topStudents: StatisticsTopStudentDto[];
+  content: StatisticsContentDto;
+  registrationsPerDay: StatisticsDailyPoint[];
+}
+
+export interface StatisticsContentDto {
+  chatMessages: number;
+  clubMessages: number;
+  newsComments: number;
+  chats: number;
+  clubs: number;
+  pushSubscriptions: number;
+}
+
+export interface StatisticsDailyPoint {
+  date: string;
+  count: number;
 }
 
 export interface StatisticsGroupDto {
@@ -119,6 +135,7 @@ export interface ProfileDto {
   displayName: string;
   email?: string | null;
   phoneNumber?: string | null;
+  telegramUserName?: string | null;
   role: 'Student' | 'Admin';
   isActive: boolean;
   isProtected: boolean;

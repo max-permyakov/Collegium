@@ -6,6 +6,7 @@ public record ProfileDto(
     string DisplayName,
     string? Email,
     string? PhoneNumber,
+    string? TelegramUserName,
     Guid? StudyGroupId,
     string? StudyGroupName,
     int? Course,
@@ -33,7 +34,9 @@ public record ProfileUpdateResult(
 public record UpdateProfileRequestDto(
     string? Bio,
     string? Email,
-    string? PhoneNumber
+    string? PhoneNumber,
+    string? DisplayName,
+    string? TelegramUserName
 );
 
 public record SetAvatarRequestDto(

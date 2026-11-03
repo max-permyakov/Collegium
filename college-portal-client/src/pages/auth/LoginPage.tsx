@@ -26,7 +26,7 @@ export function LoginPage() {
   const oauthEmailFallback = searchParams.get('oauth_email') === '1';
   const oauthError = searchParams.get('oauth_error');
 
-  const [mode, setMode] = useState<LoginMode>(oauthEmailFallback ? 'email' : 'diary');
+  const [mode, setMode] = useState<LoginMode>('email');
   const [diaryForm, setDiaryForm] = useState({ login: '', password: '' });
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -161,40 +161,15 @@ export function LoginPage() {
 
       <Card variant="hover" className="w-full">
         <CardHeader className="text-center">
-          <CardTitle>{mode === 'diary' ? 'Вход в портал' : 'Вход по почте'}</CardTitle>
+          <CardTitle>Вход в портал</CardTitle>
           <CardDescription>
             {mode === 'diary'
-              ? 'Используйте дневник, почту или аккаунт провайдера'
+              ? 'Используйте логин и пароль электронного дневника'
               : 'Отправим одноразовый код на вашу почту'}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <div className="grid grid-cols-2 gap-2 mb-5" role="tablist" aria-label="Способ входа">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'diary'}
-              className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${mode === 'diary' ? 'bg-primary-500/20 text-primary-300' : 'bg-dark-bg text-dark-textMuted hover:text-dark-text'}`}
-              onClick={() => { setMode('diary'); clearMessages(); }}
-            >
-              Дневник
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'email'}
-              className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${mode === 'email' ? 'bg-primary-500/20 text-primary-300' : 'bg-dark-bg text-dark-textMuted hover:text-dark-text'}`}
-              onClick={() => {
-                setMode('email');
-                clearMessages();
-                if (!emailEnabled) setError('Отправка почты сейчас недоступна: SMTP не настроен.');
-              }}
-            >
-              Почта
-            </button>
-          </div>
-
           {sessionExpired && (
             <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm" role="status">
               Сессия истекла, войдите заново
@@ -214,7 +189,7 @@ export function LoginPage() {
           {mode === 'diary' && (
             <form id="login-form" onSubmit={handleDiarySubmit} className="space-y-4">
               <Input
-                label="Логин"
+                label="Логин дневника"
                 name="login"
                 type="text"
                 value={diaryForm.login}
@@ -222,6 +197,7 @@ export function LoginPage() {
                 placeholder="иванов67"
                 required
                 autoComplete="username"
+                autoFocus
               />
               <Input
                 label="Пароль"
@@ -252,6 +228,7 @@ export function LoginPage() {
               />
             </form>
           )}
+
 
           {mode === 'email' && emailStep === 'code' && (
             <form id="email-code-form" onSubmit={handleVerifyCode} className="space-y-4">
@@ -338,7 +315,7 @@ export function LoginPage() {
         <CardFooter className="flex-col gap-3">
           {mode === 'diary' && (
             <Button type="submit" className="w-full" loading={isLoading} form="login-form">
-              Войти через дневник
+              Войти
             </Button>
           )}
           {mode === 'email' && emailStep === 'email' && (
@@ -355,6 +332,28 @@ export function LoginPage() {
             <Button type="submit" className="w-full" loading={isLoading} form="registration-form">
               Зарегистрироваться
             </Button>
+          )}
+
+          {emailEnabled && mode === 'email' && emailStep === 'email' && (
+            <button
+              type="button"
+              className="text-xs text-dark-textMuted hover:text-dark-text underline-offset-2 hover:underline"
+              onClick={() => { setMode('diary'); clearMessages(); }}
+            >
+              Войти через электронный дневник
+            </button>
+          )}
+          {!emailEnabled && mode === 'email' && emailStep === 'email' && (
+            <p className="text-xs text-amber-400 text-center">Отправка почты сейчас недоступна: SMTP не настроен.</p>
+          )}
+          {mode === 'diary' && (
+            <button
+              type="button"
+              className="text-xs text-dark-textMuted hover:text-dark-text underline-offset-2 hover:underline"
+              onClick={() => { setMode('email'); clearMessages(); }}
+            >
+              Вернуться ко входу по почте
+            </button>
           )}
 
           {oauthProviders.length > 0 && (

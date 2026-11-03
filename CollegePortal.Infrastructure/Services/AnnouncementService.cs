@@ -50,7 +50,8 @@ public class AnnouncementService : IAnnouncementService
                 a.IsPublished,
                 a.CreatedAt,
                 a.StudyGroupId,
-                a.StudyGroup != null ? a.StudyGroup.Name : null
+                a.StudyGroup != null ? a.StudyGroup.Name : null,
+                a.ImageUrl
             ))
             .ToArrayAsync(ct);
     }
@@ -77,7 +78,8 @@ public class AnnouncementService : IAnnouncementService
             announcement.CreatedAt,
             announcement.UpdatedAt,
             announcement.StudyGroupId,
-            announcement.StudyGroup?.Name
+            announcement.StudyGroup?.Name,
+            announcement.ImageUrl
         );
     }
 
@@ -92,6 +94,7 @@ public class AnnouncementService : IAnnouncementService
             AuthorId = authorId,
             IsPublished = dto.IsPublished,
             StudyGroupId = dto.StudyGroupId,
+            ImageUrl = dto.ImageUrl,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -117,7 +120,8 @@ public class AnnouncementService : IAnnouncementService
             announcement.CreatedAt,
             announcement.UpdatedAt,
             announcement.StudyGroupId,
-            studyGroup?.Name
+            studyGroup?.Name,
+            announcement.ImageUrl
         );
     }
 
@@ -145,6 +149,7 @@ public class AnnouncementService : IAnnouncementService
         announcement.PublishedAt = dto.PublishedAt;
         announcement.IsPublished = dto.IsPublished;
         announcement.StudyGroupId = dto.StudyGroupId;
+        announcement.ImageUrl = dto.ImageUrl;
         announcement.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(ct);
@@ -163,7 +168,8 @@ public class AnnouncementService : IAnnouncementService
             announcement.CreatedAt,
             announcement.UpdatedAt,
             announcement.StudyGroupId,
-            announcement.StudyGroup?.Name
+            announcement.StudyGroup?.Name,
+            announcement.ImageUrl
         );
     }
 

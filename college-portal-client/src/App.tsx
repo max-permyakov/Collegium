@@ -13,12 +13,13 @@ import { Toaster } from 'sonner';
 // the current page. Chunks are prefetched while the browser is idle, which
 // makes the first visit to each page feel instant without bloating startup.
 const loadLoginPage = () => import('./pages/auth/LoginPage').then(m => ({ default: m.LoginPage }));
+const loadWelcomePage = () => import('./pages/auth/WelcomePage').then(m => ({ default: m.WelcomePage }));
 const loadCompleteProfilePage = () => import('./pages/auth/CompleteProfilePage').then(m => ({ default: m.CompleteProfilePage }));
 const loadClaimPrimaryAdminPage = () => import('./pages/auth/ClaimPrimaryAdminPage').then(m => ({ default: m.ClaimPrimaryAdminPage }));
 const loadHomePage = () => import('./pages/home/HomePage').then(m => ({ default: m.HomePage }));
 const loadSchedulePage = () => import('./pages/schedule/SchedulePage').then(m => ({ default: m.SchedulePage }));
 const loadGradesPage = () => import('./pages/grades/GradesPage').then(m => ({ default: m.GradesPage }));
-const loadPerformancePage = () => import('./pages/performance/PerformancePage').then(m => ({ default: m.PerformancePage }));
+const loadSubjectGradesPage = () => import('./pages/grades/SubjectGradesPage').then(m => ({ default: m.SubjectGradesPage }));
 const loadAssignmentsPage = () => import('./pages/assignments/AssignmentsPage').then(m => ({ default: m.AssignmentsPage }));
 const loadNewsPage = () => import('./pages/news/NewsPage').then(m => ({ default: m.NewsPage }));
 const loadAdminPage = () => import('./pages/admin/AdminPage').then(m => ({ default: m.AdminPage }));
@@ -35,12 +36,13 @@ const loadGamesPage = () => import('./pages/games/GamesPage').then(m => ({ defau
 const loadEscapeGamePage = () => import('./pages/games/escape/EscapeGamePage');
 
 const LoginPage = lazy(loadLoginPage);
+const WelcomePage = lazy(loadWelcomePage);
 const CompleteProfilePage = lazy(loadCompleteProfilePage);
 const ClaimPrimaryAdminPage = lazy(loadClaimPrimaryAdminPage);
 const HomePage = lazy(loadHomePage);
 const SchedulePage = lazy(loadSchedulePage);
 const GradesPage = lazy(loadGradesPage);
-const PerformancePage = lazy(loadPerformancePage);
+const SubjectGradesPage = lazy(loadSubjectGradesPage);
 const AssignmentsPage = lazy(loadAssignmentsPage);
 const NewsPage = lazy(loadNewsPage);
 const AdminPage = lazy(loadAdminPage);
@@ -61,7 +63,6 @@ const PREFETCHED_ROUTES = [
   loadHomePage,
   loadSchedulePage,
   loadGradesPage,
-  loadPerformancePage,
   loadAssignmentsPage,
   loadNewsPage,
   loadClubsPage,
@@ -93,7 +94,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/welcome" replace />;
   }
 
   if (user?.requiresProfileSetup && location.pathname !== '/complete-profile') {
@@ -119,7 +120,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/welcome" replace />;
   }
 
   // Full admins and users with at least one granted admin right may enter.
@@ -192,6 +193,12 @@ function AppRoutes() {
         </PublicRoute>
       } />
 
+      <Route path="/welcome" element={
+        <PublicRoute>
+          <WelcomePage />
+        </PublicRoute>
+      } />
+
       <Route path="/complete-profile" element={
         <ProtectedRoute>
           <CompleteProfilePage />
@@ -206,7 +213,9 @@ function AppRoutes() {
         <Route index element={<HomePage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="grades" element={<GradesPage />} />
-        <Route path="performance" element={<PerformancePage />} />
+        <Route path="grades/subject" element={<SubjectGradesPage />} />
+        {/* Объединённая страница оценок/успеваемости; старый alias остаётся. */}
+        <Route path="performance" element={<Navigate to="/grades" replace />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="news" element={<NewsPage />} />
         <Route path="clubs" element={<ClubsPage />} />

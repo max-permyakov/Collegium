@@ -43,7 +43,24 @@ public record StatisticsDto(
     int TotalAssignments,
     StatisticsGroupDto[] Groups,
     StatisticsLoginsDto Logins,
-    StatisticsTopStudentDto[] TopStudents
+    StatisticsTopStudentDto[] TopStudents,
+    StatisticsContentDto Content,
+    StatisticsDailyPoint[] RegistrationsPerDay
+);
+
+public record StatisticsContentDto(
+    int ChatMessages,
+    int ClubMessages,
+    int NewsComments,
+    int Chats,
+    int Clubs,
+    int PushSubscriptions
+);
+
+/// <summary>One day of the registration inflow chart, UTC day-keyed.</summary>
+public record StatisticsDailyPoint(
+    string Date,
+    int Count
 );
 
 public record StatisticsGroupDto(

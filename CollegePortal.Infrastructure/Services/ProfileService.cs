@@ -73,6 +73,7 @@ public class ProfileService : IProfileService
             user.DisplayName,
             user.Email,
             user.PhoneNumber,
+            user.TelegramUserName,
             profile?.StudyGroupId,
             profile?.StudyGroup?.Name,
             profile?.StudyGroup?.Course,
@@ -147,6 +148,16 @@ public class ProfileService : IProfileService
         if (!string.IsNullOrWhiteSpace(request.PhoneNumber) && request.PhoneNumber.Length > 50)
             return new ProfileUpdateResult(false, "Телефон слишком длинный");
 
+        var displayName = string.IsNullOrWhiteSpace(request.DisplayName)
+            ? null
+            : TextSanitizer.Clean(request.DisplayName).Trim();
+        if (displayName is { Length: > 200 })
+            return new ProfileUpdateResult(false, "Отображаемое имя слишком длинное (максимум 200 символов)");
+
+        var telegram = NormalizeTelegramUserName(request.TelegramUserName);
+        if (telegram is { Length: > 100 })
+            return new ProfileUpdateResult(false, "Имя пользователя Telegram слишком длинное");
+
         if (!string.IsNullOrWhiteSpace(request.Email) && !request.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))
         {
             var existing = await _userManager.FindByEmailAsync(request.Email);
@@ -156,6 +167,9 @@ public class ProfileService : IProfileService
 
         user.Email = string.IsNullOrWhiteSpace(request.Email) ? user.Email : request.Email.Trim();
         user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? user.PhoneNumber : request.PhoneNumber.Trim();
+        if (displayName != null)
+            user.DisplayName = displayName;
+        user.TelegramUserName = telegram;
         user.EmailConfirmed = true;
         var updateResult = await _userManager.UpdateAsync(user);
         if (!updateResult.Succeeded)
@@ -224,6 +238,19 @@ public class ProfileService : IProfileService
         profile.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
         return new ProfileUpdateResult(true);
+    }
+
+    private static string? NormalizeTelegramUserName(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var value = raw.Trim();
+        while (value.StartsWith('@'))
+            value = value[1..];
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        return value;
     }
 
     private static int ParseCourseNumber(string groupName)
