@@ -6,7 +6,7 @@ import logo from '../../assets/logo.png';
 /** Возможные расширения снимков, которые пользователь кладёт в public/screens. */
 const SCREEN_EXTENSIONS = ['png', 'jpg', 'webp', 'gif'] as const;
 /** Максимум снимков, которые пробуем подхватить (screen1..screenN). */
-const MAX_SCREENS = 20;
+const MAX_SCREENS = 10;
 
 /**
  * Автоматически собирает список снимков из /public/screens: перебирает

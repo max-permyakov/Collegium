@@ -204,11 +204,7 @@ export function GradesPage() {
             points={selectedEntry ? (subjectSeries ?? []) : buildAverageSeries(performance)}
             height={200}
           />
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-2 text-xs text-dark-textMuted">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400" />2–3.5</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" />3.5–4.5</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />выше 4.5</span>
-          </div>
+          
         </CardContent>
       </Card>
 

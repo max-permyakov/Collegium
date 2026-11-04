@@ -197,7 +197,11 @@ export function ClubsPage() {
                     onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
                   />
                   <div className="flex-1 min-w-0">
-                    <Link to={`/clubs/${club.id}`} className="font-semibold text-dark-text hover:text-primary-400 truncate block">
+                    <Link
+                      to={`/chats/club/${club.id}`}
+                      onClick={() => sessionStorage.setItem('chats-page:tab', 'clubs')}
+                      className="font-semibold text-dark-text hover:text-primary-400 truncate block"
+                    >
                       {club.name}
                     </Link>
                     <p className="text-xs text-dark-textMuted">Глава: {shortName(club.ownerName)}</p>
@@ -219,7 +223,11 @@ export function ClubsPage() {
                   <Badge variant="default">👥 {club.memberCount}</Badge>
                 </div>
                 <div className="mt-auto flex items-center gap-2">
-                  <Link to={`/clubs/${club.id}`} className="flex-1">
+                  <Link
+                    to={`/chats/club/${club.id}`}
+                    onClick={() => sessionStorage.setItem('chats-page:tab', 'clubs')}
+                    className="flex-1"
+                  >
                     <Button variant="secondary" size="sm" className="w-full">Открыть</Button>
                   </Link>
                   {club.isMember ? (

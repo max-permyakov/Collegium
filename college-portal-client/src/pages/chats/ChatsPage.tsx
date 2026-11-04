@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { matchPath } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { chatsApi, clubsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -56,6 +57,7 @@ const SupportIcon = ({ className }: { className?: string }) => (
 export function ChatsPage() {
   const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -67,6 +69,11 @@ export function ChatsPage() {
   const [showClubCreate, setShowClubCreate] = useState(false);
   const [clubForm, setClubForm] = useState<CreateClubDto>(emptyClubForm);
   const [clubError, setClubError] = useState('');
+
+  // Открытый кружок в правой панели (роут /chats/club/:clubId).
+  const clubChatMatch = matchPath({ path: '/chats/club/:clubId' }, location.pathname);
+  const openClubId = clubChatMatch?.params.clubId ?? null;
+  const paneOpened = Boolean(chatId) || Boolean(openClubId);
 
   const setTab = (next: 'chats' | 'clubs') => {
     setTabState(next);
@@ -166,7 +173,7 @@ export function ChatsPage() {
       queryClient.invalidateQueries({ queryKey: ['clubs'] });
       setShowClubCreate(false);
       setClubForm(emptyClubForm);
-      navigate(`/clubs/${res.data.id}`);
+      navigate(`/chats/club/${res.data.id}`);
     },
     onError: (err) => {
       const e = err as { response?: { data?: { message?: string } } };
@@ -252,7 +259,7 @@ export function ChatsPage() {
   const chatList = (
     <div
       className={`flex flex-col min-w-0 min-h-0 overflow-hidden bg-dark-card -mx-4 sm:-mx-6 -mb-20 -mt-4 h-[100dvh] rounded-none border-0 lg:mx-0 lg:mb-0 lg:mt-0 lg:h-full lg:rounded-2xl lg:border lg:border-dark-border ${
-        chatId ? 'hidden lg:flex' : ''
+        paneOpened ? 'hidden lg:flex' : ''
       }`}
     >
       <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] border-b border-dark-border lg:pt-3">
@@ -532,8 +539,13 @@ export function ChatsPage() {
             {clubs.map((club) => (
               <Link
                 key={club.id}
-                to={`/clubs/${club.id}`}
-                className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-dark-border/60"
+                to={`/chats/club/${club.id}`}
+                onClick={() => sessionStorage.setItem(TAB_STORAGE_KEY, 'clubs')}
+                className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
+                  openClubId === club.id
+                    ? 'bg-primary-500/15 border border-primary-500/30'
+                    : 'border border-transparent hover:bg-dark-border/60'
+                }`}
               >
                 <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="md" className="rounded-2xl" />
                 <div className="flex-1 min-w-0">
@@ -570,12 +582,12 @@ export function ChatsPage() {
   const chatPane = (
     <div
       className={`min-w-0 min-h-0 overflow-hidden bg-dark-card lg:col-span-2 lg:rounded-2xl lg:border lg:border-dark-border lg:bg-dark-card/40 ${
-        chatId
+        paneOpened
           ? 'fixed inset-0 z-40 flex h-[100dvh] w-full flex-col lg:static lg:z-auto lg:h-full'
           : 'hidden lg:flex lg:h-full'
       }`}
     >
-      {chatId ? (
+      {paneOpened ? (
         <Outlet />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6 py-10 m-3 rounded-xl border border-dashed border-dark-border">
@@ -585,7 +597,7 @@ export function ChatsPage() {
           <p className="text-dark-textMuted font-medium">{tab === 'clubs' ? 'Открыть кружок' : 'Открыть чат'}</p>
           <p className="text-xs text-dark-textMuted/70">
             {tab === 'clubs'
-              ? 'Выберите кружок слева — откроется его страница'
+              ? 'Выберите кружок слева — откроется его чат'
               : 'Выберите чат слева или найдите пользователя через поиск'}
           </p>
         </div>

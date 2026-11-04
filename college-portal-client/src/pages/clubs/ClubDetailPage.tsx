@@ -3,12 +3,12 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clubsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
 import { KebabMenu } from '../../components/ui/KebabMenu';
+import { Modal } from '../../components/ui/Modal';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { notifySuccess } from '../../utils/notify';
@@ -74,7 +74,7 @@ const MessageRow = memo(function MessageRow({
   };
 
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex items-start gap-2 group">
       <Avatar
         src={message.userAvatar || undefined}
         name={message.userName}
@@ -119,6 +119,11 @@ const MessageRow = memo(function MessageRow({
   );
 });
 
+/**
+ * Чат кружка в правой панели вкладки «Кружки» — выглядит как обычный чат:
+ * слева список кружков, справа шапка + лента сообщений + композер.
+ * Управление группой — через меню в шапке и модальное окно.
+ */
 export function ClubDetailPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const [searchParams] = useSearchParams();
@@ -129,6 +134,8 @@ export function ClubDetailPage() {
 
   const [error, setError] = useState('');
   const [messageText, setMessageText] = useState('');
+  const [composerRef, setComposerRef] = useState<HTMLTextAreaElement | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<UpdateClubDto | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -236,20 +243,6 @@ export function ClubDetailPage() {
     onError: (err) => setError(getError(err)),
   });
 
-  /** Back to the clubs tab of the chats page (the new clubs home). */
-  const backToClubs = (
-    <Link
-      to="/chats"
-      className="inline-flex items-center gap-1.5 text-sm text-dark-textMuted hover:text-dark-text transition-colors"
-      onClick={() => sessionStorage.setItem('chats-page:tab', 'clubs')}
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-      </svg>
-      Кружки
-    </Link>
-  );
-
   const leaderMutation = useMutation({
     mutationFn: ({ userId, isLeader }: { userId: string; isLeader: boolean }) => clubsApi.setLeader(clubId!, userId, isLeader),
     onSuccess: () => {
@@ -338,7 +331,9 @@ export function ClubDetailPage() {
   }, [editMessageMutation]);
 
   const handleDeleteMessage = useCallback((messageId: string) => deleteMessageRef.current(messageId), []);
-  const handleEditMessage = useCallback((messageId: string, text: string) => editMessageRef.current(messageId, text), []);
+  const handleEditMessage = useCallback((messageId: string, text: string) => {
+    editMessageRef.current(messageId, text);
+  }, []);
   const handleAvatarClick = useCallback((src: string) => setPreviewImage(src), []);
 
   const loadOlder = async () => {
@@ -383,313 +378,403 @@ export function ClubDetailPage() {
     el.scrollTop = el.scrollHeight - pending.prevHeight + pending.prevTop;
   }, [messages]);
 
+  // Автовысота композера — как в обычном чате.
+  useEffect(() => {
+    const el = composerRef;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, [messageText, composerRef]);
+
+  /** Возврат к списку кружков той же вкладки. */
+  const goBack = () => {
+    sessionStorage.setItem('chats-page:tab', 'clubs');
+    navigate('/chats');
+  };
+
   const inviteLink = useMemo(() => {
     if (!club?.inviteToken) return '';
-    return `${window.location.origin}/clubs/${club.id}?invite=${club.inviteToken}`;
+    return `${window.location.origin}/chats/club/${club.id}?invite=${club.inviteToken}`;
   }, [club?.id, club?.inviteToken]);
 
   const copyInvite = async () => {
     try {
       await navigator.clipboard.writeText(inviteLink);
-      setError('Ссылка скопирована');
-      setTimeout(() => setError(''), 2000);
+      notifySuccess('Ссылка скопирована');
     } catch {
-      setError('Не удалось скопировать ссылку');
+      notifySuccess('Не удалось скопировать ссылку');
     }
   };
 
-  if (isLoading) return <div className="skeleton h-64" />;
+  const saveEdits = () => {
+    if (!form) return;
+    const name = form.name.trim();
+    if (!name) {
+      setError('Введите название группы');
+      return;
+    }
+    if (name.length > MAX_CLUB_NAME_LENGTH) {
+      setError(`Название группы — не более ${MAX_CLUB_NAME_LENGTH} символов`);
+      return;
+    }
+    if ((form.description ?? '').trim().length > MAX_CLUB_DESCRIPTION_LENGTH) {
+      setError(`Описание группы — не более ${MAX_CLUB_DESCRIPTION_LENGTH} символов`);
+      return;
+    }
+    updateMutation.mutate({ ...form, name });
+  };
+
+  if (isLoading) return <div className="skeleton h-64 flex-1" />;
 
   if (loadError || !club) {
     return (
-      <Card>
-        <CardContent className="py-10 text-center space-y-4">
-          <p className="text-dark-textMuted">Группа не найдена или доступ закрыт</p>
-          <Link to="/chats" onClick={() => sessionStorage.setItem('chats-page:tab', 'clubs')}>
-            <Button variant="secondary">К списку кружков</Button>
-          </Link>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col h-full space-y-4 p-3 lg:p-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start"
+          onClick={goBack}
+          aria-label="К списку кружков"
+        >
+          ←
+        </Button>
+        <div className="p-8 text-center text-dark-textMuted rounded-xl border border-dark-border bg-dark-card">
+          Группа не найдена или доступ закрыт
+        </div>
+      </div>
     );
   }
 
+  const headerSubtitle = [
+    `Глава: ${shortName(club.ownerName)}`,
+    `${club.memberCount} участн.`,
+  ].join(' · ');
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        {backToClubs}
+    <div className="flex flex-col h-full min-w-0 min-h-0 overflow-hidden p-0 lg:p-3 xl:p-4 relative">
+      {/* Шапка: назад, фото и название группы, меню управления */}
+      <div className="flex items-center gap-3 border-b border-dark-border px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-0 lg:pt-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={goBack}
+          aria-label="К списку кружков"
+          className="p-2"
+        >
+          ←
+        </Button>
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity text-left"
+          aria-label="Информация о группе"
+        >
+          <Avatar
+            src={club.avatarDataUrl || undefined}
+            name={club.name}
+            size="md"
+            className="rounded-2xl"
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-sm font-semibold text-dark-text truncate">{club.name}</p>
+              {club.isPinned && (
+                <svg className="w-3.5 h-3.5 shrink-0 text-dark-textMuted" fill="currentColor" viewBox="0 0 24 24" aria-label="Закреплённый кружок">
+                  <title>Закреплён</title>
+                  <path d="M16 3l5 5-2.5 1L15 12l-1 6-2-2-4.5 4.5L6 19l4.5-4.5-2-2 6-1L18 8z" />
+                </svg>
+              )}
+            </div>
+            <p className="text-xs text-dark-textMuted truncate">{headerSubtitle}</p>
+          </div>
+        </button>
+        {!club.isMember && club.canJoin && (
+          <Button size="sm" variant="secondary" loading={joinMutation.isPending} onClick={() => joinMutation.mutate()}>
+            Вступить
+          </Button>
+        )}
+        <KebabMenu
+          ariaLabel="Меню группы"
+          menuClassName="top-full mt-1"
+          items={[
+            { label: 'Информация', onClick: () => setInfoOpen(true) },
+            ...(inviteLink ? [{ label: 'Скопировать ссылку-приглашение', onClick: () => void copyInvite() }] : []),
+            ...(club.isMember && club.ownerId !== user?.id
+              ? [{ label: 'Покинуть группу', onClick: () => leaveMutation.mutate() }]
+              : []),
+            ...(club.canManage
+              ? [
+                  { label: 'Редактировать', onClick: () => { setForm(toForm(club)); setEditing(true); } },
+                  { label: club.isPinned ? 'Открепить сверху' : 'Закрепить сверху', onClick: () => pinMutation.mutate(!club.isPinned) },
+                ]
+              : []),
+            ...((club.ownerId === user?.id || user?.role === 'Admin')
+              ? [{ label: 'Удалить группу', danger: true, onClick: () => { if (confirm('Удалить группу со всеми сообщениями?')) deleteMutation.mutate(); } }]
+              : []),
+          ]}
+        />
       </div>
 
+      {/* Неявные ошибки, связанные с чатом (права, сеть) */}
       {error && (
-        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
+        <div className="mx-3 mt-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between lg:mx-0">
           <span>{error}</span>
           <Button variant="ghost" size="sm" onClick={() => setError('')}>✕</Button>
         </div>
       )}
 
-      <Card>
-        <CardContent className="p-4 sm:p-6 space-y-4">
-          <div className="relative flex flex-col sm:flex-row gap-4 pr-10">
-            <Avatar
-              src={club.avatarDataUrl || undefined}
-              name={club.name}
-              size="xl"
-              className="rounded-2xl w-24 h-24"
-              onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
-            />
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-dark-text">{club.name}</h1>
-                <Badge variant={club.isPrivate ? 'warning' : 'success'}>{club.isPrivate ? 'Приватная' : 'Публичная'}</Badge>
-                {club.joinByLink && <Badge variant="info">По ссылке</Badge>}
-                {club.isPinned && <Badge variant="primary">📌 Закреплён</Badge>}
+      {canSeeChat ? (
+        <>
+          {/* Лента сообщений на всю высоту панели */}
+          <div
+            ref={chatContainerRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+            }}
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 px-3 pt-3 lg:px-0 lg:pr-1"
+          >
+            {hasOlder && (messages?.length ?? 0) >= MESSAGE_PAGE_SIZE && (
+              <div className="text-center pb-1">
+                <Button variant="ghost" size="sm" loading={olderLoading} onClick={loadOlder}>
+                  Показать более ранние сообщения
+                </Button>
               </div>
-              <p className="text-sm text-dark-textMuted">
-                Глава: <Link to={`/users/${club.ownerId}`} className="text-dark-text hover:text-primary-400">{shortName(club.ownerName)}</Link> · Участников: {club.memberCount}
-              </p>
-              {club.description && <p className="text-dark-text whitespace-pre-wrap break-words">{club.description}</p>}
-            </div>
-            {club.canManage && (
-              <div className="absolute top-0 right-0">
-                <KebabMenu
-                  ariaLabel="Меню группы"
-                  items={[
-                    { label: editing ? 'Скрыть редактирование' : 'Редактировать', onClick: () => { setForm(toForm(club)); setEditing((v) => !v); } },
-                    { label: club.isPinned ? 'Открепить сверху' : 'Закрепить сверху', onClick: () => pinMutation.mutate(!club.isPinned) },
-                    ...((club.ownerId === user?.id || user?.role === 'Admin')
-                      ? [{ label: 'Удалить группу', danger: true, onClick: () => { if (confirm('Удалить группу со всеми сообщениями?')) deleteMutation.mutate(); } }]
-                      : []),
-                  ]}
+            )}
+            {messages && messages.length > 0 ? (
+              messages.map((m) => (
+                <MessageRow
+                  key={m.id}
+                  message={m}
+                  canManage={club.canManage}
+                  currentUserId={user?.id}
+                  onDelete={handleDeleteMessage}
+                  onEdit={handleEditMessage}
+                  onAvatarClick={handleAvatarClick}
                 />
-              </div>
+              ))
+            ) : (
+              <p className="text-sm text-dark-textMuted text-center py-10 px-4">
+                Сообщений пока нет. Напишите первым!
+              </p>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {!club.isMember && (
-              club.canJoin ? (
-                <Button loading={joinMutation.isPending} onClick={() => joinMutation.mutate()}>Вступить</Button>
-              ) : (
-                <Badge variant="warning">Вступление по приглашению главы</Badge>
-              )
-            )}
-            {club.isMember && club.ownerId !== user?.id && (
-              <Button variant="secondary" loading={leaveMutation.isPending} onClick={() => leaveMutation.mutate()}>
-                Покинуть
-              </Button>
-            )}
-            {inviteLink && (
-              <Button variant="ghost" onClick={copyInvite}>Скопировать ссылку-приглашение</Button>
-            )}
-          </div>
-
-          {editing && form && (
-            <div className="border-t border-dark-border pt-4 space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col items-center gap-2">
-                  <Avatar src={form.avatarDataUrl || undefined} name={form.name || '?'} size="xl" className="rounded-2xl" />
-                  <label className="btn-ghost text-sm cursor-pointer">
-                    Фото группы
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = '';
-                        if (!file) return;
-                        if (!file.type.startsWith('image/')) { alert('Можно загрузить только изображение'); return; }
-                        if (file.size > MAX_AVATAR_SIZE) { alert('Файл слишком большой. Максимум 2 МБ'); return; }
-                        const reader = new FileReader();
-                        reader.onload = () => setForm((f) => (f ? { ...f, avatarDataUrl: reader.result as string } : f));
-                        reader.readAsDataURL(file);
-                      }}
-                    />
-                  </label>
-                </div>
-                <div className="flex-1 space-y-4">
-                  <Input
-                    label="Название"
-                    value={form.name}
-                    maxLength={MAX_CLUB_NAME_LENGTH}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  />
-                  <Textarea
-                    label="Описание"
-                    value={form.description ?? ''}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    maxLength={MAX_CLUB_DESCRIPTION_LENGTH}
-                    rows={3}
-                  />
-                  <div className="flex flex-col gap-2">
-                    <label className="flex items-center gap-2 text-sm text-dark-text">
-                      <input type="checkbox" checked={form.isPrivate} onChange={(e) => setForm({ ...form, isPrivate: e.target.checked })} />
-                      Приватная группа
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-dark-text">
-                      <input type="checkbox" checked={form.joinByLink} onChange={(e) => setForm({ ...form, joinByLink: e.target.checked })} />
-                      Вступление по ссылке
-                    </label>
-                  </div>
-                  <Button
-                    loading={updateMutation.isPending}
-                    onClick={() => {
-                      const name = form.name.trim();
-                      if (!name) {
-                        setError('Введите название группы');
-                        return;
+          {/* Композер как в обычном чате */}
+          <div className="mt-3 border-t border-dark-border px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:px-0 lg:pb-0">
+            {club.isMember ? (
+              <>
+                <div className="flex items-end gap-2">
+                  <textarea
+                    ref={setComposerRef}
+                    rows={1}
+                    value={messageText}
+                    className="input min-h-[2.5rem] max-h-32 h-10 py-2 resize-none flex-1 min-w-0"
+                    placeholder="Написать сообщение..."
+                    maxLength={MAX_MESSAGE_LENGTH}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        const text = messageText.trim();
+                        if (text) {
+                          setMessageText('');
+                          sendText(text);
+                        }
                       }
-                      if (name.length > MAX_CLUB_NAME_LENGTH) {
-                        setError(`Название группы — не более ${MAX_CLUB_NAME_LENGTH} символов`);
-                        return;
-                      }
-                      if ((form.description ?? '').trim().length > MAX_CLUB_DESCRIPTION_LENGTH) {
-                        setError(`Описание группы — не более ${MAX_CLUB_DESCRIPTION_LENGTH} символов`);
-                        return;
-                      }
-                      updateMutation.mutate({ ...form, name });
                     }}
+                  />
+                  <Button
+                    className="shrink-0"
+                    loading={postMutation.isPending || queuedCount > 0}
+                    disabled={!messageText.trim()}
+                    onClick={() => {
+                      const text = messageText.trim();
+                      if (text) {
+                        setMessageText('');
+                        sendText(text);
+                      }
+                    }}
+                    aria-label="Отправить"
                   >
-                    Сохранить
+                    ➤
                   </Button>
                 </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr,320px] items-start">
-        <Card>
-          <CardHeader>
-            <CardTitle>Чат группы</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {canSeeChat ? (
-              <>
-                <div
-                  ref={chatContainerRef}
-                  onScroll={(e) => {
-                    const el = e.currentTarget;
-                    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-                  }}
-                  className="h-72 max-h-72 overflow-y-auto overscroll-contain space-y-3 pr-1"
-                >
-                  {hasOlder && (messages?.length ?? 0) >= MESSAGE_PAGE_SIZE && (
-                    <div className="text-center">
-                      <Button variant="ghost" size="sm" loading={olderLoading} onClick={loadOlder}>
-                        Показать более ранние сообщения
-                      </Button>
-                    </div>
-                  )}
-                  {messages && messages.length > 0 ? (
-                    messages.map((m) => (
-                      <MessageRow
-                        key={m.id}
-                        message={m}
-                        canManage={club.canManage}
-                        currentUserId={user?.id}
-                        onDelete={handleDeleteMessage}
-                        onEdit={handleEditMessage}
-                        onAvatarClick={handleAvatarClick}
-                      />
-                    ))
-                  ) : (
-                    <p className="text-sm text-dark-textMuted text-center py-8">Пока нет сообщений</p>
-                  )}
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-xs text-dark-textMuted min-w-0 truncate">
+                    {messageText.length}/{MAX_MESSAGE_LENGTH}
+                    {queuedCount > 0 && ` · в очереди: ${queuedCount}`}
+                   
+                  </span>
+                  
                 </div>
-                {club.isMember ? (
-                  <div className="space-y-2">
-                    <textarea
-                      className="input h-24 resize-none"
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      placeholder="Написать сообщение..."
-                      maxLength={MAX_MESSAGE_LENGTH}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                          e.preventDefault();
-                          const text = messageText.trim();
-                          if (text) {
-                            setMessageText('');
-                            sendText(text);
-                          }
-                        }
-                      }}
-                    />
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-dark-textMuted min-w-0 truncate">
-                        {messageText.length}/{MAX_MESSAGE_LENGTH}
-                        {queuedCount > 0 && ` · в очереди: ${queuedCount}`}
-                        <span className="hidden sm:inline"> · Enter — отправить, Shift+Enter — перенос строки</span>
-                      </span>
-                      <Button
-                        className="shrink-0"
-                        loading={postMutation.isPending || queuedCount > 0}
-                        disabled={!messageText.trim()}
-                        onClick={() => {
-                          const text = messageText.trim();
-                          if (text) {
-                            setMessageText('');
-                            sendText(text);
-                          }
-                        }}
-                      >
-                        Отправить
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-dark-textMuted">Писать могут только участники группы.</p>
-                )}
               </>
             ) : (
-              <p className="text-sm text-dark-textMuted text-center py-8">Чат доступен только участникам группы.</p>
+              <p className="text-xs text-dark-textMuted text-center py-1">
+                {club.canJoin
+                  ? 'Вступите в группу, чтобы написать сообщение.'
+                  : 'Писать могут только участники группы — вступление по приглашению главы.'}
+              </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6 py-10 m-3 rounded-xl border border-dashed border-dark-border">
+          <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="xl" className="rounded-2xl" />
+          <p className="font-medium text-dark-text">{club.name}</p>
+          {club.description && <p className="text-sm text-dark-textMuted max-w-sm">{club.description}</p>}
+          {club.canJoin ? (
+            <Button loading={joinMutation.isPending} onClick={() => joinMutation.mutate()}>Вступить и читать чат</Button>
+          ) : (
+            <Badge variant="warning">Чат доступен участникам · вступление по приглашению главы</Badge>
+          )}
+        </div>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Участники ({club.memberCount})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {club.members.map((m) => (
-              <div key={m.userId} className="flex items-center gap-3">
-                <Avatar
-                  src={m.avatarDataUrl || undefined}
-                  name={m.displayName}
-                  size="sm"
-                  onImageClick={() => m.avatarDataUrl && setPreviewImage(m.avatarDataUrl)}
-                />
-                <div className="flex-1 min-w-0">
-                  <Link to={`/users/${m.userId}`} className="block text-sm text-dark-text truncate hover:text-primary-400">{shortName(m.displayName)}</Link>
-                  {m.isLeader && <span className="text-xs text-primary-400">Глава</span>}
+      {/* Информация и участники */}
+      {infoOpen && (
+        <Modal title="О группе" onClose={() => setInfoOpen(false)}>
+          <div className="space-y-4">
+            <div className="flex items-start gap-4">
+              <Avatar
+                src={club.avatarDataUrl || undefined}
+                name={club.name}
+                size="xl"
+                className="rounded-2xl w-20 h-20"
+                onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
+              />
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-lg font-bold text-dark-text">{club.name}</p>
+                  <Badge variant={club.isPrivate ? 'warning' : 'success'}>{club.isPrivate ? 'Приватная' : 'Публичная'}</Badge>
+                  {club.joinByLink && <Badge variant="info">По ссылке</Badge>}
                 </div>
-                {club.canManage && m.userId !== club.ownerId && (
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      loading={leaderMutation.isPending}
-                      onClick={() => leaderMutation.mutate({ userId: m.userId, isLeader: !m.isLeader })}
-                    >
-                      {m.isLeader ? 'Снять главу' : 'Сделать главой'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-400"
-                      onClick={() => removeMemberMutation.mutate(m.userId)}
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                )}
+                <p className="text-sm text-dark-textMuted">
+                  Глава: <Link to={`/users/${club.ownerId}`} className="text-dark-text hover:text-primary-400">{shortName(club.ownerName)}</Link>
+                </p>
+                {club.description && <p className="text-sm text-dark-text whitespace-pre-wrap break-words">{club.description}</p>}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+
+            <div className="border-t border-dark-border pt-3">
+              <p className="text-sm font-semibold text-dark-text mb-2">Участники ({club.memberCount})</p>
+              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                {club.members.map((m) => (
+                  <div key={m.userId} className="flex items-center gap-3">
+                    <Avatar
+                      src={m.avatarDataUrl || undefined}
+                      name={m.displayName}
+                      size="sm"
+                      onImageClick={() => m.avatarDataUrl && setPreviewImage(m.avatarDataUrl)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <Link to={`/users/${m.userId}`} className="block text-sm text-dark-text truncate hover:text-primary-400">{shortName(m.displayName)}</Link>
+                      {m.isLeader && <span className="text-xs text-primary-400">Глава</span>}
+                    </div>
+                    {club.canManage && m.userId !== club.ownerId && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          loading={leaderMutation.isPending}
+                          onClick={() => leaderMutation.mutate({ userId: m.userId, isLeader: !m.isLeader })}
+                        >
+                          {m.isLeader ? 'Снять главу' : 'Сделать главой'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-400"
+                          onClick={() => removeMemberMutation.mutate(m.userId)}
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {inviteLink && (
+              <div className="flex gap-2">
+                <Input value={inviteLink} readOnly className="text-xs" aria-label="Ссылка-приглашение" />
+                <Button variant="secondary" className="shrink-0" onClick={() => void copyInvite()}>Копировать</Button>
+              </div>
+            )}
+
+            {club.isMember && club.ownerId !== user?.id && (
+              <Button
+                variant="secondary"
+                className="w-full text-red-400"
+                loading={leaveMutation.isPending}
+                onClick={() => {
+                  setInfoOpen(false);
+                  leaveMutation.mutate();
+                }}
+              >
+                Покинуть группу
+              </Button>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Редактирование группы */}
+      {editing && form && (
+        <Modal title="Редактировать группу" onClose={() => setEditing(false)}>
+          <div className="space-y-4">
+            <div className="flex flex-col items-center gap-2">
+              <Avatar src={form.avatarDataUrl || undefined} name={form.name || '?'} size="xl" className="rounded-2xl" />
+              <label className="btn-ghost text-sm cursor-pointer">
+                Фото группы
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    if (!file.type.startsWith('image/')) { alert('Можно загрузить только изображение'); return; }
+                    if (file.size > MAX_AVATAR_SIZE) { alert('Файл слишком большой. Максимум 2 МБ'); return; }
+                    const reader = new FileReader();
+                    reader.onload = () => setForm((f) => (f ? { ...f, avatarDataUrl: reader.result as string } : f));
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+            </div>
+            <Input
+              label="Название"
+              value={form.name}
+              maxLength={MAX_CLUB_NAME_LENGTH}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            <Textarea
+              label="Описание"
+              value={form.description ?? ''}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              maxLength={MAX_CLUB_DESCRIPTION_LENGTH}
+              rows={3}
+            />
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm text-dark-text">
+                <input type="checkbox" checked={form.isPrivate} onChange={(e) => setForm({ ...form, isPrivate: e.target.checked })} />
+                Приватная группа
+              </label>
+              <label className="flex items-center gap-2 text-sm text-dark-text">
+                <input type="checkbox" checked={form.joinByLink} onChange={(e) => setForm({ ...form, joinByLink: e.target.checked })} />
+                Вступление по ссылке
+              </label>
+            </div>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <Button className="w-full" loading={updateMutation.isPending} onClick={saveEdits}>
+              Сохранить
+            </Button>
+          </div>
+        </Modal>
+      )}
 
       <Lightbox src={previewImage} alt="Фото группы" onClose={() => setPreviewImage(null)} />
     </div>

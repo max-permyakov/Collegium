@@ -119,7 +119,8 @@ export function PublicProfilePage({ userId }: { userId: string }) {
               {profile.clubs.map((club) => (
                 <Link
                   key={club.id}
-                  to={`/clubs/${club.id}`}
+                  to={`/chats/club/${club.id}`}
+                  onClick={() => sessionStorage.setItem('chats-page:tab', 'clubs')}
                   className="flex items-center gap-3 p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors"
                 >
                   <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="sm" />

@@ -167,6 +167,16 @@ function GradesSubjectRedirect() {
   return <Navigate to={subject ? `/grades?subject=${encodeURIComponent(subject)}` : '/grades'} replace />;
 }
 
+/** Кружки открываются как обычный чат: старый адрес /clubs/:id → панель чатов. */
+function ClubChatRedirect() {
+  const { clubId } = useParams<{ clubId: string }>();
+  const [searchParams] = useSearchParams();
+  const invite = searchParams.get('invite');
+  sessionStorage.setItem('chats-page:tab', 'clubs');
+  const target = clubId ? `/chats/club/${clubId}${invite ? `?invite=${encodeURIComponent(invite)}` : ''}` : '/chats';
+  return <Navigate to={target} replace />;
+}
+
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
 
@@ -225,9 +235,12 @@ function AppRoutes() {
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="news" element={<NewsPage />} />
         <Route path="clubs" element={<ClubsPage />} />
-        <Route path="clubs/:clubId" element={<ClubDetailPage />} />
+        {/* Старый адрес кружка: чат кружка живёт внутри вкладки чатов. */}
+        <Route path="clubs/:clubId" element={<ClubChatRedirect />} />
         <Route path="chats" element={<ChatsPage />}>
           <Route path=":chatId" element={<ChatDetailPage />} />
+          {/* Кружок в той же правой панели: слева список, справа чат. */}
+          <Route path="club/:clubId" element={<ClubDetailPage />} />
         </Route>
         {/* Android «Поделиться → KKEP.ka» (manifest share_target) приёмник */}
         <Route path="share" element={<SharePage />} />
