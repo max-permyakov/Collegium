@@ -1,17 +1,33 @@
 import { useMemo, useState } from 'react';
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { chatsApi } from '../../services/api';
+import { chatsApi, clubsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+import { Input, Textarea } from '../../components/ui/Input';
 import { Avatar } from '../../components/ui/Avatar';
 import { KebabMenu } from '../../components/ui/KebabMenu';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { itemTime, messagePreview } from '../../utils/chatPreview';
+import { notifySuccess } from '../../utils/notify';
+import { shortName } from '../../utils/names';
 import type { ChatKind, ChatListItemDto, ChatUserDto } from '../../types/chats';
+import type { ClubListDto, CreateClubDto } from '../../types';
 
 const LIST_POLL_MS = 5000;
+const CLUBS_POLL_MS = 20000;
+const MAX_CLUB_NAME_LENGTH = 20;
+const MAX_CLUB_DESCRIPTION_LENGTH = 200;
+// Вкладка восстанавливается после переходов на /clubs/:id и обратно.
+const TAB_STORAGE_KEY = 'chats-page:tab';
+
+const emptyClubForm: CreateClubDto = {
+  name: '',
+  description: '',
+  avatarDataUrl: null,
+  isPrivate: false,
+  joinByLink: false,
+};
 
 const SPECIAL_HINTS: Record<Exclude<ChatKind, 'Direct'>, string> = {
   Saved: 'Заметки и файлы только для вас',
@@ -45,11 +61,32 @@ export function ChatsPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
+  const [tab, setTabState] = useState<'chats' | 'clubs'>(() =>
+    sessionStorage.getItem(TAB_STORAGE_KEY) === 'clubs' ? 'clubs' : 'chats',
+  );
+  const [showClubCreate, setShowClubCreate] = useState(false);
+  const [clubForm, setClubForm] = useState<CreateClubDto>(emptyClubForm);
+  const [clubError, setClubError] = useState('');
+
+  const setTab = (next: 'chats' | 'clubs') => {
+    setTabState(next);
+    sessionStorage.setItem(TAB_STORAGE_KEY, next);
+    setSearchOpen(false);
+    setQuery('');
+    setShowClubCreate(false);
+    setClubError('');
+  };
 
   const listQuery = useQuery<ChatListItemDto[]>({
     queryKey: ['chats'],
     queryFn: async () => (await chatsApi.list()).data,
     refetchInterval: LIST_POLL_MS,
+  });
+
+  const clubsQuery = useQuery<ClubListDto[]>({
+    queryKey: ['clubs'],
+    queryFn: async () => (await clubsApi.getClubs()).data,
+    refetchInterval: CLUBS_POLL_MS,
   });
 
   const searchQuery = useQuery({
@@ -113,6 +150,55 @@ export function ChatsPage() {
     }
   };
 
+  const clubs = useMemo(() => {
+    const list = clubsQuery.data ?? [];
+    // Закреплённые сверху, остальные по алфавиту — как в списке чатов.
+    return [...list].sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return a.name.localeCompare(b.name, 'ru');
+    });
+  }, [clubsQuery.data]);
+
+  const createClubMutation = useMutation({
+    mutationFn: (data: CreateClubDto) => clubsApi.create(data),
+    onSuccess: (res) => {
+      notifySuccess('Группа создана');
+      queryClient.invalidateQueries({ queryKey: ['clubs'] });
+      setShowClubCreate(false);
+      setClubForm(emptyClubForm);
+      navigate(`/clubs/${res.data.id}`);
+    },
+    onError: (err) => {
+      const e = err as { response?: { data?: { message?: string } } };
+      setClubError(e.response?.data?.message || 'Не удалось создать группу');
+    },
+  });
+
+  const handleCreateClub = (e: React.FormEvent) => {
+    e.preventDefault();
+    setClubError('');
+    const name = clubForm.name.trim();
+    if (!name) {
+      setClubError('Введите название группы');
+      return;
+    }
+    if (name.length > MAX_CLUB_NAME_LENGTH) {
+      setClubError(`Название группы — не более ${MAX_CLUB_NAME_LENGTH} символов`);
+      return;
+    }
+    if ((clubForm.description ?? '').trim().length > MAX_CLUB_DESCRIPTION_LENGTH) {
+      setClubError(`Описание группы — не более ${MAX_CLUB_DESCRIPTION_LENGTH} символов`);
+      return;
+    }
+    createClubMutation.mutate(clubForm);
+  };
+
+  const openClubCreate = () => {
+    setClubForm(emptyClubForm);
+    setClubError('');
+    setShowClubCreate((open) => !open);
+  };
+
   const chats = useMemo(() => listQuery.data ?? [], [listQuery.data]);
   const savedChat = chats.find((c) => c.kind === 'Saved');
   const supportChat = chats.find((c) => c.kind === 'Support');
@@ -169,27 +255,63 @@ export function ChatsPage() {
         chatId ? 'hidden lg:flex' : ''
       }`}
     >
-      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] border-b border-dark-border lg:pt-3">
-        <h1 className="text-xl font-bold text-dark-text">Чаты</h1>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={toggleSearch}
-          aria-label={searchOpen ? 'Закрыть поиск' : 'Поиск чатов и пользователей'}
-          title="Поиск"
-          className="p-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            {searchOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            )}
-          </svg>
-        </Button>
+      <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] border-b border-dark-border lg:pt-3">
+        <div className="flex items-center gap-0.5 rounded-xl bg-dark-border/50 p-1" role="tablist" aria-label="Раздел чатов">
+          {(['chats', 'clubs'] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                tab === value
+                  ? 'bg-dark-card text-dark-text shadow-sm'
+                  : 'text-dark-textMuted hover:text-dark-text'
+              }`}
+            >
+              {value === 'chats' ? 'Чаты' : 'Кружки'}
+            </button>
+          ))}
+        </div>
+        {tab === 'chats' ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSearch}
+            aria-label={searchOpen ? 'Закрыть поиск' : 'Поиск чатов и пользователей'}
+            title="Поиск"
+            className="p-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              {searchOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              )}
+            </svg>
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={openClubCreate}
+            aria-label={showClubCreate ? 'Отменить создание группы' : 'Создать группу'}
+            title="Создать группу"
+            className="p-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              {showClubCreate ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v14M5 12h14" />
+              )}
+            </svg>
+          </Button>
+        )}
       </div>
 
-      {searchOpen && (
+      {tab === 'chats' && searchOpen && (
         <div className="px-3 py-3 border-b border-dark-border space-y-3 max-h-[50%] overflow-y-auto overscroll-contain">
           <Input
             autoFocus
@@ -264,73 +386,181 @@ export function ChatsPage() {
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-1">
-        {listQuery.isLoading && <div className="skeleton h-20" />}
+        {tab === 'chats' && (
+          <>
+            {listQuery.isLoading && <div className="skeleton h-20" />}
 
-        {!listQuery.isLoading && (
-          <div className="space-y-1">
-            {renderSpecialRow('Saved', savedChat)}
-            {renderSpecialRow('Support', supportChat)}
-          </div>
+            {!listQuery.isLoading && (
+              <div className="space-y-1">
+                {renderSpecialRow('Saved', savedChat)}
+                {renderSpecialRow('Support', supportChat)}
+              </div>
+            )}
+
+            {!listQuery.isLoading && directChats.length === 0 && !searchOpen && (
+              <p className="text-sm text-dark-textMuted text-center py-6 px-3">
+                Личных чатов пока нет. Найдите пользователя через поиск и напишите ему!
+              </p>
+            )}
+
+            {directChats.map((chat: ChatListItemDto) => {
+              const last = chat.lastMessage;
+              const unread = chat.unreadCount;
+              const active = chat.id === chatId;
+              return (
+                <div
+                  key={chat.id}
+                  className={`flex items-center gap-1 p-3 pr-1 rounded-xl transition-colors ${
+                    active ? 'bg-primary-500/15 border border-primary-500/30' : 'border border-transparent hover:bg-dark-border/60'
+                  }`}
+                >
+                  <Link
+                    to={`/chats/${chat.id}`}
+                    className="flex items-center gap-3 flex-1 min-w-0"
+                  >
+                    <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-dark-text' : 'font-medium text-dark-text'}`}>
+                          {chat.otherUser.displayName}
+                        </p>
+                        {last && <span className="text-xs text-dark-textMuted shrink-0">{itemTime(last.createdAt)}</span>}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-sm truncate ${unread > 0 ? 'text-dark-text font-medium' : 'text-dark-textMuted'}`}>
+                          {messagePreview(last, user?.id) || 'Нет сообщений'}
+                        </p>
+                        {unread > 0 && (
+                          <span className="flex-shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-primary-500 text-white text-[11px] font-semibold">
+                            {unread > 99 ? '99+' : unread}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {chat.isPinned && (
+                      <svg className="w-4 h-4 shrink-0 text-dark-textMuted mr-1" fill="currentColor" viewBox="0 0 24 24" aria-label="Закреплённый чат">
+                        <title>Закреплён</title>
+                        <path d="M16 3l5 5-2.5 1L15 12l-1 6-2-2-4.5 4.5L6 19l4.5-4.5-2-2 6-1L18 8z" />
+                      </svg>
+                    )}
+                  </Link>
+                  <KebabMenu
+                    ariaLabel="Действия с чатом"
+                    menuClassName="top-full mt-1"
+                    items={[
+                      { label: chat.isPinned ? 'Открепить' : 'Закрепить', onClick: () => handlePin(chat) },
+                      { label: 'Удалить чат', danger: true, onClick: () => handleDeleteChat(chat) },
+                    ]}
+                  />
+                </div>
+              );
+            })}
+          </>
         )}
 
-        {!listQuery.isLoading && directChats.length === 0 && !searchOpen && (
-          <p className="text-sm text-dark-textMuted text-center py-6 px-3">
-            Личных чатов пока нет. Найдите пользователя через поиск и напишите ему!
-          </p>
-        )}
-
-        {directChats.map((chat: ChatListItemDto) => {
-          const last = chat.lastMessage;
-          const unread = chat.unreadCount;
-          const active = chat.id === chatId;
-          return (
-            <div
-              key={chat.id}
-              className={`flex items-center gap-1 p-3 pr-1 rounded-xl transition-colors ${
-                active ? 'bg-primary-500/15 border border-primary-500/30' : 'border border-transparent hover:bg-dark-border/60'
-              }`}
-            >
-              <Link
-                to={`/chats/${chat.id}`}
-                className="flex items-center gap-3 flex-1 min-w-0"
+        {tab === 'clubs' && (
+          <>
+            {showClubCreate && (
+              <form
+                onSubmit={handleCreateClub}
+                className="mx-1 mt-1 p-4 rounded-xl border border-dark-border bg-dark-card/60 space-y-3"
               >
-                <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+                <p className="text-sm font-semibold text-dark-text">Новая группа</p>
+                <Input
+                  autoFocus
+                  label="Название"
+                  value={clubForm.name}
+                  maxLength={MAX_CLUB_NAME_LENGTH}
+                  placeholder="Мастеры дота ту"
+                  onChange={(e) => setClubForm((f) => ({ ...f, name: e.target.value }))}
+                  required
+                />
+                <Textarea
+                  label="Описание"
+                  value={clubForm.description ?? ''}
+                  maxLength={MAX_CLUB_DESCRIPTION_LENGTH}
+                  rows={2}
+                  placeholder="О группе"
+                  onChange={(e) => setClubForm((f) => ({ ...f, description: e.target.value }))}
+                />
+                <div className="flex flex-col gap-1.5 text-sm text-dark-text">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={clubForm.isPrivate}
+                      onChange={(e) => setClubForm((f) => ({ ...f, isPrivate: e.target.checked }))}
+                    />
+                    Приватная группа (видна только участникам)
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={clubForm.joinByLink}
+                      onChange={(e) => setClubForm((f) => ({ ...f, joinByLink: e.target.checked }))}
+                    />
+                    Вступление по ссылке-приглашению
+                  </label>
+                </div>
+                {clubError && <p className="text-sm text-red-400">{clubError}</p>}
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1" loading={createClubMutation.isPending}>
+                    Создать
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setShowClubCreate(false);
+                      setClubForm(emptyClubForm);
+                      setClubError('');
+                    }}
+                  >
+                    Отмена
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {clubsQuery.isLoading && <div className="skeleton h-16" />}
+
+            {!clubsQuery.isLoading && clubs.length === 0 && !showClubCreate && (
+              <p className="text-sm text-dark-textMuted text-center py-6 px-3">
+                Кружков пока нет. Нажмите «+» и создайте первый!
+              </p>
+            )}
+
+            {clubs.map((club) => (
+              <Link
+                key={club.id}
+                to={`/clubs/${club.id}`}
+                className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-dark-border/60"
+              >
+                <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="md" className="rounded-2xl" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-dark-text' : 'font-medium text-dark-text'}`}>
-                      {chat.otherUser.displayName}
-                    </p>
-                    {last && <span className="text-xs text-dark-textMuted shrink-0">{itemTime(last.createdAt)}</span>}
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={`text-sm truncate ${unread > 0 ? 'text-dark-text font-medium' : 'text-dark-textMuted'}`}>
-                      {messagePreview(last, user?.id) || 'Нет сообщений'}
-                    </p>
-                    {unread > 0 && (
-                      <span className="flex-shrink-0 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-primary-500 text-white text-[11px] font-semibold">
-                        {unread > 99 ? '99+' : unread}
-                      </span>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-dark-text truncate">{club.name}</p>
+                    {club.isPinned && (
+                      <svg className="w-3.5 h-3.5 shrink-0 text-dark-textMuted" fill="currentColor" viewBox="0 0 24 24" aria-label="Закреплённый кружок">
+                        <title>Закреплён</title>
+                        <path d="M16 3l5 5-2.5 1L15 12l-1 6-2-2-4.5 4.5L6 19l4.5-4.5-2-2 6-1L18 8z" />
+                      </svg>
                     )}
                   </div>
+                  <p className="text-xs text-dark-textMuted truncate">
+                    Глава: {shortName(club.ownerName)} · {club.memberCount} участн.
+                  </p>
                 </div>
-                {chat.isPinned && (
-                  <svg className="w-4 h-4 shrink-0 text-dark-textMuted mr-1" fill="currentColor" viewBox="0 0 24 24" aria-label="Закреплённый чат">
-                    <title>Закреплён</title>
-                    <path d="M16 3l5 5-2.5 1L15 12l-1 6-2-2-4.5 4.5L6 19l4.5-4.5-2-2 6-1L18 8z" />
-                  </svg>
+                {club.isMember && (
+                  <span
+                    className="w-2 h-2 rounded-full bg-primary-500 shrink-0"
+                    title={club.isLeader ? 'Вы глава кружка' : 'Вы участник'}
+                    aria-label={club.isLeader ? 'Вы глава кружка' : 'Вы участник'}
+                  />
                 )}
               </Link>
-              <KebabMenu
-                ariaLabel="Действия с чатом"
-                menuClassName="top-full mt-1"
-                items={[
-                  { label: chat.isPinned ? 'Открепить' : 'Закрепить', onClick: () => handlePin(chat) },
-                  { label: 'Удалить чат', danger: true, onClick: () => handleDeleteChat(chat) },
-                ]}
-              />
-            </div>
-          );
-        })}
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
@@ -352,8 +582,12 @@ export function ChatsPage() {
           <svg className="w-10 h-10 text-dark-textMuted/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
-          <p className="text-dark-textMuted font-medium">Открыть чат</p>
-          <p className="text-xs text-dark-textMuted/70">Выберите чат слева или найдите пользователя через поиск</p>
+          <p className="text-dark-textMuted font-medium">{tab === 'clubs' ? 'Открыть кружок' : 'Открыть чат'}</p>
+          <p className="text-xs text-dark-textMuted/70">
+            {tab === 'clubs'
+              ? 'Выберите кружок слева — откроется его страница'
+              : 'Выберите чат слева или найдите пользователя через поиск'}
+          </p>
         </div>
       )}
     </div>

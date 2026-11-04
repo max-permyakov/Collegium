@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { gradesApi, ratingApi } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { DiaryRequiredNotice } from '../../components/DiaryRequiredNotice';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { MarkTrendChart } from '../../components/grades/MarkTrendChart';
-import { GradeCalendar } from '../../components/grades/GradeCalendar';
+import { GradeCalendar, type CalendarDayEntry } from '../../components/grades/GradeCalendar';
 import { pageCache } from '../../utils/pageCache';
 import {
   buildAverageSeries,
   buildDayIndex,
-  overallAverage,
   subjectsWithMarks,
 } from '../../utils/gradeCalendar';
 import type { GroupRating, PerformanceResponse } from '../../types';
@@ -21,13 +18,16 @@ import type { GroupRating, PerformanceResponse } from '../../types';
 const PERFORMANCE_CACHE_KEY = 'performance:overview';
 
 export function GradesPage() {
-  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const cachedPerformance = pageCache.get<PerformanceResponse>(PERFORMANCE_CACHE_KEY);
   const [performance, setPerformance] = useState<PerformanceResponse | null>(cachedPerformance ?? null);
   const [isLoading, setIsLoading] = useState(!cachedPerformance);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [diaryRequired, setDiaryRequired] = useState(false);
+
+  // Выбранный предмет — состояние той же страницы: дизайн не меняется,
+  // подставляется только график и календарь.
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(() => searchParams.get('subject'));
 
   const [rating, setRating] = useState<GroupRating | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
@@ -38,21 +38,19 @@ export function GradesPage() {
 
   const loadPerformance = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setIsLoading(!pageCache.get(PERFORMANCE_CACHE_KEY));
-    setError('');
-    setDiaryRequired(false);
     try {
-      const response = await gradesApi.getPerformance();
-      pageCache.set(PERFORMANCE_CACHE_KEY, response.data);
-      setPerformance(response.data);
-    } catch (err) {
-      const e = err as { response?: { data?: { message?: string; code?: string } } };
-      if (e.response?.data?.code === 'diary_required') {
-        setDiaryRequired(true);
-      } else {
-        setError(e.response?.data?.message || 'Не удалось загрузить оценки');
+      const res = await gradesApi.getPerformance();
+      pageCache.set(PERFORMANCE_CACHE_KEY, res.data);
+      setPerformance(res.data);
+      setError('');
+    } catch (err: any) {
+      if (err.response?.status === 502) {
+        setError('Сервис дневника недоступен. Попробуйте позже');
+      } else if (err.response?.status !== 403) {
+        setError(err.response?.data?.message || 'Не удалось загрузить оценки');
       }
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
   }, []);
 
@@ -60,60 +58,49 @@ export function GradesPage() {
     void loadPerformance();
   }, [loadPerformance]);
 
-  /** Small icon-button refresh: recompute average from the diary → save to DB → reload. */
   const handleRefresh = async () => {
-    if (isRefreshing) return;
     setIsRefreshing(true);
     try {
-      const response = await gradesApi.refresh();
-      if (!response.data?.averageMark) {
-        toast.error('Дневник не вернул данные для пересчёта');
+      await gradesApi.refresh();
+      await loadPerformance({ silent: true });
+      toast.success('Оценки обновлены из дневника');
+    } catch (err: any) {
+      if (err.response?.status === 403 && err.response?.data?.code === 'diary_required') {
+        toast.error('Сначала привяжите электронный дневник в профиле');
+      } else if (err.response?.status === 502) {
+        toast.error('Сервис дневника недоступен');
       } else {
-        toast.success(`Средний балл обновлён: ${response.data.averageMark.toFixed(2)}`);
+        toast.error(err.response?.data?.message || 'Не удалось обновить оценки');
       }
-    } catch (err) {
-      const e = err as { response?: { data?: { message?: string; code?: string } } };
-      if (e.response?.data?.code === 'diary_required') {
-        toast.error('Сначала привяжите электронный дневник');
-      } else {
-        toast.error(e.response?.data?.message || 'Не удалось обновить средний балл');
-      }
-      return;
     } finally {
       setIsRefreshing(false);
     }
-    // Fresh diary data: drop the cached overview and reload everything.
-    await loadPerformance({ silent: true });
   };
 
-  // ------- rating (lazy: loads on first expand, stays untouched afterwards) -------
-  const loadRating = useCallback(async (subject: string | null) => {
+  const loadRating = async (subject: string | null) => {
     setRatingLoading(true);
     try {
-      const response = await ratingApi.getGroup(subject);
-      setRating(response.data);
-    } catch (err) {
-      toast.error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Не удалось загрузить рейтинг группы');
+      const res = await ratingApi.getGroup(subject);
+      setRating(res.data);
+    } catch {
+      setRating(null);
     } finally {
       setRatingLoading(false);
     }
-  }, []);
-
-  const toggleRating = () => {
-    const next = !ratingOpen;
-    setRatingOpen(next);
-    setShowAllRanking(false);
-    if (next && !rating && !ratingLoading) void loadRating(ratingSubject);
   };
 
-  const selectRatingSubject = (subject: string | null) => {
+  const toggleRating = async () => {
+    if (!ratingOpen && rating === null) await loadRating(null);
+    setRatingOpen((open) => !open);
+  };
+
+  const selectRatingSubject = async (subject: string | null) => {
     setRatingSubject(subject);
-    setShowAllRanking(false);
-    void loadRating(subject);
+    await loadRating(subject);
   };
 
   const toggleParticipation = async () => {
-    if (!rating || participationPending) return;
+    if (!rating) return;
     setParticipationPending(true);
     try {
       await ratingApi.participate(!rating.optedIn);
@@ -126,12 +113,28 @@ export function GradesPage() {
   };
 
   const subjects = useMemo(() => subjectsWithMarks(performance), [performance]);
-  const totalSeries = useMemo(() => buildAverageSeries(performance), [performance]);
-  const average = useMemo(() => overallAverage(performance), [performance]);
   const dayIndex = useMemo(() => buildDayIndex(performance), [performance]);
+
+  const selectedEntry = subjects.find((s) => s.subjectName === selectedSubject) ?? null;
+  const subjectSeries = useMemo(
+    () => (selectedEntry ? buildAverageSeries(performance, selectedEntry) : null),
+    [performance, selectedEntry],
+  );
+  const subjectDayIndex = useMemo(() => {
+    if (!selectedSubject) return dayIndex;
+    const filtered: Map<string, CalendarDayEntry[]> = new Map();
+    for (const [day, entries] of dayIndex) {
+      const mine = entries.filter((e) => e.subjectName === selectedSubject);
+      if (mine.length > 0) filtered.set(day, mine);
+    }
+    return filtered;
+  }, [dayIndex, selectedSubject]);
+
   const marksCount = useMemo(
-    () => subjects.reduce((sum, s) => sum + s.daysWithMarks.reduce((n, d) => n + d.markValues.length, 0), 0),
-    [subjects],
+    () => selectedEntry
+      ? selectedEntry.daysWithMarks.reduce((sum, s) => sum + s.markValues.length, 0)
+      : subjects.reduce((sum, s) => sum + s.daysWithMarks.reduce((n, d) => n + d.markValues.length, 0), 0),
+    [subjects, selectedEntry],
   );
 
   if (isLoading) {
@@ -141,10 +144,6 @@ export function GradesPage() {
         <div className="skeleton h-64" />
       </div>
     );
-  }
-
-  if (diaryRequired) {
-    return <DiaryRequiredNotice />;
   }
 
   if (error) {
@@ -164,7 +163,9 @@ export function GradesPage() {
           <h1 className="text-2xl font-bold text-dark-text">Оценки</h1>
           <p className="text-dark-textMuted text-sm">
             Оценок за период: {marksCount}
-            {average != null && <> · средний балл&nbsp;<span className="text-dark-text font-semibold">{average.toFixed(2)}</span></>}
+            {selectedEntry && selectedEntry.averageMark != null && (
+              <> · по предмету&nbsp;<span className="text-dark-text font-semibold">{selectedEntry.averageMark.toFixed(2)}</span></>
+            )}
           </p>
         </div>
         <button
@@ -181,36 +182,76 @@ export function GradesPage() {
         </button>
       </div>
 
-      {/* Average tall trend chart */}
+      {/* Average tall trend chart — общий или по выбранному предмету */}
       <Card variant="hover">
         <CardHeader>
-          <CardTitle>Средний балл по дням</CardTitle>
+          <CardTitle className="flex items-center justify-between gap-2">
+            <span className="truncate">
+              {selectedEntry ? `Средний балл — ${selectedEntry.subjectName}` : 'Средний балл по дням'}
+            </span>
+            {selectedEntry && (
+              <Badge
+                variant={selectedEntry.averageMark >= 4.5 ? 'success' : selectedEntry.averageMark >= 3.5 ? 'warning' : 'danger'}
+              >
+                {selectedEntry.averageMark.toFixed(2)}
+              </Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <MarkTrendChart points={totalSeries} height={200} />
+          <MarkTrendChart
+            key={selectedEntry ? selectedEntry.subjectName : 'all'}
+            points={selectedEntry ? (subjectSeries ?? []) : buildAverageSeries(performance)}
+            height={200}
+          />
+          <div className="flex flex-wrap items-center justify-center gap-4 mt-2 text-xs text-dark-textMuted">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-400" />2–3.5</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" />3.5–4.5</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />выше 4.5</span>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Horizontal scroll of subject chips with their own sparkline pages */}
+      {/* Horizontal scroll of subject chips; клик остаётся на этой странице */}
       <div>
         <div className="flex items-center justify-between px-1 mb-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-dark-textMuted">Предметы</h2>
           <span className="text-xs text-dark-textMuted">листайте →</span>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
+          {subjects.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedSubject(null)}
+              className={`snap-start flex-shrink-0 self-stretch rounded-xl border px-3 py-2.5 text-sm transition-colors ${
+                !selectedEntry
+                  ? 'border-primary-500/60 bg-primary-500/10 text-primary-300'
+                  : 'border-dark-border bg-dark-card text-dark-textMuted hover:border-primary-500/40'
+              }`}
+              aria-label="Показать все предметы"
+            >
+              По всем предметам
+            </button>
+          )}
           {subjects.map((subject) => {
             const color =
               subject.averageMark >= 4.5 ? 'bg-emerald-500/20 text-emerald-400'
               : subject.averageMark >= 3.5 ? 'bg-amber-500/20 text-amber-400'
               : 'bg-red-500/20 text-red-400';
             const count = subject.daysWithMarks.reduce((n, d) => n + d.markValues.length, 0);
+            const active = selectedEntry?.subjectName === subject.subjectName;
             return (
               <button
                 key={subject.subjectName}
                 type="button"
-                onClick={() => navigate(`/grades/subject?subject=${encodeURIComponent(subject.subjectName)}`)}
-                className="snap-start flex-shrink-0 max-w-[190px] rounded-xl border border-dark-border bg-dark-card px-3 py-2.5 text-left hover:border-primary-500/40 transition-colors"
+                onClick={() => setSelectedSubject((current) => (current === subject.subjectName ? null : subject.subjectName))}
+                className={`snap-start flex-shrink-0 max-w-[190px] rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  active
+                    ? 'border-primary-500/60 bg-primary-500/10'
+                    : 'border-dark-border bg-dark-card hover:border-primary-500/40'
+                }`}
                 title={`${subject.subjectName} — средний балл ${subject.averageMark.toFixed(2)}`}
+                aria-pressed={active}
               >
                 <p className="text-sm font-medium text-dark-text truncate">{subject.subjectName}</p>
                 <div className="flex items-center gap-2 mt-1">
@@ -319,16 +360,25 @@ export function GradesPage() {
         )}
       </div>
 
-      {/* Calendar of all grades */}
+      {/* Календарь оценок — цифры оценок прямо в днях */}
       <Card variant="hover">
         <CardHeader>
-          <CardTitle>Календарь оценок</CardTitle>
+          <CardTitle className="flex items-center justify-between gap-2">
+            <span>Календарь {selectedEntry ? `— ${selectedEntry.subjectName}` : 'оценок'}</span>
+            <span className="flex items-center gap-2 text-[11px] font-normal text-dark-textMuted">
+              <span className="text-emerald-400">5</span>
+              <span className="text-amber-400">4</span>
+              <span className="text-orange-400">3</span>
+              <span className="text-red-400">2</span>
+              <span className="text-sky-400">Н(ув.)</span>
+              <span className="text-red-400">Н(неув.)</span>
+            </span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <GradeCalendar dayIndex={dayIndex} />
+          <GradeCalendar dayIndex={subjectDayIndex} />
         </CardContent>
       </Card>
     </div>
   );
 }
-

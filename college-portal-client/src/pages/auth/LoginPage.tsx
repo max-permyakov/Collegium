@@ -337,7 +337,7 @@ export function LoginPage() {
           {emailEnabled && mode === 'email' && emailStep === 'email' && (
             <button
               type="button"
-              className="text-xs text-dark-textMuted hover:text-dark-text underline-offset-2 hover:underline"
+              className="text-xs font-medium text-primary-400 hover:text-primary-300 underline-offset-2 hover:underline"
               onClick={() => { setMode('diary'); clearMessages(); }}
             >
               Войти через электронный дневник

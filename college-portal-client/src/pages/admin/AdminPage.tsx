@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
+import { NewsImageField } from '../../components/news/NewsImageField';
 import { shortName } from '../../utils/names';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { StatisticsTab } from './StatisticsTab';
@@ -78,7 +79,10 @@ export function AdminPage() {
     publishedAt: moscowDateTimeInputValue(),
     studyGroupId: undefined,
     isPublished: true,
+    imageUrl: null,
   });
+  const [isUploadingNewsImage, setIsUploadingNewsImage] = useState(false);
+  const [newsImageError, setNewsImageError] = useState('');
 
   const [assignmentForm, setAssignmentForm] = useState<CreateAssignmentDto>({
     title: '',
@@ -139,7 +143,7 @@ export function AdminPage() {
     try {
       await newsApi.create({ ...newsForm, publishedAt: moscowInputToUtc(newsForm.publishedAt) });
       setShowCreateNews(false);
-      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
+      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true, imageUrl: null });
       loadData();
       notifySuccess('Новость создана');
     } catch (err) {
@@ -159,7 +163,7 @@ export function AdminPage() {
         publishedAt: moscowInputToUtc(newsForm.publishedAt),
       });
       setEditingNews(null);
-      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
+      setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true, imageUrl: null });
       loadData();
       notifySuccess('Новость сохранена');
     } catch (err) {
@@ -244,7 +248,8 @@ export function AdminPage() {
   };
 
   const resetNewsForm = () => {
-    setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true });
+    setNewsForm({ title: '', body: '', publishedAt: moscowDateTimeInputValue(), studyGroupId: undefined, isPublished: true, imageUrl: null });
+    setNewsImageError('');
   };
 
   const resetAssignmentForm = () => {
@@ -300,25 +305,27 @@ export function AdminPage() {
       )}
 
       <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="w-full flex-wrap gap-1">
-          {isAdmin && (
-            <TabsTrigger value="support">
-              💬 Поддержка
-              {supportUnread > 0 && (
-                <span className="ml-1.5 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-primary-500 text-white text-[11px] font-semibold">
-                  {supportUnread > 99 ? '99+' : supportUnread}
-                </span>
-              )}
-            </TabsTrigger>
-          )}
-          {canManageUsers && <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>}
-          {canManageUsers && <TabsTrigger value="users">👥 Пользователи</TabsTrigger>}
-          {canViewAudit && <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>}
-          {canManageNews && <TabsTrigger value="news">📰 Новости</TabsTrigger>}
-          {canManageAssignments && <TabsTrigger value="assignments">📝 Задания</TabsTrigger>}
-          {canManageClubs && <TabsTrigger value="clubs">🎓 Кружки</TabsTrigger>}
-          {canManageMap && <TabsTrigger value="map">🗺️ Карта</TabsTrigger>}
-        </TabsList>
+        <div className="sticky top-0 z-20 -mx-1 px-1 pt-1 pb-1 bg-dark-bg/95 backdrop-blur-sm">
+          <TabsList className="w-full flex-wrap gap-1">
+            {isAdmin && (
+              <TabsTrigger value="support">
+                💬 Поддержка
+                {supportUnread > 0 && (
+                  <span className="ml-1.5 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-primary-500 text-white text-[11px] font-semibold">
+                    {supportUnread > 99 ? '99+' : supportUnread}
+                  </span>
+                )}
+              </TabsTrigger>
+            )}
+            {canManageUsers && <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>}
+            {canManageUsers && <TabsTrigger value="users">👥 Пользователи</TabsTrigger>}
+            {canViewAudit && <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>}
+            {canManageNews && <TabsTrigger value="news">📰 Новости</TabsTrigger>}
+            {canManageAssignments && <TabsTrigger value="assignments">📝 Задания</TabsTrigger>}
+            {canManageClubs && <TabsTrigger value="clubs">🎓 Кружки</TabsTrigger>}
+            {canManageMap && <TabsTrigger value="map">🗺️ Карта</TabsTrigger>}
+          </TabsList>
+        </div>
 
         {isAdmin && (
           <TabsContent value="support">
@@ -355,6 +362,15 @@ export function AdminPage() {
                 <form onSubmit={editingNews ? handleUpdateNews : handleCreateNews} className="p-4 space-y-4">
                   <Input label="Заголовок" value={newsForm.title} onChange={e => setNewsForm({...newsForm, title: e.target.value})} placeholder="Заголовок новости" required />
                   <Textarea label="Текст" value={newsForm.body} onChange={e => setNewsForm({...newsForm, body: e.target.value})} placeholder="Текст новости" required rows={4} />
+                  <NewsImageField
+                    imageUrl={newsForm.imageUrl}
+                    uploading={isUploadingNewsImage}
+                    error={newsImageError}
+                    onUploaded={(url) => setNewsForm((f) => ({ ...f, imageUrl: url }))}
+                    onRemoved={() => setNewsForm((f) => ({ ...f, imageUrl: null }))}
+                    onUploadingChanged={setIsUploadingNewsImage}
+                    onError={setNewsImageError}
+                  />
                   <Input label="Дата публикации" type="datetime-local" value={newsForm.publishedAt} onChange={e => setNewsForm({...newsForm, publishedAt: e.target.value})} required />
                   <div className="w-full">
                     <label className="block text-sm font-medium text-dark-text mb-1.5">Группа (необязательно)</label>
@@ -401,13 +417,16 @@ export function AdminPage() {
                           </div>
                           <h3 className="font-medium text-dark-text truncate">{item.title}</h3>
                           <p className="text-sm text-dark-textMuted line-clamp-1">{item.body}</p>
+                          {item.imageUrl && (
+                            <img src={item.imageUrl} alt="" className="mt-2 h-16 rounded-lg object-cover border border-dark-border" />
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-sm text-dark-textMuted">{formatDate(item.publishedAt)}</span>
                           <Button variant="ghost" size="sm" onClick={() => handleTogglePublished(item.id)}>
                             {item.isPublished ? 'Снять' : 'Опубликовать'}
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => { setEditingNews(item); setNewsForm({ title: item.title, body: item.body, publishedAt: moscowDateTimeInputValue(new Date(item.publishedAt)), studyGroupId: item.studyGroupId, isPublished: item.isPublished }); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditingNews(item); setNewsForm({ title: item.title, body: item.body, publishedAt: moscowDateTimeInputValue(new Date(item.publishedAt)), studyGroupId: item.studyGroupId, isPublished: item.isPublished, imageUrl: item.imageUrl ?? null }); }}>
                             ✏️
                           </Button>
                           <Button variant="danger" size="sm" onClick={() => handleDeleteNews(item.id)}>🗑️</Button>

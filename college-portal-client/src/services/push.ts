@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { pushApi, authApi } from './api';
+import { pushApi } from './api';
 
 export type PushState = 'unsupported' | 'disabled' | 'denied' | 'inactive' | 'active';
 

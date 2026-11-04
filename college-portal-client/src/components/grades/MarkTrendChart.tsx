@@ -11,10 +11,30 @@ const PAD_X = 34;
 const PAD_Y = 18;
 const STROKE = 3;
 
+/** Thresholds match the app-wide color scale: 2–3.5 красный, 3.5–4.5 жёлтый, выше зелёный. */
+export function valueColor(value: number): 'red' | 'amber' | 'emerald' {
+  if (value < 3.5) return 'red';
+  if (value < 4.5) return 'amber';
+  return 'emerald';
+}
+
+const STROKE_CLASSES: Record<'red' | 'amber' | 'emerald', string> = {
+  red: 'stroke-red-400',
+  amber: 'stroke-amber-400',
+  emerald: 'stroke-emerald-400',
+};
+
+const FILL_CLASSES: Record<'red' | 'amber' | 'emerald', string> = {
+  red: 'fill-red-400',
+  amber: 'fill-amber-400',
+  emerald: 'fill-emerald-400',
+};
+
 /**
  * Animated SVG line chart of a value over time. Drawn without chart
- * libraries: a single path with a stroke-dash "draw" animation and a
- * last-point dot that fades in after the line pass.
+ * libraries: segments are colored by the mark-value zones (red threshold
+ * ranges), the draw animation runs across the whole polyline, and a
+ * last-point dot fades in after the line pass.
  */
 export function MarkTrendChart({
   points,
@@ -51,27 +71,35 @@ export function MarkTrendChart({
       PAD_X + (points.length === 1 ? (W - PAD_X * 2) / 2 : (i / (points.length - 1)) * (W - PAD_X * 2));
     const yAt = (v: number) => PAD_Y + (1 - (v - min) / (max - min)) * (H - PAD_Y * 2);
 
-    let path = '';
-    points.forEach((p, i) => {
-      const x = xAt(i);
-      const y = yAt(p.value);
-      path += i === 0 ? `M${x.toFixed(1)} ${y.toFixed(1)}` : ` L${x.toFixed(1)} ${y.toFixed(1)}`;
-    });
+    const xy = points.map((p, i) => ({ x: xAt(i), y: yAt(p.value), v: p.value }));
 
-    // Total polyline length for the stroke-dash draw animation.
-    let length = 0;
+    // Per-segment geometry: each segment is its own path colored by the zone
+    // of the value between its endpoints.
+    const segments: Array<{ d: string; len: number; color: 'red' | 'amber' | 'emerald' }> = [];
+    let cumBefore: number[] = [0];
+    let total = 0;
     for (let i = 1; i < points.length; i += 1) {
-      const dx = xAt(i) - xAt(i - 1);
-      const dy = yAt(points[i].value) - yAt(points[i - 1].value);
-      length += Math.hypot(dx, dy);
+      const a = xy[i - 1];
+      const b = xy[i];
+      segments.push({
+        d: `M${a.x.toFixed(1)} ${a.y.toFixed(1)} L${b.x.toFixed(1)} ${b.y.toFixed(1)}`,
+        len: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+        color: valueColor((a.v + b.v) / 2),
+      });
+      total += segments[segments.length - 1].len;
+      cumBefore.push(total);
     }
-    length = Math.max(length, 1);
+    total = Math.max(total, 1);
 
+    // Single-point case: no segments, just a colored dot.
     return {
-      path,
-      length,
-      lastX: xAt(points.length - 1),
-      lastY: yAt(values[values.length - 1]),
+      xy,
+      segments,
+      cumBefore,
+      total,
+      lastX: xy[xy.length - 1].x,
+      lastY: xy[xy.length - 1].y,
+      lastColor: valueColor(xy[xy.length - 1].v),
       gridLines: [2, 3, 4, 5].map((v) => ({ value: v, y: yAt(v) })),
     };
   }, [points]);
@@ -82,7 +110,8 @@ export function MarkTrendChart({
     );
   }
 
-  const dashOffset = geometry.length * (1 - drawProgress);
+  // Global drawn length; each segment gets its share of the sweep.
+  const drawn = geometry.total * drawProgress;
 
   return (
     <svg
@@ -110,32 +139,47 @@ export function MarkTrendChart({
         </g>
       ))}
 
-      {/* faint background path, then the animated stroke racing across it */}
-      <path
-        d={geometry.path}
-        fill="none"
-        className="stroke-primary-500/20"
-        strokeWidth={STROKE}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d={geometry.path}
-        fill="none"
-        className="stroke-primary-400"
-        strokeWidth={STROKE}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray={geometry.length}
-        strokeDashoffset={dashOffset}
-        style={{ transition: 'stroke-dashoffset 80ms linear' }}
-      />
+      {points.length > 1 && geometry.segments.map((seg, i) => {
+        const drawnInSeg = Math.max(0, Math.min(seg.len, drawn - geometry.cumBefore[i]));
+        const offset = seg.len - drawnInSeg;
+        return (
+          <path
+            key={i}
+            d={seg.d}
+            fill="none"
+            className={STROKE_CLASSES[seg.color]}
+            strokeWidth={STROKE}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={seg.len}
+            strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 80ms linear' }}
+          />
+        );
+      })}
+
+      {/* dots on each drawn point colored by its zone */}
+      {geometry.xy.map((p, i) => {
+        const visible = points.length === 1 || (drawn >= geometry.cumBefore[Math.max(0, i)] && drawProgress > 0);
+        if (!visible || i === geometry.xy.length - 1) return null;
+        return (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={2.5}
+            className={FILL_CLASSES[valueColor(p.v)]}
+            opacity={Math.min(1, drawProgress * 2)}
+          />
+        );
+      })}
+
       {drawProgress >= 0.98 && (
         <circle
           cx={geometry.lastX}
           cy={geometry.lastY}
           r={4}
-          className="fill-primary-400"
+          className={FILL_CLASSES[geometry.lastColor]}
           opacity={1}
         />
       )}

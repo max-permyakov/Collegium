@@ -230,10 +230,25 @@ export function ClubDetailPage() {
     onSuccess: () => {
       notifySuccess('Группа удалена');
       queryClient.invalidateQueries({ queryKey: ['clubs'] });
-      navigate('/clubs');
+      sessionStorage.setItem('chats-page:tab', 'clubs');
+      navigate('/chats');
     },
     onError: (err) => setError(getError(err)),
   });
+
+  /** Back to the clubs tab of the chats page (the new clubs home). */
+  const backToClubs = (
+    <Link
+      to="/chats"
+      className="inline-flex items-center gap-1.5 text-sm text-dark-textMuted hover:text-dark-text transition-colors"
+      onClick={() => sessionStorage.setItem('chats-page:tab', 'clubs')}
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      </svg>
+      Кружки
+    </Link>
+  );
 
   const leaderMutation = useMutation({
     mutationFn: ({ userId, isLeader }: { userId: string; isLeader: boolean }) => clubsApi.setLeader(clubId!, userId, isLeader),
@@ -390,7 +405,9 @@ export function ClubDetailPage() {
       <Card>
         <CardContent className="py-10 text-center space-y-4">
           <p className="text-dark-textMuted">Группа не найдена или доступ закрыт</p>
-          <Link to="/clubs"><Button variant="secondary">К списку кружков</Button></Link>
+          <Link to="/chats" onClick={() => sessionStorage.setItem('chats-page:tab', 'clubs')}>
+            <Button variant="secondary">К списку кружков</Button>
+          </Link>
         </CardContent>
       </Card>
     );
@@ -399,7 +416,7 @@ export function ClubDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Link to="/clubs" className="text-sm text-dark-textMuted hover:text-dark-text">← Кружки</Link>
+        {backToClubs}
       </div>
 
       {error && (

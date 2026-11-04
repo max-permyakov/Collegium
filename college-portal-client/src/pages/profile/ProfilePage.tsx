@@ -59,8 +59,8 @@ function EditProfileModal({
         bio: patch.bio === undefined ? undefined : (patch.bio || null),
         email: patch.email === undefined ? undefined : (patch.email || null),
         phoneNumber: patch.phoneNumber === undefined ? undefined : (patch.phoneNumber || null),
-        displayName: patch.displayName,
-        telegramUserName: patch.telegramUserName,
+        displayName: patch.displayName ?? undefined,
+        telegramUserName: patch.telegramUserName === undefined ? undefined : (patch.telegramUserName || null),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
@@ -84,7 +84,7 @@ function EditProfileModal({
       patch.displayName = form.displayName.trim();
     }
     const telegram = form.telegramUserName.trim().replace(/^@+/, '');
-    if (telegram !== (profile.telegramUserName ?? '')) patch.telegramUserName = telegram || null;
+    if (telegram !== (profile.telegramUserName ?? '')) patch.telegramUserName = telegram;
     if (form.email.trim() !== (profile.email ?? '')) patch.email = form.email.trim();
     if (form.phoneNumber.trim() !== (profile.phoneNumber ?? '')) patch.phoneNumber = form.phoneNumber.trim();
     if (form.bio !== (profile.bio ?? '')) patch.bio = form.bio;

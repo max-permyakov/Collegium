@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -19,7 +19,6 @@ const loadClaimPrimaryAdminPage = () => import('./pages/auth/ClaimPrimaryAdminPa
 const loadHomePage = () => import('./pages/home/HomePage').then(m => ({ default: m.HomePage }));
 const loadSchedulePage = () => import('./pages/schedule/SchedulePage').then(m => ({ default: m.SchedulePage }));
 const loadGradesPage = () => import('./pages/grades/GradesPage').then(m => ({ default: m.GradesPage }));
-const loadSubjectGradesPage = () => import('./pages/grades/SubjectGradesPage').then(m => ({ default: m.SubjectGradesPage }));
 const loadAssignmentsPage = () => import('./pages/assignments/AssignmentsPage').then(m => ({ default: m.AssignmentsPage }));
 const loadNewsPage = () => import('./pages/news/NewsPage').then(m => ({ default: m.NewsPage }));
 const loadAdminPage = () => import('./pages/admin/AdminPage').then(m => ({ default: m.AdminPage }));
@@ -42,7 +41,6 @@ const ClaimPrimaryAdminPage = lazy(loadClaimPrimaryAdminPage);
 const HomePage = lazy(loadHomePage);
 const SchedulePage = lazy(loadSchedulePage);
 const GradesPage = lazy(loadGradesPage);
-const SubjectGradesPage = lazy(loadSubjectGradesPage);
 const AssignmentsPage = lazy(loadAssignmentsPage);
 const NewsPage = lazy(loadNewsPage);
 const AdminPage = lazy(loadAdminPage);
@@ -162,6 +160,13 @@ function UserProfileRoute() {
   return <ProfilePage />;
 }
 
+/** Старый адрес страницы предмета → /grades с тем же выбранным предметом. */
+function GradesSubjectRedirect() {
+  const [searchParams] = useSearchParams();
+  const subject = searchParams.get('subject');
+  return <Navigate to={subject ? `/grades?subject=${encodeURIComponent(subject)}` : '/grades'} replace />;
+}
+
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
 
@@ -213,7 +218,8 @@ function AppRoutes() {
         <Route index element={<HomePage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="grades" element={<GradesPage />} />
-        <Route path="grades/subject" element={<SubjectGradesPage />} />
+        {/* Старый адрес страницы предмета: выбор предмета живёт внутри /grades. */}
+        <Route path="grades/subject" element={<GradesSubjectRedirect />} />
         {/* Объединённая страница оценок/успеваемости; старый alias остаётся. */}
         <Route path="performance" element={<Navigate to="/grades" replace />} />
         <Route path="assignments" element={<AssignmentsPage />} />

@@ -9,6 +9,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Input, Textarea } from '../../components/ui/Input';
 import { KebabMenu } from '../../components/ui/KebabMenu';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
+import { NewsImageField } from '../../components/news/NewsImageField';
 import { formatMoscowDate } from '../../utils/datetime';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
@@ -32,8 +33,10 @@ export function NewsPage() {
   const [error, setError] = useState('');
   const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
   const [editingNews, setEditingNews] = useState(false);
-  const [editForm, setEditForm] = useState({ title: '', body: '' });
+  const [editForm, setEditForm] = useState({ title: '', body: '', imageUrl: null as string | null });
   const [editError, setEditError] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState('');
 
   const _formatDate = (dateStr: string) =>
     formatMoscowDate(dateStr, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -104,6 +107,7 @@ export function NewsPage() {
         body: editForm.body,
         publishedAt: detail.publishedAt,
         isPublished: detail.isPublished,
+        imageUrl: editForm.imageUrl ?? null,
       });
       setDetail(res.data);
       if (detailCacheKey) pageCache.set(detailCacheKey, res.data);
@@ -174,8 +178,9 @@ export function NewsPage() {
                     {
                       label: editingNews ? 'Скрыть редактирование' : 'Редактировать',
                       onClick: () => {
-                        setEditForm({ title: detail.title, body: detail.body });
+                        setEditForm({ title: detail.title, body: detail.body, imageUrl: detail.imageUrl ?? null });
                         setEditError('');
+                        setImageError('');
                         setEditingNews((v) => !v);
                       },
                     },
@@ -200,7 +205,28 @@ export function NewsPage() {
                 onChange={(e) => setEditForm({ ...editForm, body: e.target.value })}
                 rows={6}
               />
+              <NewsImageField
+                imageUrl={editForm.imageUrl}
+                uploading={isUploadingImage}
+                error={imageError}
+                onUploaded={(url) => {
+                  setEditForm((f) => ({ ...f, imageUrl: url }));
+                  setImageError('');
+                }}
+                onRemoved={() => setEditForm((f) => ({ ...f, imageUrl: null }))}
+                onUploadingChanged={setIsUploadingImage}
+                onError={setImageError}
+              />
               <Button onClick={saveNews}>Сохранить</Button>
+            </CardContent>
+          )}
+          {detail.imageUrl && !editingNews && (
+            <CardContent className="pt-0">
+              <img
+                src={detail.imageUrl}
+                alt="Картинка новости"
+                className="w-full rounded-xl max-h-96 object-cover"
+              />
             </CardContent>
           )}
           <CardContent>
@@ -223,29 +249,37 @@ export function NewsPage() {
       </div>
 
       {news.length > 0 ? (
-        <div className="space-y-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {news.map((item) => (
-            <Card key={item.id} variant="hover" className="group">
+            <Card key={item.id} variant="hover" className="group overflow-hidden">
               <button type="button" onClick={() => setViewNews(item)} className="block w-full text-left">
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <Badge variant={item.isPublished ? 'success' : 'default'}>
-                          {item.isPublished ? 'Опубликовано' : 'Черновик'}
-                        </Badge>
-                        {item.studyGroupName && <Badge variant="primary">{item.studyGroupName}</Badge>}
-                      </div>
-                      <h3 className="font-medium text-dark-text group-hover:text-primary-400 transition-colors truncate">{item.title}</h3>
-                      <p className="text-sm text-dark-textMuted line-clamp-2">{item.body}</p>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-dark-textMuted shrink-0">
-                      <Avatar src={item.authorAvatar || undefined} name={item.authorName} size="sm" />
-                      <div>
-                        <p className="font-medium text-dark-text">{shortName(item.authorName)}</p>
-                        <p>{_formatDate(item.publishedAt)}</p>
-                      </div>
-                    </div>
+                {item.imageUrl && (
+                  <div className="relative h-44 sm:h-48 overflow-hidden">
+                    <img
+                      src={item.imageUrl}
+                      alt=""
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                )}
+                <CardContent className="p-4 pb-3 flex flex-col gap-2.5 h-full">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <Badge variant={item.isPublished ? 'success' : 'default'}>
+                      {item.isPublished ? 'Опубликовано' : 'Черновик'}
+                    </Badge>
+                    {item.studyGroupName && <Badge variant="primary">{item.studyGroupName}</Badge>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base text-dark-text group-hover:text-primary-400 transition-colors line-clamp-2">{item.title}</h3>
+                    <p className="text-sm text-dark-textMuted line-clamp-3 mt-1">{item.body}</p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-dark-border/60">
+                    <Avatar src={item.authorAvatar || undefined} name={item.authorName} size="xs" />
+                    <span className="text-xs text-dark-textMuted truncate">
+                      {shortName(item.authorName)} · {_formatDate(item.publishedAt)}
+                    </span>
                   </div>
                 </CardContent>
               </button>

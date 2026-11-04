@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { scheduleApi } from '../../services/api';
@@ -10,19 +10,19 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../comp
 import { Badge } from '../../components/ui/Badge';
 import { Avatar } from '../../components/ui/Avatar';
 import { RoomButton } from '../../components/college/RoomButton';
-import { getMarkValue, getMarkVariant, getRecentMarks, type RecentMarkEntry } from '../../utils/performance';
 import { NewsViewerModal } from '../../components/news/NewsViewerModal';
+import { GradeCalendar } from '../../components/grades/GradeCalendar';
+import { buildDayIndex } from '../../utils/gradeCalendar';
 import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
 import { pageCache } from '../../utils/pageCache';
-import type { Lesson, KkepikScheduleResponse, SubjectGrade, AnnouncementListItem, AssignmentListItem } from '../../types';
+import type { Lesson, KkepikScheduleResponse, AnnouncementListItem, AssignmentListItem, PerformanceResponse } from '../../types';
 
 interface DashboardData {
   remainingToday?: Lesson[];
   todaySource?: 'kkepik';
   kkepik?: KkepikScheduleResponse;
-  grades?: SubjectGrade[];
-  recentMarks?: RecentMarkEntry[];
+  performance?: PerformanceResponse | null;
   news?: AnnouncementListItem[];
   assignments?: AssignmentListItem[];
 }
@@ -44,6 +44,8 @@ export function HomePage() {
   const [isLoading, setIsLoading] = useState(!cachedDashboard);
   const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
 
+  const gradeDayIndex = useMemo(() => buildDayIndex(dashboardData.performance ?? null), [dashboardData.performance]);
+
   const _formatDate = (dateStr: string) =>
     formatMoscowDate(dateStr, { day: 'numeric', month: 'short', weekday: 'short' });
 
@@ -60,10 +62,9 @@ export function HomePage() {
       const weekStartStr = moscowWeekStartISO();
       const nowTime = moscowNowTimeHMS();
 
-      const [scheduleRes, kkepikRes, gradesRes, newsRes, assignmentsRes, perfRes] = await Promise.allSettled([
+      const [scheduleRes, kkepikRes, newsRes, assignmentsRes, perfRes] = await Promise.allSettled([
         scheduleApi.getWeek(weekStartStr),
         scheduleApi.getKkepik(),
-        gradesApi.getGrades(),
         newsApi.getNews(user.studentProfile?.studyGroupId),
         assignmentsApi.getMyAssignments(),
         gradesApi.getPerformance(),
@@ -85,8 +86,7 @@ export function HomePage() {
         remainingToday,
         todaySource,
         kkepik: kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined,
-        grades: gradesRes.status === 'fulfilled' ? gradesRes.value.data?.subjects?.slice(0, 4) : [],
-        recentMarks: getRecentMarks(perfRes.status === 'fulfilled' ? perfRes.value.data : null, 6),
+        performance: perfRes.status === 'fulfilled' ? perfRes.value.data : null,
         news: newsRes.status === 'fulfilled' ? newsRes.value.data?.slice(0, 3) : [],
         assignments: assignmentsRes.status === 'fulfilled' ? assignmentsRes.value.data?.slice(0, 3) : [],
       };
@@ -244,32 +244,19 @@ export function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card variant="hover">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Последние оценки</CardTitle>
+            <CardTitle>Календарь оценок</CardTitle>
             <Link to="/grades">
-              <Button variant="ghost" size="sm">Подробнее</Button>
+              <Button variant="ghost" size="sm">Все оценки</Button>
             </Link>
           </CardHeader>
           <CardContent>
-            {dashboardData.recentMarks && dashboardData.recentMarks.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {dashboardData.recentMarks.map((entry, i) => (
-                  <Link key={i} to={`/grades/subject?subject=${encodeURIComponent(entry.subjectName)}`} className="block min-w-0">
-                    <div className="h-full p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <p className="font-medium text-dark-text truncate flex-1 min-w-0">{entry.subjectName}</p>
-                        <span className="text-xs text-dark-textMuted shrink-0">{_formatDate(entry.day)}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {entry.markValues.map((mark, mi) => (
-                          <Badge key={mi} variant={getMarkVariant(mark)}>{getMarkValue(mark)}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+            {gradeDayIndex.size > 0 ? (
+              <GradeCalendar dayIndex={gradeDayIndex} />
             ) : (
-              <p className="text-dark-textMuted text-center py-8">Нет оценок за последнее время</p>
+              <p className="text-dark-textMuted text-center py-8">
+                Нет оценок за период.{' '}
+                <Link to="/grades" className="text-primary-400 hover:underline">Обновить из дневника</Link>
+              </p>
             )}
           </CardContent>
         </Card>
@@ -304,36 +291,6 @@ export function HomePage() {
           </CardContent>
         </Card>
       </div>
-
-      <Card variant="hover">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Оценки</CardTitle>
-          <Link to="/grades">
-            <Button variant="ghost" size="sm">Все оценки</Button>
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {dashboardData.grades && dashboardData.grades.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {dashboardData.grades.map(subject => (
-                <Link key={subject.id} to="/grades" className="block min-w-0">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-dark-bg border border-dark-border hover:border-primary-500/50 transition-colors">
-                    <div>
-                      <p className="font-medium text-dark-text">{subject.name}</p>
-                      {/* <p className="text-sm text-dark-textMuted">{subject.id} предмет</p> */}
-                    </div>
-                    <Badge variant={subject.averageMark >= 4.5 ? 'success' : subject.averageMark >= 3.5 ? 'warning' : 'danger'}>
-                      {subject.averageMark.toFixed(2)}
-                    </Badge>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-dark-textMuted text-center py-8">Нет данных об оценках</p>
-          )}
-        </CardContent>
-      </Card>
 
       <Card variant="hover">
         <CardHeader className="flex flex-row items-center justify-between">

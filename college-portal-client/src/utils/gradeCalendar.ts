@@ -1,4 +1,4 @@
-import type { DayWithMarks, PerformanceResponse, SubjectPerformance } from '../types';
+import type { PerformanceResponse, SubjectPerformance } from '../types';
 
 export interface DayEntries {
   /** ISO date 'YYYY-MM-DD'. */
@@ -7,12 +7,6 @@ export interface DayEntries {
   markValues: string[];
   absenceType?: string;
 }
-
-/** Date helpers assume ISO 'YYYY-MM-DD' keys everywhere. */
-const toIso = (date: Date): string => {
-  const tzFixed = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return tzFixed.toISOString().slice(0, 10);
-};
 
 /**
  * One flat entry per subject-day: «день → все отметки по предметам».
@@ -26,14 +20,17 @@ export function buildDayIndex(performance: PerformanceResponse | null): Map<stri
     for (const day of subject.daysWithMarks ?? []) {
       const hasMarks = (day.markValues?.length ?? 0) > 0;
       if (!hasMarks && !day.absenceType) continue;
-      const list = index.get(day.day) ?? [];
+      // Дневник отдаёт полную метку времени ('2026-10-03T00:00:00.0000000Z'),
+      // календарь и расписание работают с коротким ISO 'YYYY-MM-DD'.
+      const iso = day.day.slice(0, 10);
+      const list = index.get(iso) ?? [];
       list.push({
-        day: day.day,
+        day: iso,
         subjectName: subject.subjectName,
         markValues: day.markValues ?? [],
-        absenceType: day.absenceType,
+        absenceType: day.absenceType ?? undefined,
       });
-      index.set(day.day, list);
+      index.set(iso, list);
     }
   }
   return index;

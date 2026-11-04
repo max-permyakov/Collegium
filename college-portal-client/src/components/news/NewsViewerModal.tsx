@@ -120,6 +120,13 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
         </div>
 
         <h2 className="text-xl font-bold text-dark-text break-words">{announcement.title}</h2>
+        {announcement.imageUrl && (
+          <img
+            src={announcement.imageUrl}
+            alt="Картинка новости"
+            className="mt-3 rounded-xl w-full max-h-[45vh] object-cover"
+          />
+        )}
         <Link
           to={`/users/${announcement.authorId}`}
           onClick={onClose}
