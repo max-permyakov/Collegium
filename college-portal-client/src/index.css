@@ -355,6 +355,205 @@
   }
 }
 
+/* Ambient-фон платформы: сетка, пятна-глубина, пакеты данных. */
+.ambient-grid,
+.ambient-grid-glow {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgb(148 163 184 / 0.07) 1px, transparent 1.5px);
+  background-size: 26px 26px;
+}
+
+/* Импульс света, пробегающий по сетке через маску. */
+.ambient-grid-glow {
+  background-image: radial-gradient(rgb(125 211 252 / 0.2) 1px, transparent 1.5px);
+  mask-image: linear-gradient(118deg, transparent 42%, #000 50%, transparent 58%);
+  -webkit-mask-image: linear-gradient(118deg, transparent 42%, #000 50%, transparent 58%);
+  mask-size: 300% 100%;
+  -webkit-mask-size: 300% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  animation: ambient-grid-sweep 26s linear infinite;
+}
+
+@keyframes ambient-grid-sweep {
+  from {
+    mask-position: 150% 0;
+    -webkit-mask-position: 150% 0;
+  }
+  to {
+    mask-position: -150% 0;
+    -webkit-mask-position: -150% 0;
+  }
+}
+
+/* Пятно: обёртка держит позицию и параллакс от курсора (--par-deep = «глубина»). */
+.ambient-blob {
+  position: absolute;
+  border-radius: 9999px;
+  transform: translate3d(calc(var(--par-x, 0) * var(--par-deep, 16px)), calc(var(--par-y, 0) * var(--par-deep, 16px)), 0);
+  transition: transform 1.1s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+
+.ambient-drift {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  will-change: transform;
+}
+
+.ambient-blob-1 {
+  width: 46vw;
+  height: 46vw;
+  min-width: 480px;
+  min-height: 480px;
+  top: -12%;
+  right: -10%;
+  --par-deep: 14px;
+}
+.ambient-drift-1 {
+  background: radial-gradient(closest-side, rgb(56 189 248 / 0.14), transparent 72%);
+  animation: ambient-drift-1 46s ease-in-out infinite alternate;
+}
+
+.ambient-blob-2 {
+  width: 40vw;
+  height: 40vw;
+  min-width: 420px;
+  min-height: 420px;
+  bottom: -15%;
+  left: -12%;
+  --par-deep: 22px;
+}
+.ambient-drift-2 {
+  background: radial-gradient(closest-side, rgb(99 102 241 / 0.11), transparent 72%);
+  animation: ambient-drift-2 58s ease-in-out infinite alternate;
+}
+
+.ambient-blob-3 {
+  width: 30vw;
+  height: 30vw;
+  min-width: 320px;
+  min-height: 320px;
+  top: 30%;
+  left: 38%;
+  --par-deep: 8px;
+}
+.ambient-drift-3 {
+  background: radial-gradient(closest-side, rgb(168 85 247 / 0.08), transparent 72%);
+  animation: ambient-drift-3 70s ease-in-out infinite alternate;
+}
+
+/* Четвёртое, изумрудное — в тон цвету «5» в оценках. */
+.ambient-blob-4 {
+  width: 26vw;
+  height: 26vw;
+  min-width: 300px;
+  min-height: 300px;
+  top: 18%;
+  left: 12%;
+  --par-deep: 18px;
+}
+.ambient-drift-4 {
+  background: radial-gradient(closest-side, rgb(16 185 129 / 0.08), transparent 72%);
+  animation: ambient-drift-2 54s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes ambient-drift-1 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-6vw, 5vh, 0) scale(1.12);
+  }
+}
+
+@keyframes ambient-drift-2 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(7vw, -6vh, 0) scale(1.1);
+  }
+}
+
+@keyframes ambient-drift-3 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-5vw, -4vh, 0) scale(0.92);
+  }
+}
+
+/* Настроение дня: мягкое покачивание и лёгкое «волнение» смайлика. */
+@keyframes mood-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.mood-emoji-bob {
+  animation: mood-bob 3s ease-in-out infinite;
+}
+
+@keyframes mood-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+}
+
+.mood-emoji-shake {
+  transform-origin: 50% 80%;
+  animation: mood-shake 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-drift,
+  .ambient-grid-glow {
+    animation: none;
+  }
+  .mood-emoji-bob,
+  .mood-emoji-shake {
+    animation: none;
+  }
+}
+
+/* Появление виджета настроения (и других плавных вставок). */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.45s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+  }
+}
+
+
 @keyframes shimmer-sheen {
   0% {
     transform: translateX(-130%);

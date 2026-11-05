@@ -18,10 +18,13 @@ import { shortName } from '../../utils/names';
 import { pageCache } from '../../utils/pageCache';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { HOME } from '../../components/ambient/loadPhrases';
+import { DayMood } from '../../components/home/DayMood';
 import type { Lesson, KkepikScheduleResponse, AnnouncementListItem, AssignmentListItem, PerformanceResponse } from '../../types';
 
 interface DashboardData {
   remainingToday?: Lesson[];
+  /** Все пары сегодня — для виджета настроения (DayMood). */
+  todayAll?: Lesson[];
   todaySource?: 'kkepik';
   kkepik?: KkepikScheduleResponse;
   performance?: PerformanceResponse | null;
@@ -47,6 +50,7 @@ export function HomePage() {
   const [viewNews, setViewNews] = useState<AnnouncementListItem | null>(null);
 
   const gradeDayIndex = useMemo(() => buildDayIndex(dashboardData.performance ?? null), [dashboardData.performance]);
+  const todayISO = moscowDateISO();
 
   const _formatDate = (dateStr: string) =>
     formatMoscowDate(dateStr, { day: 'numeric', month: 'short', weekday: 'short' });
@@ -73,12 +77,14 @@ export function HomePage() {
       ]);
 
       let remainingToday: Lesson[] = [];
+      let todayAll: Lesson[] = [];
       let todaySource: 'kkepik' | undefined = undefined;
       if (scheduleRes.status === 'fulfilled' && scheduleRes.value.data?.days) {
         const todayDay = scheduleRes.value.data.days.find(
           d => d.date === todayStr || d.date.slice(0, 10) === todayStr
         );
         if (todayDay) {
+          todayAll = todayDay.lessons;
           remainingToday = todayDay.lessons.filter(l => l.startTime > nowTime);
           if (todayDay.source === 'kkepik') todaySource = 'kkepik';
         }
@@ -86,6 +92,7 @@ export function HomePage() {
 
       const nextData: DashboardData = {
         remainingToday,
+        todayAll,
         todaySource,
         kkepik: kkepikRes.status === 'fulfilled' ? kkepikRes.value.data : undefined,
         performance: perfRes.status === 'fulfilled' ? perfRes.value.data : null,
@@ -125,6 +132,9 @@ export function HomePage() {
         </div>
         <Avatar src={user?.studentProfile?.avatarDataUrl || undefined} name={user?.displayName || ''} size="lg" />
       </div>
+
+      {/* Настроение дня: реакция на количество пар и отметок за сегодня */}
+      <DayMood todayAll={dashboardData.todayAll} marksToday={gradeDayIndex.get(todayISO)} />
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <Card variant="hover" className="min-w-0 overflow-hidden">

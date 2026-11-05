@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom';
 import { RightSidebar } from './RightSidebar';
 import { PageFallback } from './PageFallback';
 import { MatrixRain } from '../ambient/MatrixRain';
+import { AmbientBackground } from '../ambient/AmbientBackground';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -13,7 +14,9 @@ export function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-dark-bg">
+    <div className="min-h-screen">
+      {/* Живой ambient-фон под всем контентом платформы */}
+      <AmbientBackground />
       <div className={`min-h-screen transition-[padding] duration-300 ${sidebarCollapsed ? 'lg:pr-16' : 'lg:pr-64'}`}>
         <main className="page-container pb-20 lg:pb-4">
           <Suspense fallback={<PageFallback />}>
