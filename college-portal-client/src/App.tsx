@@ -7,6 +7,7 @@ import { NotificationsProvider } from './context/NotificationsContext';
 import { Layout, AuthLayout } from './components/layout/Layout';
 import { PageFallback } from './components/layout/PageFallback';
 import { InstallPrompt } from './components/layout/InstallPrompt';
+import { SecretTerminal } from './components/ambient/SecretTerminal';
 import { DiaryRequiredNotice } from './components/DiaryRequiredNotice';
 import { Toaster } from 'sonner';
 
@@ -307,6 +308,8 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <NotificationsProvider>
+            {/* Пасхалка: терминал по клавише ~ — доступен везде в портале */}
+            <SecretTerminal />
             <AppRoutes />
           </NotificationsProvider>
         </AuthProvider>

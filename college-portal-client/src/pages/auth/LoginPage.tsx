@@ -335,13 +335,15 @@ export function LoginPage() {
           )}
 
           {emailEnabled && mode === 'email' && emailStep === 'email' && (
-            <button
+            /* Переливающаяся кнопка входа через дневник */
+            <Button
               type="button"
-              className="text-xs font-medium text-primary-400 hover:text-primary-300 underline-offset-2 hover:underline"
+              variant="shimmer"
+              className="w-full"
               onClick={() => { setMode('diary'); clearMessages(); }}
             >
-              Войти через электронный дневник
-            </button>
+              📔 Войти через электронный дневник
+            </Button>
           )}
           {!emailEnabled && mode === 'email' && emailStep === 'email' && (
             <p className="text-xs text-amber-400 text-center">Отправка почты сейчас недоступна: SMTP не настроен.</p>

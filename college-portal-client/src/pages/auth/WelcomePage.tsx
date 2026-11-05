@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
+import { MatrixRain } from '../../components/ambient/MatrixRain';
+import { Tux } from '../../components/ambient/Tux';
 import logo from '../../assets/logo.png';
 
 /** Возможные расширения снимков, которые пользователь кладёт в public/screens. */
@@ -59,12 +61,19 @@ const features: Array<{ icon: string; title: string; text: string }> = [
 ];
 
 /** Public landing page: описание портала, фичи и фотогалерея из /public/screens. */
+/** Год в футере — считается один раз на модуль, чтобы не звать Date при рендере. */
+const CURRENT_YEAR = new Date().getFullYear();
+
 export function WelcomePage() {
   const screens = useScreens();
 
   return (
-    <div className="min-h-screen bg-dark-bg text-dark-text flex flex-col items-center px-4 py-10 sm:py-16">
-      <div className="w-full max-w-3xl flex flex-col items-center text-center">
+    <div className="relative min-h-screen bg-dark-bg text-dark-text flex flex-col items-center px-4 py-10 sm:py-16 overflow-hidden">
+      {/* Интерактивный фон: падающие символы, реагируют на курсор.
+          fixed — canvas ровно на видимую область, координаты курсора совпадают 1:1. */}
+      <MatrixRain className="fixed inset-0 h-full w-full opacity-70" />
+
+      <div className="relative z-10 w-full max-w-3xl flex flex-col items-center text-center">
         <img src={logo} alt="KKEP.ka" className="w-40 h-40 sm:w-56 sm:h-56 object-contain" />
 
         <h1 className="text-3xl sm:text-5xl font-bold tracking-tight mt-2">
@@ -75,7 +84,7 @@ export function WelcomePage() {
           be in kkepka
         </p>
         <Link to="/login" className="mt-8 w-full sm:w-auto">
-          <Button size="lg" className="w-full sm:w-auto px-10 text-base">
+          <Button variant="shimmer" size="lg" className="w-full sm:w-auto px-10 text-base">
             Войти
           </Button>
         </Link>
@@ -95,7 +104,7 @@ export function WelcomePage() {
           <p className="text-dark-textMuted leading-relaxed">
             
             Разрабатывается группой студентов программистов, учавствовать в разработке, можно связавшись с админом
-            Все данные хранятся в зашифрованном виде 
+            Все данные хранятся в зашифрованном виде.{' '}
             <a
               href="https://github.com/max-permyakov/Collegium"
               target="_blank"
@@ -142,6 +151,14 @@ export function WelcomePage() {
           </div>
         )}
       </div>
+
+      {/* Футер с пасхалкой-пингвином */}
+      <footer className="relative z-10 mt-14 flex flex-col items-center pb-6">
+        <Tux />
+        <p className="text-xs text-dark-textMuted/60 mt-3 select-none">
+          © {CURRENT_YEAR} KKEP.ka · собрано студентами, для студентов
+        </p>
+      </footer>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import { forwardRef } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'shimmer';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
 }
@@ -15,6 +15,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       secondary: 'btn-secondary',
       ghost: 'btn-ghost',
       danger: 'btn-danger',
+      shimmer: 'btn-shimmer',
     };
     const sizeClasses = {
       sm: 'px-3 py-1.5 text-sm',

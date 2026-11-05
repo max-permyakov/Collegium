@@ -145,6 +145,61 @@
     background-color: color-mix(in srgb, rgb(239 68 68) 30%, transparent);
   }
 
+  /* Перелив цветами: движущийся градиент + пробегающий блик. */
+  .btn-shimmer {
+    position: relative;
+    overflow: hidden;
+    color: white;
+    background-image: linear-gradient(
+      110deg,
+      #0284c7 0%,
+      #38bdf8 20%,
+      #6366f1 42%,
+      #a855f7 62%,
+      #38bdf8 84%,
+      #0284c7 100%
+    );
+    background-size: 300% 100%;
+    background-position: 0% 50%;
+    box-shadow:
+      0 10px 24px -6px rgb(56 189 248 / 0.45),
+      0 0 0 1px rgb(56 189 248 / 0.25) inset;
+    animation: shimmer-pan 5s ease-in-out infinite;
+  }
+
+  .btn-shimmer:hover:not(:disabled) {
+    filter: brightness(1.12) saturate(1.15);
+    transform: translateY(-1px);
+    box-shadow:
+      0 16px 36px -8px rgb(56 189 248 / 0.6),
+      0 0 0 1px rgb(125 211 252 / 0.4) inset;
+  }
+
+  .btn-shimmer:active:not(:disabled) {
+    transform: translateY(0) scale(0.99);
+  }
+
+  /* Блик, пробегающий по кнопке слева направо. */
+  .btn-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+    transform: translateX(-130%);
+    animation: shimmer-sheen 3.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-shimmer {
+      animation: none;
+    }
+    .btn-shimmer::after {
+      display: none;
+    }
+  }
+
   .input {
     width: 100%;
     padding: 0.75rem 1rem;
@@ -286,5 +341,26 @@
 
   .safe-top {
     padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Кейфреймы перелива кнопки — вне @layer, чтобы Tailwind их не трогал. */
+@keyframes shimmer-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes shimmer-sheen {
+  0% {
+    transform: translateX(-130%);
+  }
+  55%,
+  100% {
+    transform: translateX(130%);
   }
 }

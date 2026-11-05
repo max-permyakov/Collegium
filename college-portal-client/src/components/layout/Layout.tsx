@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import { RightSidebar } from './RightSidebar';
 import { PageFallback } from './PageFallback';
+import { MatrixRain } from '../ambient/MatrixRain';
 
 interface LayoutProps {
   children?: ReactNode;
@@ -27,8 +28,10 @@ export function Layout({ children }: LayoutProps) {
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 safe-top safe-bottom">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen bg-dark-bg flex items-center justify-center p-4 safe-top safe-bottom overflow-hidden">
+      {/* Едва заметный дождик символов за формой входа */}
+      <MatrixRain className="absolute inset-0 w-full h-full opacity-30" columnGap={24} />
+      <div className="relative z-10 w-full max-w-md">
         <Suspense fallback={<PageFallback />}>
           {children}
         </Suspense>
