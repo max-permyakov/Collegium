@@ -16,6 +16,8 @@ import { buildDayIndex } from '../../utils/gradeCalendar';
 import { formatMoscowDate, formatMoscowTime, moscowDateISO, moscowNowTimeHMS, moscowWeekStartISO } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
 import { pageCache } from '../../utils/pageCache';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { HOME } from '../../components/ambient/loadPhrases';
 import type { Lesson, KkepikScheduleResponse, AnnouncementListItem, AssignmentListItem, PerformanceResponse } from '../../types';
 
 interface DashboardData {
@@ -104,14 +106,7 @@ export function HomePage() {
   }, [user]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="skeleton h-20" />
-        <div className="grid gap-4 lg:grid-cols-2">
-          {[1, 2].map(i => <div key={i} className="skeleton h-40" />)}
-        </div>
-      </div>
-    );
+    return <FunLoader pool={HOME} label="Загрузка главной" />;
   }
 
   const displayName = (() => {

@@ -7,6 +7,8 @@ import { Button } from '../../components/ui/Button';
 import { RoomButton } from '../../components/college/RoomButton';
 import { addDaysISO, formatMoscowTime, moscowDateISO, moscowWeekStartISO } from '../../utils/datetime';
 import { pageCache } from '../../utils/pageCache';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { SCHEDULE } from '../../components/ambient/loadPhrases';
 import { buildDayIndex } from '../../utils/gradeCalendar';
 import { markDigitClass, absenceClass } from '../../components/grades/GradeCalendar';
 import { getMarkValue } from '../../utils/performance';
@@ -115,14 +117,7 @@ export function SchedulePage() {
   const today = moscowDateISO();
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="skeleton h-20" />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-48" />)}
-        </div>
-      </div>
-    );
+    return <FunLoader pool={SCHEDULE} label="Загрузка расписания" />;
   }
 
   return (

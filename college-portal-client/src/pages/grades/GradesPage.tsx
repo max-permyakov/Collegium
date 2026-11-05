@@ -8,6 +8,8 @@ import { Button } from '../../components/ui/Button';
 import { MarkTrendChart } from '../../components/grades/MarkTrendChart';
 import { GradeCalendar, type CalendarDayEntry } from '../../components/grades/GradeCalendar';
 import { pageCache } from '../../utils/pageCache';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { GRADES } from '../../components/ambient/loadPhrases';
 import {
   buildAverageSeries,
   buildDayIndex,
@@ -138,12 +140,7 @@ export function GradesPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="skeleton h-24" />
-        <div className="skeleton h-64" />
-      </div>
-    );
+    return <FunLoader pool={GRADES} label="Загрузка оценок" />;
   }
 
   if (error) {
