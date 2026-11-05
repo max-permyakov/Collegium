@@ -134,7 +134,7 @@ export function ClubDetailPage() {
 
   const [error, setError] = useState('');
   const [messageText, setMessageText] = useState('');
-  const [composerRef, setComposerRef] = useState<HTMLTextAreaElement | null>(null);
+  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<UpdateClubDto | null>(null);
@@ -378,13 +378,7 @@ export function ClubDetailPage() {
     el.scrollTop = el.scrollHeight - pending.prevHeight + pending.prevTop;
   }, [messages]);
 
-  // Автовысота композера — как в обычном чате.
-  useEffect(() => {
-    const el = composerRef;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
-  }, [messageText, composerRef]);
+  // Автовысота композера — как в обычном чате: считается прямо в onChange.
 
   /** Возврат к списку кружков той же вкладки. */
   const goBack = () => {
@@ -566,13 +560,18 @@ export function ClubDetailPage() {
               <>
                 <div className="flex items-end gap-2">
                   <textarea
-                    ref={setComposerRef}
+                    ref={composerTextareaRef}
                     rows={1}
                     value={messageText}
                     className="input min-h-[2.5rem] max-h-32 h-10 py-2 resize-none flex-1 min-w-0"
                     placeholder="Написать сообщение..."
                     maxLength={MAX_MESSAGE_LENGTH}
-                    onChange={(e) => setMessageText(e.target.value)}
+                    onChange={(e) => {
+                      setMessageText(e.target.value);
+                      const el = e.target;
+                      el.style.height = 'auto';
+                      el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                         e.preventDefault();

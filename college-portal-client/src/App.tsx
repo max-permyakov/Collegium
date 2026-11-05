@@ -7,6 +7,7 @@ import { NotificationsProvider } from './context/NotificationsContext';
 import { Layout, AuthLayout } from './components/layout/Layout';
 import { PageFallback } from './components/layout/PageFallback';
 import { InstallPrompt } from './components/layout/InstallPrompt';
+import { DiaryRequiredNotice } from './components/DiaryRequiredNotice';
 import { Toaster } from 'sonner';
 
 // Routes are split per page so the initial bundle only carries the shell and
@@ -177,6 +178,21 @@ function ClubChatRedirect() {
   return <Navigate to={target} replace />;
 }
 
+/**
+ * Разделы, доступные только пользователям с привязанным электронным дневником.
+ * Дневник подтверждает статус студента колледжа (игры с рейтингом —
+ * только для студентов); администратору вход не требуется.
+ */
+function DiaryGate({ children, title, text }: { children: React.ReactNode; title: string; text: string }) {
+  const { user } = useAuth();
+  if (user && (user.hasDiaryLink || user.role === 'Admin')) return <>{children}</>;
+  return (
+    <div className="max-w-xl mx-auto">
+      <DiaryRequiredNotice title={title} text={text} />
+    </div>
+  );
+}
+
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
 
@@ -244,8 +260,22 @@ function AppRoutes() {
         </Route>
         {/* Android «Поделиться → KKEP.ka» (manifest share_target) приёмник */}
         <Route path="share" element={<SharePage />} />
-        <Route path="games" element={<GamesPage />} />
-        <Route path="games/escape" element={<EscapeGamePage />} />
+        <Route path="games" element={
+          <DiaryGate
+            title="Игры — только для студентов"
+            text="Чтобы играть, привяжите электронный дневник в профиле. Он нужен, чтобы мы могли проверить, что вы студент колледжа: рейтинг игр ведётся среди реальных студентов."
+          >
+            <GamesPage />
+          </DiaryGate>
+        } />
+        <Route path="games/escape" element={
+          <DiaryGate
+            title="Игры — только для студентов"
+            text="Чтобы играть, привяжите электронный дневник в профиле. Он нужен, чтобы мы могли проверить, что вы студент колледжа: рейтинг игр ведётся среди реальных студентов."
+          >
+            <EscapeGamePage />
+          </DiaryGate>
+        } />
         <Route path="college-info" element={<CollegeInfoPage />} />
         <Route path="college-info/map" element={<CollegeMapPage />} />
         <Route path="profile" element={<ProfilePage />} />

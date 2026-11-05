@@ -558,7 +558,10 @@ export function ChatsPage() {
                       </svg>
                     )}
                   </div>
-                  <p className="text-xs text-dark-textMuted truncate">
+                  {club.description && (
+                    <p className="text-xs text-dark-textMuted line-clamp-2 mt-0.5">{club.description}</p>
+                  )}
+                  <p className="text-xs text-dark-textMuted truncate mt-0.5">
                     Глава: {shortName(club.ownerName)} · {club.memberCount} участн.
                   </p>
                 </div>

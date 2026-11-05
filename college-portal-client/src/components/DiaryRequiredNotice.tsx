@@ -2,7 +2,18 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
 
-export function DiaryRequiredNotice() {
+interface DiaryRequiredNoticeProps {
+  /** Заголовок и текст можно переопределить для других разделов (например, игр). */
+  title?: string;
+  text?: string;
+  buttonLabel?: string;
+}
+
+export function DiaryRequiredNotice({
+  title = 'Нужен дневник',
+  text = 'Оценки и рейтинг доступны после привязки электронного дневника к аккаунту.',
+  buttonLabel = 'Привязать дневник',
+}: DiaryRequiredNoticeProps = {}) {
   return (
     <Card variant="hover" className="text-center py-12">
       <CardContent className="space-y-4">
@@ -12,13 +23,11 @@ export function DiaryRequiredNotice() {
           </svg>
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-dark-text mb-1">Нужен дневник</h2>
-          <p className="text-dark-textMuted max-w-md mx-auto">
-            Оценки и рейтинг доступны после привязки электронного дневника к аккаунту.
-          </p>
+          <h2 className="text-lg font-semibold text-dark-text mb-1">{title}</h2>
+          <p className="text-dark-textMuted max-w-md mx-auto">{text}</p>
         </div>
         <Link to="/profile">
-          <Button variant="primary">Привязать дневник</Button>
+          <Button variant="primary">{buttonLabel}</Button>
         </Link>
       </CardContent>
     </Card>
