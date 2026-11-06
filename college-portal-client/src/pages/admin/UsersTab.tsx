@@ -13,6 +13,8 @@ import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import type { AdminUserDto, AdminUsersPageDto } from '../../types/admin';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ADMIN } from '../../components/ambient/loadPhrases';
 
 const PAGE_SIZE = 25;
 
@@ -284,11 +286,7 @@ export function UsersTab() {
           </Button>
         </Card>
       ) : isLoading ? (
-        <div className="space-y-2" aria-busy="true">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="skeleton h-16" />
-          ))}
-        </div>
+        <FunLoader pool={ADMIN} label="Загрузка пользователей" />
       ) : users.length === 0 ? (
         <Card variant="hover" className="text-center py-12">
           <p className="text-dark-textMuted">

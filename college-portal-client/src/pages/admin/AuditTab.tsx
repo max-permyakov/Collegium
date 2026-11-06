@@ -5,6 +5,8 @@ import { Badge } from '../../components/ui/Badge';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
 import type { AuditLogDto } from '../../types/admin';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ADMIN } from '../../components/ambient/loadPhrases';
 
 const actionLabels: Record<string, string> = {
   SetRole: 'Изменение роли',
@@ -32,13 +34,7 @@ export function AuditTab() {
   });
 
   if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="skeleton h-14" />
-        ))}
-      </div>
-    );
+    return <FunLoader pool={ADMIN} label="Загрузка журнала аудита" />;
   }
 
   if (error || !data) {

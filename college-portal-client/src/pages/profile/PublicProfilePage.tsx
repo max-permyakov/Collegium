@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
 import type { PublicProfileDto } from '../../types';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { PROFILE } from '../../components/ambient/loadPhrases';
 
 const headmanLabel = (role: string): string | null =>
   role === 'Headman' ? 'Староста' : role === 'Deputy' ? 'Зам. старосты' : null;
@@ -39,7 +41,7 @@ export function PublicProfilePage({ userId }: { userId: string }) {
   });
 
   if (isLoading) {
-    return <div className="skeleton h-64" />;
+    return <FunLoader pool={PROFILE} label="Загрузка профиля" />;
   }
 
   if (error || !profile) {

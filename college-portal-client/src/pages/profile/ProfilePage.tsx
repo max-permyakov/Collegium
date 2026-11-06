@@ -13,6 +13,8 @@ import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import { formatMoscowDate } from '../../utils/datetime';
 import type { AchievementDto, ProfileDto } from '../../types';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { PROFILE } from '../../components/ambient/loadPhrases';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_BIO_LENGTH = 200;
@@ -160,7 +162,7 @@ function AchievementsSection({ userId }: { userId: string }) {
   );
 
   if (isLoading) {
-    return <div className="skeleton h-32" />;
+    return <FunLoader compact pool={PROFILE} label="Загрузка достижений" />;
   }
 
   return (
@@ -364,7 +366,7 @@ export function ProfilePage() {
   });
 
   if (isLoading) {
-    return <div className="skeleton h-64" />;
+    return <FunLoader pool={PROFILE} label="Загрузка профиля" />;
   }
 
   if (error || !profile) {

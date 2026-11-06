@@ -56,6 +56,31 @@ export const CHATS = [
   'Дешифруем ваши сообщения',
 ];
 
+export const ASSIGNMENTS = [
+  'Считаем дедлайны на пальцах…',
+  'Спрашиваем, кто не сдал…',
+];
+
+export const NEWS = [
+  'Распечатываем объявления…',
+  'Свежие новости, прям с принтера…',
+];
+
+export const PROFILE = [
+  'Открываем личное дело…',
+  'Полируем аватарку…',
+];
+
+export const ADMIN = [
+  'Берём бразды правления…',
+  'Входим в режим админа: sudo всё…',
+];
+
+export const COLLEGE = [
+  'Разворачиваем карту колледжа…',
+  'Ищем нужный кабинет по коридорам…',
+];
+
 const BY_ROUTE: Array<{ test: (path: string) => boolean; phrases: string[] }> = [
   {
     test: (p) => p.startsWith('/grades') || p.startsWith('/performance'),
@@ -71,11 +96,11 @@ const BY_ROUTE: Array<{ test: (path: string) => boolean; phrases: string[] }> = 
   },
   {
     test: (p) => p.startsWith('/assignments'),
-    phrases: ['Считаем дедлайны на пальцах…', 'Спрашиваем, кто не сдал…'],
+    phrases: ASSIGNMENTS,
   },
   {
     test: (p) => p.startsWith('/news'),
-    phrases: ['Распечатываем объявления…', 'Свежие новости, прям с принтера…'],
+    phrases: NEWS,
   },
   {
     test: (p) => p.startsWith('/games'),
@@ -83,19 +108,19 @@ const BY_ROUTE: Array<{ test: (path: string) => boolean; phrases: string[] }> = 
   },
   {
     test: (p) => p.startsWith('/profile') || p.startsWith('/users'),
-    phrases: ['Открываем личное дело…', 'Полируем аватарку…'],
+    phrases: PROFILE,
   },
   {
     test: (p) => p.startsWith('/admin'),
-    phrases: ['Берём бразды правления…', 'Входим в режим админа: sudo всё…'],
+    phrases: ADMIN,
   },
   {
     test: (p) => p.startsWith('/complete-profile'),
     phrases: ['Оформляем пропуск…', 'Заносим вас в базу студентов…'],
   },
   {
-    test: (p) => p.startsWith('/college-info'),
-    phrases: ['Разворачиваем карту колледжа…', 'Ищем нужный кабинет по коридорам…'],
+    test: (p) => p.startsWith('/college'),
+    phrases: COLLEGE,
   },
 ];
 

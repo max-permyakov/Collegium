@@ -20,6 +20,8 @@ import { SupportInboxTab } from './SupportInboxTab';
 import { formatMoscowDate, moscowDateTimeInputValue, moscowInputToUtc } from '../../utils/datetime';
 import type { AnnouncementListItem, CreateAnnouncementDto, AssignmentListItem, CreateAssignmentDto, ChatListItemDto } from '../../types';
 import type { StatisticsDto } from '../../types/admin';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ADMIN } from '../../components/ambient/loadPhrases';
 
 export function AdminPage() {
   const { hasPermission, user } = useAuth();
@@ -483,7 +485,7 @@ export function AdminPage() {
             )}
 
             {isLoading ? (
-              <div className="skeleton h-32" />
+              <FunLoader compact pool={ADMIN} label="Загрузка заданий" />
             ) : assignments.length > 0 ? (
               <div className="space-y-2">
                 {assignments.map((item) => (

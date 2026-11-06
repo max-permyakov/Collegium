@@ -14,6 +14,8 @@ import { formatMoscowDate } from '../../utils/datetime';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import { pageCache } from '../../utils/pageCache';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { NEWS } from '../../components/ambient/loadPhrases';
 import type { AnnouncementListItem, Announcement } from '../../types';
 
 export function NewsPage() {
@@ -75,12 +77,7 @@ export function NewsPage() {
   }, [params.id]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="skeleton h-20" />
-        {isDetail ? <div className="skeleton h-64" /> : <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="skeleton h-20" />)}</div>}
-      </div>
-    );
+    return <FunLoader pool={NEWS} label="Загрузка новостей" />;
   }
 
   if (error) {

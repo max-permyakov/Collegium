@@ -18,6 +18,8 @@ import {
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import type { AuditoriumDto, CollegeMapDto, CreateAuditoriumDto, MapSearchResultDto } from '../../types';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { COLLEGE } from '../../components/ambient/loadPhrases';
 
 export function CollegeMapPage() {
   const [searchParams] = useSearchParams();
@@ -224,12 +226,7 @@ export function CollegeMapPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="skeleton h-20" />
-        <div className="skeleton h-[60vh] rounded-2xl" />
-      </div>
-    );
+    return <FunLoader pool={COLLEGE} label="Загрузка карты колледжа" />;
   }
 
   const showMap = map && (map.auditoriums.length > 0 || isFormMode);

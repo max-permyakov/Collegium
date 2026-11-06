@@ -7,6 +7,8 @@ import { Button } from '../../components/ui/Button';
 import { formatMoscowDate } from '../../utils/datetime';
 import { shortName } from '../../utils/names';
 import { pageCache } from '../../utils/pageCache';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ASSIGNMENTS } from '../../components/ambient/loadPhrases';
 import type { AssignmentListItem } from '../../types';
 
 const CACHE_KEY = 'assignments:list';
@@ -55,14 +57,7 @@ export function AssignmentsPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="skeleton h-20" />
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-20" />)}
-        </div>
-      </div>
-    );
+    return <FunLoader pool={ASSIGNMENTS} label="Загрузка заданий" />;
   }
 
   if (error) {

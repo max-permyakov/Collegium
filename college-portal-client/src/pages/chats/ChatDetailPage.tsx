@@ -18,6 +18,8 @@ import {
   type RecordingSession,
 } from './recording';
 import type { ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto } from '../../types/chats';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { CHATS } from '../../components/ambient/loadPhrases';
 
 const PAGE_SIZE = 30;
 const POLL_MS = 2500;
@@ -1235,7 +1237,7 @@ export function ChatConversation({
     if (el.scrollTop < 120 && hasOlder) void loadOlder();
   };
 
-  if (chatLoading) return <div className="skeleton h-64 lg:h-96" />;
+  if (chatLoading) return <FunLoader pool={CHATS} label="Загрузка чата" />;
 
   if (chatError || !chat) {
     return (

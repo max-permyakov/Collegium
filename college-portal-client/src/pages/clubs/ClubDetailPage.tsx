@@ -14,6 +14,8 @@ import { formatMoscowDateTime } from '../../utils/datetime';
 import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { ClubDetailDto, ClubMessageDto, UpdateClubDto } from '../../types';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { CHATS } from '../../components/ambient/loadPhrases';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_CLUB_NAME_LENGTH = 20;
@@ -418,7 +420,7 @@ export function ClubDetailPage() {
     updateMutation.mutate({ ...form, name });
   };
 
-  if (isLoading) return <div className="skeleton h-64 flex-1" />;
+  if (isLoading) return <FunLoader pool={CHATS} label="Загрузка кружка" />;
 
   if (loadError || !club) {
     return (

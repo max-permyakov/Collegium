@@ -10,6 +10,8 @@ import { formatMoscowDateTime } from '../../utils/datetime';
 import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { ClubListDto } from '../../types';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ADMIN } from '../../components/ambient/loadPhrases';
 
 const getError = (err: unknown) => {
   const e = err as { response?: { data?: { message?: string } } };
@@ -74,7 +76,7 @@ export function ClubsTab() {
         <div className="space-y-2">
           <p className="text-sm text-dark-textMuted">Всего групп: {clubs?.length ?? 0}</p>
           {isLoading ? (
-            <div className="skeleton h-40" />
+            <FunLoader compact pool={ADMIN} label="Загрузка кружков" />
           ) : clubs && clubs.length > 0 ? (
             clubs.map((club) => (
               <button

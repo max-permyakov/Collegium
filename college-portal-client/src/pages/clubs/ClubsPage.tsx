@@ -11,6 +11,8 @@ import { Lightbox } from '../../components/ui/Lightbox';
 import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { ClubListDto, CreateClubDto } from '../../types';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { CHATS } from '../../components/ambient/loadPhrases';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_CLUB_NAME_LENGTH = 20;
@@ -180,9 +182,7 @@ export function ClubsPage() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[0, 1, 2].map((i) => <div key={i} className="skeleton h-40" />)}
-        </div>
+        <FunLoader pool={CHATS} label="Загрузка кружков" />
       ) : clubs && clubs.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {clubs.map((club) => (

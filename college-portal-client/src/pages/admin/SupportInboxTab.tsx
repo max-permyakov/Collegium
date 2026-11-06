@@ -7,6 +7,8 @@ import { Input } from '../../components/ui/Input';
 import { itemTime, messagePreview } from '../../utils/chatPreview';
 import { ChatConversation } from '../chats/ChatDetailPage';
 import type { ChatListItemDto } from '../../types/chats';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ADMIN } from '../../components/ambient/loadPhrases';
 
 const INBOX_POLL_MS = 5000;
 
@@ -36,7 +38,7 @@ export function SupportInboxTab() {
     : chats;
 
   if (inboxQuery.isLoading) {
-    return <div className="skeleton h-64" />;
+    return <FunLoader pool={ADMIN} label="Загрузка обращений" />;
   }
 
   if (inboxQuery.isError) {

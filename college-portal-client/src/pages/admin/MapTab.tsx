@@ -15,6 +15,8 @@ import { Input, Textarea } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { notifySuccess } from '../../utils/notify';
 import type { AuditoriumDto, BuildingDto, CollegeMapDto, CreateAuditoriumDto, CreateBuildingDto } from '../../types';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ADMIN } from '../../components/ambient/loadPhrases';
 
 const emptyBuildingForm = (): CreateBuildingDto => ({ name: '', description: '', sortOrder: 0 });
 
@@ -208,7 +210,7 @@ export function MapTab() {
     setError('');
   };
 
-  if (isLoading) return <div className="skeleton h-64" />;
+  if (isLoading) return <FunLoader pool={ADMIN} label="Загрузка карты" />;
 
   return (
     <div className="space-y-6">

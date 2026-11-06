@@ -4,6 +4,8 @@ import { adminApi } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { shortName } from '../../utils/names';
 import type { StatisticsDailyPoint, StatisticsDto } from '../../types/admin';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { ADMIN } from '../../components/ambient/loadPhrases';
 
 interface StatCardProps {
   label: string;
@@ -126,13 +128,7 @@ export function StatisticsTab() {
   });
 
   if (isLoading) {
-    return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="skeleton h-24" />
-        ))}
-      </div>
-    );
+    return <FunLoader pool={ADMIN} label="Загрузка статистики" />;
   }
 
   if (error || !data) {

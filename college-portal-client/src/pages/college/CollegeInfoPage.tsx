@@ -11,6 +11,8 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { useAuth } from '../../context/AuthContext';
 import type { CollegeCatalog } from '../../types';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { COLLEGE } from '../../components/ambient/loadPhrases';
 
 type SearchType = 'group' | 'teacher' | 'audience';
 
@@ -255,9 +257,7 @@ export function CollegeInfoPage() {
             placeholder="Поиск по имени, должности или дисциплине"
           />
           {teachersLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton h-44" />)}
-            </div>
+            <FunLoader compact pool={COLLEGE} label="Загрузка преподавателей" />
           ) : filteredTeachers.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filteredTeachers.map((teacher) => (

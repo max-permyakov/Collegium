@@ -13,6 +13,8 @@ import { itemTime, messagePreview } from '../../utils/chatPreview';
 import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import type { ChatKind, ChatListItemDto, ChatUserDto } from '../../types/chats';
+import { FunLoader } from '../../components/ambient/FunLoader';
+import { CHATS } from '../../components/ambient/loadPhrases';
 import type { ClubListDto, CreateClubDto } from '../../types';
 
 const LIST_POLL_MS = 5000;
@@ -395,7 +397,7 @@ export function ChatsPage() {
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-1">
         {tab === 'chats' && (
           <>
-            {listQuery.isLoading && <div className="skeleton h-20" />}
+            {listQuery.isLoading && <FunLoader compact pool={CHATS} label="Загрузка чатов" />}
 
             {!listQuery.isLoading && (
               <div className="space-y-1">
@@ -528,7 +530,7 @@ export function ChatsPage() {
               </form>
             )}
 
-            {clubsQuery.isLoading && <div className="skeleton h-16" />}
+            { clubsQuery.isLoading && <FunLoader compact pool={CHATS} label="Загрузка кружков" />}
 
             {!clubsQuery.isLoading && clubs.length === 0 && !showClubCreate && (
               <p className="text-sm text-dark-textMuted text-center py-6 px-3">
