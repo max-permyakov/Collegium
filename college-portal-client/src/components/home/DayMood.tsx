@@ -39,15 +39,15 @@ const moodFor = (total: number, allDone: boolean): Mood => {
   switch (total) {
     case 1:
     case 2:
-      return { emoji: '😄', text: `Всего ${pluralPairs(total)} — день лёгкий, можем только порадоваться!`, anim: 'pulse' };
+      return { emoji: '😄', text: `Всего ${pluralPairs(total)} — `, anim: 'pulse' };
     case 3:
-      return { emoji: '🙂', text: 'Три пары — золотая середина. Ровный, спокойный темп!', anim: 'bob' };
+      return { emoji: '🙂', text: 'Три пары — жить можно', anim: 'bob' };
     case 4:
-      return { emoji: '💪', text: 'Четыре пары — день боевой. Кофе, рюкзак, помидор — и ты справишься!', anim: 'bob' };
+      return { emoji: '💪', text: 'Четыре пары это уже Психологический хоррор. Кофе, рюкзак, молитва — и в перед!', anim: 'bob' };
     case 5:
-      return { emoji: '😅', text: 'Пять пар… кофе уже занял очередь ☕', anim: 'shake' };
+      return { emoji: '😅', text: 'Пять пар… а такое бывает?', anim: 'shake' };
     default:
-      return { emoji: '🤯', text: `${pluralPairs(total)}?! Это уже не день, это рейд. Удачи, герой!`, anim: 'shake' };
+      return { emoji: '🤯', text: `${pluralPairs(total)}?! Это уже не день, это моральная эскалация`, anim: 'shake' };
   }
 };
 
