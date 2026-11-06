@@ -60,6 +60,21 @@ export interface AdminUserDto {
   registrationSource?: AuthMethod;
   lastAuthMethod?: AuthMethod | null;
   hasDiaryLink?: boolean;
+  /** Логин дневникового аккаунта (если привязан). */
+  diaryLogin?: string | null;
+  /** Дневник не вернул студенческую роль (teacherId/studentId == 0) — вероятно, преподаватель/сотрудник. */
+  diaryNotStudent?: boolean;
+}
+
+/** Данные дневникового аккаунта: логин и SHA-256 хеш пароля (только для админов). */
+export interface DiaryCredentialsDto {
+  found: boolean;
+  diaryLogin?: string | null;
+  passwordHash?: string | null;
+  linkedAt?: string | null;
+  lastSyncedAt?: string | null;
+  externalStudentId?: number | null;
+  notStudent: boolean;
 }
 
 export interface AdminUsersPageDto {

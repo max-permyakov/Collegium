@@ -22,7 +22,20 @@ public record AdminUserDto(
     DateTime CreatedAt,
     AuthMethod RegistrationSource,
     AuthMethod? LastAuthMethod,
-    bool HasDiaryLink
+    bool HasDiaryLink,
+    string? DiaryLogin = null,
+    bool DiaryNotStudent = false
+);
+
+
+public record DiaryCredentialsDto(
+    bool Found,
+    string? DiaryLogin,
+    string? PasswordHash,
+    DateTime? LinkedAt,
+    DateTime? LastSyncedAt,
+    int? ExternalStudentId,
+    bool NotStudent
 );
 
 public record AdminUsersPageDto(

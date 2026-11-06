@@ -68,6 +68,15 @@ public class AdminController : ControllerBase
         return detail == null ? NotFound() : Ok(detail);
     }
 
+   
+    [HttpGet("users/{id:guid}/diary-credentials")]
+    [Authorize(Policy = "Permission.UsersManage")]
+    public async Task<IActionResult> GetDiaryCredentials(Guid id, CancellationToken ct)
+    {
+        var credentials = await _adminService.GetDiaryCredentialsAsync(id, ct);
+        return credentials == null ? NotFound() : Ok(credentials);
+    }
+
     [HttpPost("users/{id:guid}/role")]
     [Authorize(Policy = "Permission.UsersManage")]
     public async Task<IActionResult> SetRole(Guid id, [FromBody] UpdateRoleRequestDto request, CancellationToken ct)

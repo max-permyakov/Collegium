@@ -70,7 +70,7 @@ export function LoginPage() {
       navigate('/', { replace: true });
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || 'Неверный логин или пароль дневника');
+      setError(e.response?.data?.message || 'Не удалось войти,Неверный логин/пароль или Попробуйте отключить или переключить VPN на Русский сервер, а лучше WI-Fi');
     } finally {
       setIsLoading(false);
     }

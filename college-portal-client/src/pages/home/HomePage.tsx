@@ -51,6 +51,8 @@ export function HomePage() {
 
   const gradeDayIndex = useMemo(() => buildDayIndex(dashboardData.performance ?? null), [dashboardData.performance]);
   const todayISO = moscowDateISO();
+  // Дневник привязан? Без него оценки доставить нечем (админам привязка не нужна).
+  const noDiary = user?.role !== 'Admin' && user?.hasDiaryLink === false;
 
   const _formatDate = (dateStr: string) =>
     formatMoscowDate(dateStr, { day: 'numeric', month: 'short', weekday: 'short' });
@@ -73,7 +75,10 @@ export function HomePage() {
         scheduleApi.getKkepik(),
         newsApi.getNews(user.studentProfile?.studyGroupId),
         assignmentsApi.getMyAssignments(),
-        gradesApi.getPerformance(),
+        // Без дневника оценки взять неоткуда — не ходим в API впустую.
+        user.role !== 'Admin' && user.hasDiaryLink === false
+          ? Promise.resolve({ data: null as PerformanceResponse | null })
+          : gradesApi.getPerformance(),
       ]);
 
       let remainingToday: Lesson[] = [];
@@ -257,6 +262,11 @@ export function HomePage() {
           <CardContent>
             {gradeDayIndex.size > 0 ? (
               <GradeCalendar dayIndex={gradeDayIndex} />
+            ) : noDiary ? (
+              <p className="text-dark-textMuted text-center py-8">
+                📔 Без привязки к электронному дневнику мы не можем достать ваши оценки —{' '}
+                <Link to="/profile" className="text-primary-400 hover:underline">привяжите дневник в профиле</Link>
+              </p>
             ) : (
               <p className="text-dark-textMuted text-center py-8">
                 Нет оценок за период.{' '}

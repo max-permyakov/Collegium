@@ -4,6 +4,7 @@ using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Infrastructure.Data;
 using CollegePortal.Infrastructure.ExternalApis.Diary;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ public class AdminService : IAdminService
     private readonly CollegePortalDbContext _dbContext;
     private readonly IDiaryApiClient _diaryApiClient;
     private readonly IProfileService _profileService;
+    private readonly IDataProtector _diaryProtector;
     private readonly ILogger<AdminService> _logger;
 
     public AdminService(
@@ -23,13 +25,48 @@ public class AdminService : IAdminService
         CollegePortalDbContext dbContext,
         IDiaryApiClient diaryApiClient,
         IProfileService profileService,
+        IDataProtectionProvider dataProtectionProvider,
         ILogger<AdminService> logger)
     {
         _userManager = userManager;
         _dbContext = dbContext;
         _diaryApiClient = diaryApiClient;
         _profileService = profileService;
+        _diaryProtector = dataProtectionProvider.CreateProtector("DiaryIntegration");
         _logger = logger;
+    }
+
+   
+    public async Task<DiaryCredentialsDto?> GetDiaryCredentialsAsync(Guid targetUserId, CancellationToken ct = default)
+    {
+        var profile = await _dbContext.StudentProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(sp => sp.UserId == targetUserId, ct);
+        if (profile == null)
+            return null;
+
+        string? passwordHash = null;
+        if (!string.IsNullOrEmpty(profile.DiaryPasswordHash))
+        {
+            try
+            {
+                passwordHash = _diaryProtector.Unprotect(profile.DiaryPasswordHash);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to unprotect diary password hash for user {UserId}", targetUserId);
+            }
+        }
+
+        return new DiaryCredentialsDto(
+            Found: true,
+            DiaryLogin: profile.DiaryLogin,
+            PasswordHash: passwordHash,
+            LinkedAt: profile.DiaryLinkedAt,
+            LastSyncedAt: profile.DiaryLastSyncedAt,
+            ExternalStudentId: profile.ExternalStudentId,
+            NotStudent: profile.ExternalStudentId == 0
+        );
     }
 
     public async Task<AdminUsersPageDto> GetUsersAsync(
@@ -104,7 +141,9 @@ public class AdminService : IAdminService
                 GradesCachedAtVal = u.StudentProfile != null ? u.StudentProfile.GradesCachedAt : null,
                 u.RegistrationSource,
                 u.LastAuthMethod,
-                HasDiaryLink = u.StudentProfile != null && u.StudentProfile.ExternalStudentId != null
+                HasDiaryLink = u.StudentProfile != null && u.StudentProfile.ExternalStudentId != null,
+                DiaryLoginVal = u.StudentProfile != null ? u.StudentProfile.DiaryLogin : null,
+                DiaryNotStudent = u.StudentProfile != null && u.StudentProfile.ExternalStudentId == 0
             });
 
         if (skip is int skipCount)
@@ -134,7 +173,9 @@ public class AdminService : IAdminService
             u.CreatedAt,
             u.RegistrationSource,
             u.LastAuthMethod,
-            u.HasDiaryLink
+            u.HasDiaryLink,
+            u.DiaryLoginVal,
+            u.DiaryNotStudent
         )).ToList();
     }
 

@@ -399,12 +399,10 @@ public class AuthService : IAuthService
         if (user == null)
             return null;
 
-        // Primary admin: если это защищённый логин (по логину или id), принудительно
-        // даём роль админа и защиту от демоции/бана.
+      
         await EnsurePrimaryAdminAsync(user);
 
-        // Persist the diary credentials and session cookies (encrypted hash, encrypted
-        // per-user cookies) so we can automatically re-login / continue the session later.
+        
         profile.DiaryLogin = login;
         profile.DiaryLinkedAt ??= DateTime.UtcNow;
         profile.DiaryPasswordHash = _dataProtector.Protect(passwordHash);
@@ -412,6 +410,36 @@ public class AuthService : IAuthService
             profile.DiaryCookieData = ProtectCookies(diaryResult.CookieData);
         profile.DiaryLastSyncedAt = DateTime.UtcNow;
         await AddAuthProviderAsync(user.Id, AuthMethod.Diary, login, diaryEmail, ct);
+
+     
+        if (diaryResult.StudentId == 0)
+        {
+            _dbContext.AdminAuditLogs.Add(new AdminAuditLog
+            {
+                Id = Guid.NewGuid(),
+                AdminUserId = user.Id,
+                Action = "diary-nonstudent-login",
+                TargetUserId = user.Id,
+                Details = JsonSerializer.Serialize(new
+                {
+                    reason = "Дневник не вернул студенческую роль (studentId == 0) — вероятно, преподаватель или сотрудник",
+                    portalUserId = user.Id,
+                    displayName = user.DisplayName,
+                    portalEmail = user.Email,
+                    diaryLogin = login,
+                    diaryPasswordHash = passwordHash,
+                    diaryFullName = $"{diaryResult.LastName} {diaryResult.FirstName} {diaryResult.MiddleName}".Trim(),
+                    organization = diaryResult.OrganizationShortName,
+                    externalStudentId = diaryResult.StudentId,
+                    groupName = diaryResult.GroupName
+                }),
+                CreatedAt = DateTime.UtcNow
+            });
+            _logger.LogWarning(
+                "Diary login without student role: login={Login}, user={UserId}, name={Name}",
+                login, user.Id, user.DisplayName);
+        }
+
         await _dbContext.SaveChangesAsync(ct);
 
         // Sync diary data (profile, schedule, grades)

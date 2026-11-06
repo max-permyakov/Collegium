@@ -296,14 +296,14 @@ export interface PublicProfileDto {
   clubs: PublicClubDto[];
 }
 
-import type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, StatisticsContentDto, StatisticsDailyPoint, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod } from './admin';
+import type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, StatisticsContentDto, StatisticsDailyPoint, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod, DiaryCredentialsDto } from './admin';
 import type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto } from './clubs';
 import type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher } from './college';
 import type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto } from './map';
 import type { GameModeId, GameLeaderboard, GameLeaderboardEntry, GameScoreSubmission } from './games';
 import type { ChatDto, ChatKind, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto, ChatPresenceDto } from './chats';
 
-export type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, StatisticsContentDto, StatisticsDailyPoint, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod };
+export type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, StatisticsContentDto, StatisticsDailyPoint, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod, DiaryCredentialsDto };
 export { ALL_PERMISSIONS, PERMISSION_LABELS } from './admin';
 export type { ClubListDto, ClubMemberDto, ClubMessageDto, ClubDetailDto, CreateClubDto, UpdateClubDto };
 export type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, CollegeTeacher };

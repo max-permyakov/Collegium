@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { gradesApi, ratingApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { DiaryRequiredNotice } from '../../components/DiaryRequiredNotice';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -20,6 +22,7 @@ import type { GroupRating, PerformanceResponse } from '../../types';
 const PERFORMANCE_CACHE_KEY = 'performance:overview';
 
 export function GradesPage() {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const cachedPerformance = pageCache.get<PerformanceResponse>(PERFORMANCE_CACHE_KEY);
   const [performance, setPerformance] = useState<PerformanceResponse | null>(cachedPerformance ?? null);
@@ -37,6 +40,10 @@ export function GradesPage() {
   const [ratingSubject, setRatingSubject] = useState<string | null>(null);
   const [showAllRanking, setShowAllRanking] = useState(false);
   const [participationPending, setParticipationPending] = useState(false);
+
+  // Без привязки к дневнику оценки достать неоткуда: показываем пояснение
+  // вместо пустых данных (админы — исключение, им оценки не тренирует дневник).
+  const noDiary = !!user && user.role !== 'Admin' && user.hasDiaryLink === false;
 
   const loadPerformance = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setIsLoading(!pageCache.get(PERFORMANCE_CACHE_KEY));
@@ -138,6 +145,18 @@ export function GradesPage() {
       : subjects.reduce((sum, s) => sum + s.daysWithMarks.reduce((n, d) => n + d.markValues.length, 0), 0),
     [subjects, selectedEntry],
   );
+
+  if (noDiary) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <DiaryRequiredNotice
+          title="Оценки живут в дневнике"
+          text="Без привязки к электронному дневнику мы не можем достать ваши оценки. Привяжите дневник в профиле — и здесь появятся календарь с оценками, средний балл и график.Да, это точно никуда не идет, кому нужны ваши оценки?"
+          buttonLabel="Привязать дневник"
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <FunLoader pool={GRADES} label="Загрузка оценок" />;

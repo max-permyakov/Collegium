@@ -12,6 +12,7 @@ import { shortName } from '../../utils/names';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
+import { DiarySecurityPanel } from '../../components/admin/DiarySecurityPanel';
 import type { AdminUserDto, AdminUsersPageDto } from '../../types/admin';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { ADMIN } from '../../components/ambient/loadPhrases';
@@ -97,6 +98,8 @@ export function UsersTab() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [permTarget, setPermTarget] = useState<AdminUserDto | null>(null);
+  // Раскрытая панель проверки дневникового аккаунта (не-студент): id пользователя.
+  const [diaryPanelId, setDiaryPanelId] = useState<string | null>(null);
 
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
 
@@ -255,6 +258,17 @@ export function UsersTab() {
         </span>
       </div>
 
+      {/* Сводка безопасности: сколько на странице дневниковых аккаунтов без студенческой роли */}
+      {!isLoading && users.some((u) => u.diaryNotStudent) && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-sm flex items-center justify-between gap-3">
+          <span className="text-red-400">
+            ⚠ На этой странице {users.filter((u) => u.diaryNotStudent).length} аккаунт(ов),
+            вошедших через дневник <span className="font-medium">без студенческой роли</span>.
+            Регистрация им не запрещена, но проверьте, кто это.
+          </span>
+        </div>
+      )}
+
       {actionError && (
         <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
           <span>{actionError}</span>
@@ -321,6 +335,14 @@ export function UsersTab() {
                       </Link>
                       <div className="text-xs text-dark-textMuted">{u.login}</div>
                       <ActivityLine lastActivityAt={u.lastActivityAt} />
+                      {u.diaryNotStudent && (
+                        <button
+                          className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 transition-colors"
+                          onClick={() => setDiaryPanelId((p) => (p === u.id ? null : u.id))}
+                        >
+                          ⚠ не-студент в дневнике {diaryPanelId === u.id ? '▲' : '▼'}
+                        </button>
+                      )}
                     </td>
                     <td className="py-2 px-3 text-dark-textMuted">
                       {u.studyGroupName || '—'}
@@ -349,6 +371,14 @@ export function UsersTab() {
                     </td>
                   </tr>
                 ))}
+                {/* Панель проверки дневникового аккаунта — сразу под строкой пользователя */}
+                {users.filter((u) => u.diaryNotStudent && diaryPanelId === u.id).map((u) => (
+                  <tr key={`${u.id}-diary`}>
+                    <td colSpan={8} className="py-2 px-3">
+                      <DiarySecurityPanel userId={u.id} />
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -371,6 +401,18 @@ export function UsersTab() {
                     <StatusBadge isActive={u.isActive} />
                   </div>
                 </div>
+
+                {u.diaryNotStudent && (
+                  <div className="space-y-2">
+                    <button
+                      className="w-full inline-flex items-center justify-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 transition-colors"
+                      onClick={() => setDiaryPanelId((p) => (p === u.id ? null : u.id))}
+                    >
+                      ⚠ не-студент в дневнике {diaryPanelId === u.id ? '▲' : '▼'}
+                    </button>
+                    {diaryPanelId === u.id && <DiarySecurityPanel userId={u.id} />}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="text-dark-textMuted">

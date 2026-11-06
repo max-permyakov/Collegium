@@ -15,7 +15,27 @@ const actionLabels: Record<string, string> = {
   Block: 'Блокировка',
   Unblock: 'Разблокировка',
   RecomputeGrades: 'Пересчёт оценок',
+  'diary-nonstudent-login': '⚠ Вход без студенческой роли',
 };
+
+/** Разбор Details записи о не-студентном входе через дневник. */
+interface NonStudentDetails {
+  reason?: string;
+  displayName?: string;
+  portalEmail?: string | null;
+  diaryLogin?: string;
+  diaryPasswordHash?: string;
+  organization?: string;
+}
+
+function parseNonStudent(details: string): NonStudentDetails | null {
+  try {
+    const parsed = JSON.parse(details) as NonStudentDetails;
+    return typeof parsed.diaryLogin === 'string' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 function formatDateTime(value: string) {
   return formatMoscowDateTime(value, {
@@ -56,11 +76,13 @@ export function AuditTab() {
   return (
     <div className="space-y-2">
       {data.map((log) => (
-        <Card key={log.id} variant="hover">
+        <Card key={log.id} variant="hover" className={log.action === 'diary-nonstudent-login' ? 'border-red-500/40' : undefined}>
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="info">{actionLabels[log.action] || log.action}</Badge>
+                <Badge variant={log.action === 'diary-nonstudent-login' ? 'danger' : 'info'}>
+                  {actionLabels[log.action] || log.action}
+                </Badge>
                 <span className="text-sm text-dark-text">{shortName(log.adminName)}</span>
                 {log.targetName && (
                   <>
@@ -73,7 +95,34 @@ export function AuditTab() {
                 {formatDateTime(log.createdAt)}
               </span>
             </div>
-            {log.details && <p className="text-sm text-dark-textMuted mt-2">{log.details}</p>}
+            {(() => {
+              if (log.action === 'diary-nonstudent-login') {
+                const nd = parseNonStudent(log.details);
+                if (nd) {
+                  return (
+                    <div className="mt-2 space-y-1 text-sm">
+                      <p className="text-red-400 text-xs">{nd.reason}</p>
+                      <p className="text-dark-text text-xs font-mono">
+                        ФИО в дневнике/портале: {nd.displayName || '—'}
+                      </p>
+                      {nd.portalEmail && (
+                        <p className="text-dark-text text-xs font-mono">почта портала: {nd.portalEmail}</p>
+                      )}
+                      <p className="text-dark-text text-xs font-mono">
+                        логин дневника: {nd.diaryLogin}
+                      </p>
+                      <p className="text-dark-text text-[11px] font-mono break-all">
+                        хеш пароля (SHA-256): {nd.diaryPasswordHash || '—'}
+                      </p>
+                      {nd.organization && (
+                        <p className="text-dark-textMuted text-xs">организация: {nd.organization}</p>
+                      )}
+                    </div>
+                  );
+                }
+              }
+              return log.details ? <p className="text-sm text-dark-textMuted mt-2">{log.details}</p> : null;
+            })()}
           </CardContent>
         </Card>
       ))}
