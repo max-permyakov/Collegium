@@ -39,7 +39,7 @@ const moodFor = (total: number, allDone: boolean): Mood => {
   switch (total) {
     case 1:
     case 2:
-      return { emoji: '😄', text: `Всего ${pluralPairs(total)} — `, anim: 'pulse' };
+      return { emoji: '😄', text: `Всего ${pluralPairs(total)} — Юху`, anim: 'pulse' };
     case 3:
       return { emoji: '🙂', text: 'Три пары — жить можно', anim: 'bob' };
     case 4:
