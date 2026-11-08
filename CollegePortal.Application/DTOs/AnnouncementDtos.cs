@@ -50,7 +50,7 @@ public record AnnouncementListDto(
 
 public record NewsImageDto(
     Guid Id,
-    string Url
+    string DataUrl
 );
 
 public record NewsCommentDto(

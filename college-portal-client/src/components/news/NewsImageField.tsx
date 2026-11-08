@@ -1,5 +1,3 @@
-import { newsApi } from '../../services/api';
-
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -16,8 +14,7 @@ interface NewsImageFieldProps {
 
 /**
  * Upload / preview / remove control for the news cover image.
- * The file goes straight to POST /news/image as a raw body (8 МБ max,
- * jpg/png/gif/webp) and the returned URL is stored in the announcement.
+ * The file is converted to base64 (data URL) and sent in the request body.
  */
 export function NewsImageField({
   imageUrl,
@@ -41,11 +38,32 @@ export function NewsImageField({
     }
     onUploadingChanged(true);
     try {
-      const res = await newsApi.uploadImage(file, file.name);
-      onUploaded(res.data.url);
-    } catch (err) {
-      const e = err as { response?: { data?: { message?: string } } };
-      onError(e.response?.data?.message || 'Не удалось загрузить картинку');
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result as string;
+        // Send as raw body with content-type: text/plain (base64)
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5221/api'}/news/image?fileName=${encodeURIComponent(file.name)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+          credentials: 'include',
+          body: dataUrl,
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || 'Не удалось загрузить картинку');
+        }
+        const data = await res.json();
+        onUploaded(data.dataUrl);
+      };
+      reader.onerror = () => {
+        onError('Не удалось прочитать файл');
+        onUploadingChanged(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      onError(err.message || 'Не удалось загрузить картинку');
     } finally {
       onUploadingChanged(false);
     }

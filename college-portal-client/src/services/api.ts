@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, NewsImageDto, AchievementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, DiaryCredentialsDto } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AchievementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, DiaryCredentialsDto } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -181,14 +181,6 @@ export const newsApi = {
   postComment: (id: string, text: string) => api.post<NewsCommentDto>(`/news/${id}/comments`, { text }),
   deleteComment: (commentId: string) => api.delete(`/news/comments/${commentId}`),
   updateComment: (commentId: string, text: string) => api.put(`/news/comments/${commentId}`, { text }),
-  /** Raw-body upload of a news cover image; returns its public URL. */
-  uploadImage: (blob: Blob, fileName: string) =>
-    api.post<NewsImageDto>(`/news/image`, blob, {
-      params: { fileName },
-      // Raw body upload: the browser supplies the real content type.
-      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
-      timeout: 60000,
-    }),
 };
 
 export const assignmentsApi = {

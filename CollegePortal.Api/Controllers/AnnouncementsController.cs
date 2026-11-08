@@ -1,6 +1,5 @@
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
-using CollegePortal.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,24 +10,10 @@ namespace CollegePortal.Api.Controllers;
 public class AnnouncementsController : ControllerBase
 {
     private readonly IAnnouncementService _announcementService;
-    private readonly IChatFileStore _fileStore;
 
-    /// <summary>Max size of a news cover image.</summary>
-    private const long MaxImageBytes = 8 * 1024 * 1024;
-
-    private static readonly Dictionary<string, string> AllowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [".jpg"] = "image/jpeg",
-        [".jpeg"] = "image/jpeg",
-        [".png"] = "image/png",
-        [".gif"] = "image/gif",
-        [".webp"] = "image/webp",
-    };
-
-    public AnnouncementsController(IAnnouncementService announcementService, IChatFileStore fileStore)
+    public AnnouncementsController(IAnnouncementService announcementService)
     {
         _announcementService = announcementService;
-        _fileStore = fileStore;
     }
 
     [HttpGet]
@@ -112,75 +97,31 @@ public class AnnouncementsController : ControllerBase
     }
 
     /// <summary>
-    /// Cover image upload. The client streams the binary in the raw request
-    /// body and passes the file name via query (?fileName=photo.jpg), so no
-    /// multipart parsing is needed (mirrors the chat upload flow).
+    /// Cover image upload. The client sends a base64-encoded image (data URL)
+    /// in the request body. Max size: 8 MB.
     /// </summary>
     [HttpPost("image")]
     [Authorize(Policy = "Permission.NewsManage")]
-    [RequestSizeLimit(MaxImageBytes)]
-    public async Task<IActionResult> UploadImage(
-        [FromQuery] string? fileName,
-        CancellationToken ct)
+    public async Task<IActionResult> UploadImage(CancellationToken ct)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
             return Unauthorized();
 
-        if (Request.ContentLength is > MaxImageBytes)
-            return BadRequest(new { message = "Картинка больше 8 МБ" });
+        // Limit request size to 8 MB (base64-encoded images will be ~6 MB max)
+        if (Request.ContentLength > 8_000_000)
+            return BadRequest(new { message = "Картинка слишком большая" });
 
-        var extension = Path.GetExtension(fileName ?? string.Empty);
-        if (string.IsNullOrWhiteSpace(extension) ||
-            !AllowedImageExtensions.TryGetValue(extension, out var contentType))
-        {
-            return BadRequest(new { message = "Поддерживаются jpg, png, gif и webp" });
-        }
+        using var reader = new StreamReader(Request.Body);
+        var dataUrl = await reader.ReadToEndAsync();
 
-        try
-        {
-            var stored = await _fileStore.SaveAsync(Request.Body, ct);
+        if (string.IsNullOrWhiteSpace(dataUrl))
+            return BadRequest(new { message = "Нет данных изображения" });
 
-            // Store the (path-free) extension with the key so the file endpoint
-            // can answer with the right content type per stored file.
-            var key = $"{stored.StorageKey}{extension.ToLowerInvariant()}";
-            return Ok(new NewsImageDto(Guid.NewGuid(), $"/api/news/files/{key}"));
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-    }
+        if (!dataUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Должен быть data:image/... формат" });
 
-    /// <summary>Public read access to news cover images. News themselves are public.</summary>
-    [HttpGet("files/{*key}")]
-    [AllowAnonymous]
-    public IActionResult GetFile(string key)
-    {
-        // The stored key is "yyyy/mm/<guid><ext>"; only that shape is accepted
-        // to rule out any traversal attempt.
-        var parts = key.Split(',', StringSplitOptions.RemoveEmptyEntries);
-        var normalized = string.Join('/', parts);
-        var extension = Path.GetExtension(normalized);
-        if (string.IsNullOrWhiteSpace(extension) ||
-            !AllowedImageExtensions.TryGetValue(extension, out var contentType) ||
-            !normalized.Contains('/', StringComparison.Ordinal))
-        {
-            return BadRequest(new { message = "Некорректный путь к файлу" });
-        }
-
-        try
-        {
-            var path = _fileStore.GetPath(normalized);
-            if (!System.IO.File.Exists(path))
-                return NotFound();
-
-            return new PhysicalFileResult(path, contentType) { FileDownloadName = Path.GetFileName(normalized) };
-        }
-        catch (ArgumentException)
-        {
-            return BadRequest(new { message = "Некорректный путь к файлу" });
-        }
+        return Ok(new NewsImageDto(Guid.NewGuid(), dataUrl));
     }
 
     private Guid? GetCurrentUserId()

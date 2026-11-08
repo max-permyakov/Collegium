@@ -104,8 +104,7 @@ namespace CollegePortal.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ImageUrl")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("boolean");

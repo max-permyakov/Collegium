@@ -91,7 +91,8 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Title).HasMaxLength(500);
             entity.Property(e => e.Body).HasMaxLength(5000);
-            entity.Property(e => e.ImageUrl).HasMaxLength(300);
+            // Data URLs can be very long (base64 images), use text type
+            entity.Property(e => e.ImageUrl).HasColumnType("text");
             entity.HasOne(e => e.Author)
                 .WithMany()
                 .HasForeignKey(e => e.AuthorId)
