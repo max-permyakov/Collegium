@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { clubsApi } from '../../services/api';
+import { avatarUrl, clubsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -13,6 +13,7 @@ import { Lightbox } from '../../components/ui/Lightbox';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
+import { fileToAvatarDataUrl } from '../../utils/image';
 import type { ClubDetailDto, ClubMessageDto, UpdateClubDto } from '../../types';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { CHATS } from '../../components/ambient/loadPhrases';
@@ -41,6 +42,8 @@ const toForm = (club: ClubDetailDto): UpdateClubDto => ({
 
 interface MessageRowProps {
   message: ClubMessageDto;
+  /** Avatar resolved from the club member list (messages no longer carry it). */
+  avatar?: string;
   canManage: boolean;
   currentUserId?: string;
   onDelete: (messageId: string) => void;
@@ -50,6 +53,7 @@ interface MessageRowProps {
 
 const MessageRow = memo(function MessageRow({
   message,
+  avatar,
   canManage,
   currentUserId,
   onDelete,
@@ -78,10 +82,10 @@ const MessageRow = memo(function MessageRow({
   return (
     <div className="flex items-start gap-2 group">
       <Avatar
-        src={message.userAvatar || undefined}
+        src={avatar}
         name={message.userName}
         size="sm"
-        onImageClick={() => message.userAvatar && onAvatarClick(message.userAvatar)}
+        onImageClick={() => avatar && onAvatarClick(avatar)}
       />
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-x-2">
@@ -161,6 +165,15 @@ export function ClubDetailPage() {
   });
 
   const canSeeChat = Boolean(club && (club.isMember || club.canManage));
+
+  /** Club messages no longer embed avatars; resolve them from the member list. */
+  const memberAvatars = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const member of club?.members ?? []) {
+      if (member.hasAvatar) map.set(member.userId, avatarUrl.user(member.userId));
+    }
+    return map;
+  }, [club?.members]);
 
   const { data: messages } = useQuery<ClubMessageDto[]>({
     queryKey: ['club-messages', clubId],
@@ -542,6 +555,7 @@ export function ClubDetailPage() {
                 <MessageRow
                   key={m.id}
                   message={m}
+                  avatar={memberAvatars.get(m.userId)}
                   canManage={club.canManage}
                   currentUserId={user?.id}
                   onDelete={handleDeleteMessage}
@@ -663,10 +677,10 @@ export function ClubDetailPage() {
                 {club.members.map((m) => (
                   <div key={m.userId} className="flex items-center gap-3">
                     <Avatar
-                      src={m.avatarDataUrl || undefined}
+                      src={m.hasAvatar ? avatarUrl.user(m.userId) : undefined}
                       name={m.displayName}
                       size="sm"
-                      onImageClick={() => m.avatarDataUrl && setPreviewImage(m.avatarDataUrl)}
+                      onImageClick={() => m.hasAvatar && setPreviewImage(avatarUrl.user(m.userId))}
                     />
                     <div className="flex-1 min-w-0">
                       <Link to={`/users/${m.userId}`} className="block text-sm text-dark-text truncate hover:text-primary-400">{shortName(m.displayName)}</Link>
@@ -733,15 +747,14 @@ export function ClubDetailPage() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     e.target.value = '';
                     if (!file) return;
                     if (!file.type.startsWith('image/')) { alert('Можно загрузить только изображение'); return; }
                     if (file.size > MAX_AVATAR_SIZE) { alert('Файл слишком большой. Максимум 2 МБ'); return; }
-                    const reader = new FileReader();
-                    reader.onload = () => setForm((f) => (f ? { ...f, avatarDataUrl: reader.result as string } : f));
-                    reader.readAsDataURL(file);
+                    const dataUrl = await fileToAvatarDataUrl(file);
+                    setForm((f) => (f ? { ...f, avatarDataUrl: dataUrl } : f));
                   }}
                 />
               </label>

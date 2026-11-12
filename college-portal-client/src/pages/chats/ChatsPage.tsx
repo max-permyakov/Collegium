@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { matchPath } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { chatsApi, clubsApi } from '../../services/api';
+import { avatarUrl, chatsApi, clubsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
@@ -345,7 +345,7 @@ export function ChatsPage() {
                       onClick={() => openChat(chat.id)}
                       className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-dark-border/60 transition-colors text-left"
                     >
-                      <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+                      <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-dark-text truncate">{chat.otherUser.displayName}</p>
                         {chat.otherUser.studyGroupName && (
@@ -372,7 +372,7 @@ export function ChatsPage() {
                       onClick={() => startChatMutation.mutate(u.id)}
                       className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-dark-border/60 transition-colors text-left"
                     >
-                      <Avatar src={u.avatarDataUrl || undefined} name={u.displayName} size="md" />
+                      <Avatar src={u.hasAvatar ? avatarUrl.user(u.id) : undefined} name={u.displayName} size="md" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-dark-text truncate">{u.displayName}</p>
                         {u.studyGroupName && (
@@ -427,7 +427,7 @@ export function ChatsPage() {
                     to={`/chats/${chat.id}`}
                     className="flex items-center gap-3 flex-1 min-w-0"
                   >
-                    <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+                    <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
                         <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-dark-text' : 'font-medium text-dark-text'}`}>
@@ -549,7 +549,7 @@ export function ChatsPage() {
                     : 'border border-transparent hover:bg-dark-border/60'
                 }`}
               >
-                <Avatar src={club.avatarDataUrl || undefined} name={club.name} size="md" className="rounded-2xl" />
+                <Avatar src={club.hasAvatar ? avatarUrl.club(club.id) : undefined} name={club.name} size="md" className="rounded-2xl" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm font-medium text-dark-text truncate">{club.name}</p>

@@ -229,6 +229,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IClubService, ClubService>();
+        services.AddScoped<IAvatarService, AvatarService>();
         services.AddScoped<ICollegeInfoService, CollegeInfoService>();
         services.AddScoped<ICollegeMapService, CollegeMapService>();
         services.AddScoped<IAdminPermissionService, AdminPermissionService>();

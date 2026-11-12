@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 
 interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
   src?: string;
@@ -12,6 +12,11 @@ interface AvatarProps extends HTMLAttributes<HTMLDivElement> {
 
 export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
   ({ className = '', src, alt, name, size = 'md', status, onImageClick, ...props }, ref) => {
+    // Fall back to initials if the image fails to load (e.g. the avatar was
+    // removed on the server, so /api/avatars/... answers 404).
+    const [failedSrc, setFailedSrc] = useState<string | null>(null);
+    const showImage = Boolean(src) && failedSrc !== src;
+
     const sizeClasses = {
       xs: 'w-6 h-6 text-xs',
       sm: 'w-8 h-8 text-sm',
@@ -60,12 +65,13 @@ export const Avatar = forwardRef<HTMLDivElement, AvatarProps>(
         className={`relative inline-flex items-center justify-center rounded-full overflow-hidden shrink-0 ${sizeClasses[size]} ${className}`}
         {...props}
       >
-        {src ? (
+        {showImage ? (
           <img
             src={src}
             alt={alt || name || 'Avatar'}
             className={`w-full h-full object-cover ${onImageClick ? 'cursor-zoom-in' : ''}`}
             onClick={onImageClick}
+            onError={() => setFailedSrc(src ?? null)}
             role={onImageClick ? 'button' : undefined}
             aria-label={onImageClick ? 'Увеличить изображение' : undefined}
           />

@@ -2,7 +2,8 @@ export interface ClubListDto {
   id: string;
   name: string;
   description?: string | null;
-  avatarDataUrl?: string | null;
+  /** Avatars are streamed from /api/avatars/clubs/{id}, never inlined. */
+  hasAvatar: boolean;
   isPrivate: boolean;
   joinByLink: boolean;
   isPinned: boolean;
@@ -17,7 +18,8 @@ export interface ClubListDto {
 export interface ClubMemberDto {
   userId: string;
   displayName: string;
-  avatarDataUrl?: string | null;
+  /** Avatars are streamed from /api/avatars/users/{userId}, never inlined. */
+  hasAvatar: boolean;
   isLeader: boolean;
   joinedAt: string;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminApi, clubsApi } from '../../services/api';
+import { adminApi, avatarUrl, clubsApi } from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -37,6 +37,13 @@ export function ClubsTab() {
     queryFn: async () => (await adminApi.getClub(selectedId!)).data,
     enabled: Boolean(selectedId),
   });
+
+  /** Club messages no longer embed avatars; resolve them from the member list. */
+  const memberAvatars = new Map(
+    (detail?.members ?? [])
+      .filter((m) => m.hasAvatar)
+      .map((m) => [m.userId, avatarUrl.user(m.userId)]),
+  );
 
   const { data: messages } = useQuery({
     queryKey: ['admin', 'club-messages', selectedId],
@@ -86,11 +93,11 @@ export function ClubsTab() {
               >
                 <div className="flex items-center gap-3">
                   <Avatar
-                    src={club.avatarDataUrl || undefined}
+                    src={club.hasAvatar ? avatarUrl.club(club.id) : undefined}
                     name={club.name}
                     size="md"
                     className="rounded-2xl"
-                    onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
+                    onImageClick={() => club.hasAvatar && setPreviewImage(avatarUrl.club(club.id))}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-dark-text truncate">{club.name}</p>
@@ -157,7 +164,7 @@ export function ClubsTab() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       {detail.members.map((m) => (
                         <div key={m.userId} className="flex items-center gap-2">
-                          <Avatar src={m.avatarDataUrl || undefined} name={m.displayName} size="sm" />
+                          <Avatar src={m.hasAvatar ? avatarUrl.user(m.userId) : undefined} name={m.displayName} size="sm" />
                           <span className="text-sm text-dark-text truncate">{shortName(m.displayName)}</span>
                           {m.isLeader && <Badge variant="primary" size="sm">Глава</Badge>}
                         </div>
@@ -175,7 +182,7 @@ export function ClubsTab() {
                   {messages && messages.length > 0 ? (
                     messages.map((m) => (
                       <div key={m.id} className="flex items-start gap-2">
-                        <Avatar src={m.userAvatar || undefined} name={m.userName} size="sm" />
+                        <Avatar src={memberAvatars.get(m.userId)} name={m.userName} size="sm" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-dark-text">{shortName(m.userName)}</span>

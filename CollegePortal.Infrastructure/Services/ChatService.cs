@@ -113,7 +113,7 @@ public class ChatService : IChatService
             .Select(u => new ChatUserDto(
                 u.Id,
                 u.DisplayName,
-                u.StudentProfile != null ? u.StudentProfile.AvatarDataUrl : null,
+                u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
                 u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
             .ToListAsync(ct);
 
@@ -212,42 +212,59 @@ public class ChatService : IChatService
 
         var take = Math.Clamp(limit ?? (latest ?? DefaultMessagesLimit), 1, MaxMessagesLimit);
 
+        // Project straight to the DTO: materializing entities with
+        // Include(Sender.StudentProfile) dragged the avatar data URL (up to a
+        // few MB of base64) into every message, and the chat UI does not use
+        // it — the avatar already comes with the chat header/list.
         var query = _dbContext.ChatMessages
             .AsNoTracking()
-            .Include(m => m.Sender).ThenInclude(u => u.StudentProfile)
-            .Where(m => m.ChatId == chatId);
+            .Where(m => m.ChatId == chatId)
+            .Select(m => new ChatMessageDto(
+                m.Id,
+                m.ChatId,
+                m.SenderId,
+                m.Sender.DisplayName,
+                null,
+                m.Kind,
+                m.Text,
+                m.FileName,
+                m.SizeBytes,
+                m.ContentType,
+                m.DurationMs,
+                m.CreatedAt,
+                m.ReadAt,
+                m.DeletedAt,
+                m.EditedAt));
 
         // Cross-partition range: messages newer than the client's newest copy.
         if (afterSeq.HasValue)
         {
-            var rows = await query
+            return await query
                 .Where(m => m.Id > afterSeq.Value)
                 .OrderBy(m => m.Id)
                 .Take(take)
-                .ToListAsync(ct);
-            return rows.Select(ToDto).ToArray();
+                .ToArrayAsync(ct);
         }
 
-        List<ChatMessage> messages;
+        ChatMessageDto[] messages;
         if (beforeSeq.HasValue)
         {
             messages = await query
                 .Where(m => m.Id < beforeSeq.Value)
                 .OrderByDescending(m => m.Id)
                 .Take(take)
-                .ToListAsync(ct);
-            messages.Reverse();
+                .ToArrayAsync(ct);
         }
         else
         {
             messages = await query
                 .OrderByDescending(m => m.Id)
                 .Take(take)
-                .ToListAsync(ct);
-            messages.Reverse();
+                .ToArrayAsync(ct);
         }
 
-        return messages.Select(ToDto).ToArray();
+        Array.Reverse(messages);
+        return messages;
     }
 
     public async Task<ChatMessageResult> SendAsync(Guid chatId, Guid userId, SendChatMessageDto dto, bool isAdmin = false, CancellationToken ct = default)
@@ -361,12 +378,7 @@ public class ChatService : IChatService
             }
         }
 
-        var sender = await _dbContext.Users
-            .AsNoTracking()
-            .Include(u => u.StudentProfile)
-            .FirstOrDefaultAsync(u => u.Id == userId, ct);
-
-        return new ChatMessageResult(ToDtoWithSender(message, sender?.DisplayName ?? "", sender?.StudentProfile?.AvatarDataUrl));
+        return new ChatMessageResult(ToDtoWithSender(message, senderName, null));
     }
 
     public async Task<bool> MarkReadAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default)
@@ -429,7 +441,7 @@ public class ChatService : IChatService
     public async Task<ChatMessageResult> EditMessageAsync(long messageId, Guid userId, UpdateChatMessageDto dto, CancellationToken ct = default)
     {
         var message = await _dbContext.ChatMessages
-            .Include(m => m.Sender).ThenInclude(u => u.StudentProfile)
+            .Include(m => m.Sender)
             .FirstOrDefaultAsync(m => m.Id == messageId, ct);
 
         if (message == null)
@@ -561,12 +573,7 @@ public class ChatService : IChatService
             }
         }
 
-        var forwarder = await _dbContext.Users
-            .AsNoTracking()
-            .Include(u => u.StudentProfile)
-            .FirstOrDefaultAsync(u => u.Id == userId, ct);
-
-        return new ChatMessageResult(ToDtoWithSender(copy, forwarderName, forwarder?.StudentProfile?.AvatarDataUrl));
+        return new ChatMessageResult(ToDtoWithSender(copy, forwarderName, null));
     }
 
     public async Task<bool> SetActivityAsync(Guid chatId, Guid userId, string? activity, CancellationToken ct = default)
@@ -657,7 +664,7 @@ public class ChatService : IChatService
             .Select(u => new ChatUserDto(
                 u.Id,
                 u.DisplayName,
-                u.StudentProfile != null ? u.StudentProfile.AvatarDataUrl : null,
+                u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
                 u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
             .ToDictionaryAsync(u => u.Id, ct);
 
@@ -725,7 +732,7 @@ public class ChatService : IChatService
                 return new ChatListItemDto(
                     chat.Id,
                     ChatKind.Support,
-                    owner ?? new ChatUserDto(chat.User1Id, "Пользователь", null, null),
+                    owner ?? new ChatUserDto(chat.User1Id, "Пользователь", false, null),
                     chat.LastMessageAt ?? chat.CreatedAt,
                     lastMessage,
                     unreadCounts.TryGetValue(chat.Id, out var count) ? count : 0);
@@ -909,7 +916,7 @@ public class ChatService : IChatService
         // which the admin inbox displays).
         if (kind == ChatKind.Saved)
         {
-            var self = new ChatUserDto(otherId, SpecialDisplayName(kind), null, null);
+            var self = new ChatUserDto(otherId, SpecialDisplayName(kind), false, null);
             return new ChatDto(chatId, kind, self, createdAt);
         }
 
@@ -920,10 +927,10 @@ public class ChatService : IChatService
                 .Select(u => new ChatUserDto(
                     u.Id,
                     u.DisplayName,
-                    u.StudentProfile != null ? u.StudentProfile.AvatarDataUrl : null,
+                    u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
                     u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
                 .FirstOrDefaultAsync(ct)
-            ?? new ChatUserDto(otherId, "Пользователь", null, null);
+            ?? new ChatUserDto(otherId, "Пользователь", false, null);
 
         return new ChatDto(chatId, kind, other, createdAt);
     }
@@ -942,7 +949,7 @@ public class ChatService : IChatService
             .Select(u => new ChatUserDto(
                 u.Id,
                 u.DisplayName,
-                u.StudentProfile != null ? u.StudentProfile.AvatarDataUrl : null,
+                u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
                 u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
             .ToDictionaryAsync(u => u.Id, ct);
 
@@ -992,8 +999,8 @@ public class ChatService : IChatService
             lastMessages.TryGetValue(chat.Id, out var last);
 
             var other = chat.Kind == ChatKind.Direct
-                ? user ?? new ChatUserDto(chat.OtherId, "Пользователь", null, null)
-                : new ChatUserDto(chat.OtherId, SpecialDisplayName(chat.Kind), null, null);
+                ? user ?? new ChatUserDto(chat.OtherId, "Пользователь", false, null)
+                : new ChatUserDto(chat.OtherId, SpecialDisplayName(chat.Kind), false, null);
 
             var lastMessage = last == null ? null : new ChatMessageDto(
                 last.Id,
@@ -1110,7 +1117,7 @@ public class ChatService : IChatService
     }
 
     private static ChatMessageDto ToDto(ChatMessage m) =>
-        ToDtoWithSender(m, m.Sender.DisplayName, m.Sender.StudentProfile?.AvatarDataUrl);
+        ToDtoWithSender(m, m.Sender.DisplayName, null);
 
     private static ChatMessageDto ToDtoWithSender(ChatMessage m, string senderName, string? senderAvatar) =>
         new(

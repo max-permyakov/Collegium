@@ -49,7 +49,7 @@ public class ClubService : IClubService
                 c.Id,
                 c.Name,
                 c.Description,
-                c.AvatarDataUrl,
+                HasAvatar = c.AvatarDataUrl != null,
                 c.IsPrivate,
                 c.JoinByLink,
                 c.IsPinned,
@@ -63,7 +63,7 @@ public class ClubService : IClubService
             .ToListAsync(ct);
 
         return rows.Select(c => new ClubListDto(
-            c.Id, c.Name, c.Description, c.AvatarDataUrl, c.IsPrivate, c.JoinByLink, c.IsPinned,
+            c.Id, c.Name, c.Description, c.HasAvatar, c.IsPrivate, c.JoinByLink, c.IsPinned,
             c.OwnerId, c.OwnerName, c.MemberCount, c.IsMember, c.IsLeader, c.CreatedAt
         )).ToArray();
     }
@@ -82,13 +82,19 @@ public class ClubService : IClubService
         var club = await _dbContext.Clubs
             .AsNoTracking()
             .Include(c => c.Owner)
-            .Include(c => c.Members).ThenInclude(m => m.User).ThenInclude(u => u.StudentProfile)
             .FirstOrDefaultAsync(c => c.Id == clubId, ct);
 
         if (club == null)
             return null;
 
-        var membership = club.Members.FirstOrDefault(m => m.UserId == userId);
+        // Membership is checked with a projection: loading c.Members would drag
+        // every member's avatar data URL into memory for a single badge.
+        var membership = await _dbContext.ClubMembers
+            .AsNoTracking()
+            .Where(m => m.ClubId == clubId && m.UserId == userId)
+            .Select(m => new { m.IsLeader })
+            .FirstOrDefaultAsync(ct);
+
         var isMember = membership != null;
         var isLeader = isMember && (membership!.IsLeader || club.OwnerId == userId);
 
@@ -104,18 +110,20 @@ public class ClubService : IClubService
         var canJoin = !isMember &&
             ((!club.IsPrivate && !club.JoinByLink) || (club.JoinByLink && validInvite));
 
-        var members = club.Members
+        var members = await _dbContext.ClubMembers
+            .AsNoTracking()
+            .Where(m => m.ClubId == clubId)
             .OrderByDescending(m => m.UserId == club.OwnerId)
             .ThenByDescending(m => m.IsLeader)
             .ThenBy(m => m.User.DisplayName)
             .Select(m => new ClubMemberDto(
                 m.UserId,
                 m.User.DisplayName,
-                m.User.StudentProfile?.AvatarDataUrl,
+                m.User.StudentProfile != null && m.User.StudentProfile.AvatarDataUrl != null,
                 m.IsLeader || m.UserId == club.OwnerId,
                 m.JoinedAt
             ))
-            .ToArray();
+            .ToArrayAsync(ct);
 
         return new ClubDetailDto(
             club.Id,
@@ -341,25 +349,35 @@ public class ClubService : IClubService
         var afterUtc = ParseUtc(after);
         var beforeUtc = ParseUtc(before);
 
+        // Project only what the feed renders. Including StudentProfile pulled
+        // the base64 avatar (up to 3 MB) into every row and every 5-second poll.
         var query = _dbContext.ClubMessages
             .AsNoTracking()
-            .Include(m => m.User).ThenInclude(u => u.StudentProfile)
-            .Where(m => m.ClubId == clubId);
+            .Where(m => m.ClubId == clubId)
+            .Select(m => new ClubMessageDto(
+                m.Id,
+                m.ClubId,
+                m.UserId,
+                m.User.DisplayName,
+                null,
+                m.Text,
+                m.CreatedAt,
+                m.UpdatedAt));
 
         if (afterUtc != null)
             query = query.Where(m => m.CreatedAt > afterUtc);
         if (beforeUtc != null)
             query = query.Where(m => m.CreatedAt < beforeUtc);
 
-        List<ClubMessage> rows;
+        ClubMessageDto[] rows;
         if (latest is int takeLatest)
         {
             rows = await query
                 .OrderByDescending(m => m.CreatedAt)
                 .ThenByDescending(m => m.Id)
                 .Take(Math.Clamp(takeLatest, 1, MaxMessagesLimit))
-                .ToListAsync(ct);
-            rows.Reverse();
+                .ToArrayAsync(ct);
+            Array.Reverse(rows);
         }
         else if (limit.HasValue || afterUtc != null)
         {
@@ -370,8 +388,8 @@ public class ClubService : IClubService
                     .OrderByDescending(m => m.CreatedAt)
                     .ThenByDescending(m => m.Id)
                     .Take(take)
-                    .ToListAsync(ct);
-                rows.Reverse();
+                    .ToArrayAsync(ct);
+                Array.Reverse(rows);
             }
             else
             {
@@ -379,7 +397,7 @@ public class ClubService : IClubService
                     .OrderBy(m => m.CreatedAt)
                     .ThenBy(m => m.Id)
                     .Take(take)
-                    .ToListAsync(ct);
+                    .ToArrayAsync(ct);
             }
         }
         else
@@ -387,19 +405,10 @@ public class ClubService : IClubService
             rows = await query
                 .OrderBy(m => m.CreatedAt)
                 .ThenBy(m => m.Id)
-                .ToListAsync(ct);
+                .ToArrayAsync(ct);
         }
 
-        return rows.Select(m => new ClubMessageDto(
-            m.Id,
-            m.ClubId,
-            m.UserId,
-            m.User.DisplayName,
-            m.User.StudentProfile != null ? m.User.StudentProfile.AvatarDataUrl : null,
-            m.Text,
-            m.CreatedAt,
-            m.UpdatedAt
-        )).ToArray();
+        return rows;
     }
 
     private static DateTime? ParseUtc(string? value)
@@ -442,10 +451,11 @@ public class ClubService : IClubService
         _dbContext.ClubMessages.Add(message);
         await _dbContext.SaveChangesAsync(ct);
 
-        var user = await _dbContext.Users
+        var userName = await _dbContext.Users
             .AsNoTracking()
-            .Include(u => u.StudentProfile)
-            .FirstOrDefaultAsync(u => u.Id == userId, ct);
+            .Where(u => u.Id == userId)
+            .Select(u => u.DisplayName)
+            .FirstOrDefaultAsync(ct) ?? "";
 
         // Notify club members asynchronously; a notification failure must not
         // fail the message that has already been saved.
@@ -484,8 +494,8 @@ public class ClubService : IClubService
             message.Id,
             message.ClubId,
             message.UserId,
-            user?.DisplayName ?? "",
-            user?.StudentProfile?.AvatarDataUrl,
+            userName,
+            null,
             message.Text,
             message.CreatedAt,
             message.UpdatedAt
@@ -518,17 +528,18 @@ public class ClubService : IClubService
         message.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
 
-        var user = await _dbContext.Users
+        var userName = await _dbContext.Users
             .AsNoTracking()
-            .Include(u => u.StudentProfile)
-            .FirstOrDefaultAsync(u => u.Id == message.UserId, ct);
+            .Where(u => u.Id == message.UserId)
+            .Select(u => u.DisplayName)
+            .FirstOrDefaultAsync(ct) ?? "";
 
         return new ClubMessageDto(
             message.Id,
             message.ClubId,
             message.UserId,
-            user?.DisplayName ?? "",
-            user?.StudentProfile?.AvatarDataUrl,
+            userName,
+            null,
             message.Text,
             message.CreatedAt,
             message.UpdatedAt

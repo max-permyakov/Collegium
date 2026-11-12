@@ -325,7 +325,7 @@ export const chatsApi = {
   pin: (id: string, pinned: boolean) => api.post<{ pinned: boolean }>(`/chats/${id}/pin`, { pinned }),
   /** Удалить чат из своего списка (собеседник его сохраняет). */
   remove: (id: string) => api.delete(`/chats/${id}`),
-  /** Загружает вложение как Blob (для проигрывания кружков через object URL). */
+  /** Загружает вложение как Blob (для скачивания/превью без прямого URL). */
   fileBlob: (messageId: number) => api.get(`/chats/files/${messageId}`, { responseType: 'blob' }),
   /** Heartbeat while a conversation is open: suppresses its notifications. */
   presence: (id: string) => api.post<{ watching: boolean }>(`/chats/${id}/presence`),
@@ -343,6 +343,16 @@ export const chatsApi = {
   unreadTotal: () => api.get<{ count: number }>('/chats/unread-total'),
   fileUrl: (messageId: number, download = false) =>
     `${API_BASE_URL}/chats/files/${messageId}${download ? '?download=1' : ''}`,
+};
+
+/**
+ * Avatars are served as their own cacheable response instead of being inlined
+ * as base64 in polled list payloads. The browser caches them, so a chat list
+ * refresh costs a few kilobytes rather than megabytes.
+ */
+export const avatarUrl = {
+  user: (userId: string) => `${API_BASE_URL}/avatars/users/${userId}`,
+  club: (clubId: string) => `${API_BASE_URL}/avatars/clubs/${clubId}`,
 };
 
 /** Shared support inbox: every user's Support thread with owner + last message. */

@@ -4,7 +4,7 @@ public record ClubListDto(
     Guid Id,
     string Name,
     string? Description,
-    string? AvatarDataUrl,
+    bool HasAvatar,
     bool IsPrivate,
     bool JoinByLink,
     bool IsPinned,
@@ -19,7 +19,7 @@ public record ClubListDto(
 public record ClubMemberDto(
     Guid UserId,
     string DisplayName,
-    string? AvatarDataUrl,
+    bool HasAvatar,
     bool IsLeader,
     DateTime JoinedAt
 );

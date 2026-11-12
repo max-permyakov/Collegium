@@ -13,6 +13,7 @@ import { PermissionsModal } from '../../components/admin/PermissionsModal';
 import { formatMoscowDate } from '../../utils/datetime';
 import type { AchievementDto, ProfileDto } from '../../types';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
+import { fileToAvatarDataUrl } from '../../utils/image';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { PROFILE } from '../../components/ambient/loadPhrases';
 
@@ -436,9 +437,8 @@ export function ProfilePage() {
                           alert('Файл слишком большой. Максимум 2 МБ');
                           return;
                         }
-                        const reader = new FileReader();
-                        reader.onload = () => avatarMutation.mutate(reader.result as string);
-                        reader.readAsDataURL(file);
+                        const dataUrl = await fileToAvatarDataUrl(file);
+                        avatarMutation.mutate(dataUrl);
                       }} />
                     </label>
                     {profile.avatarDataUrl && (

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { clubsApi } from '../../services/api';
+import { avatarUrl, clubsApi } from '../../services/api';
+import { fileToAvatarDataUrl } from '../../utils/image';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -114,7 +115,7 @@ export function ClubsPage() {
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
                       e.target.value = '';
                       if (!file) return;
@@ -126,9 +127,8 @@ export function ClubsPage() {
                         alert('Файл слишком большой. Максимум 2 МБ');
                         return;
                       }
-                      const reader = new FileReader();
-                      reader.onload = () => setForm((f) => ({ ...f, avatarDataUrl: reader.result as string }));
-                      reader.readAsDataURL(file);
+                      const dataUrl = await fileToAvatarDataUrl(file);
+                      setForm((f) => ({ ...f, avatarDataUrl: dataUrl }));
                     }}
                   />
                 </label>
@@ -190,11 +190,11 @@ export function ClubsPage() {
               <CardContent className="p-4 flex flex-col gap-3 h-full">
                 <div className="flex items-start gap-3">
                   <Avatar
-                    src={club.avatarDataUrl || undefined}
+                    src={club.hasAvatar ? avatarUrl.club(club.id) : undefined}
                     name={club.name}
                     size="lg"
                     className="rounded-2xl"
-                    onImageClick={() => club.avatarDataUrl && setPreviewImage(club.avatarDataUrl)}
+                    onImageClick={() => club.hasAvatar && setPreviewImage(avatarUrl.club(club.id))}
                   />
                   <div className="flex-1 min-w-0">
                     <Link

@@ -9,7 +9,8 @@ export type ChatUploadKind = 'file' | 'voice' | 'circle';
 export interface ChatUserDto {
   id: string;
   displayName: string;
-  avatarDataUrl?: string | null;
+  /** Avatars are streamed from /api/avatars/users/{id}, never inlined. */
+  hasAvatar: boolean;
   studyGroupName?: string | null;
 }
 

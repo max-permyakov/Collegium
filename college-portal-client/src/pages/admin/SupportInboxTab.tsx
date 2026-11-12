@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { adminSupportApi } from '../../services/api';
+import { adminSupportApi, avatarUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../../components/ui/Avatar';
 import { Input } from '../../components/ui/Input';
@@ -108,7 +108,7 @@ export function SupportInboxTab() {
                 }`}
               >
                 <Avatar
-                  src={chat.otherUser.avatarDataUrl || undefined}
+                  src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined}
                   name={chat.otherUser.displayName}
                   size="md"
                 />

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { chatsApi } from '../../services/api';
+import { avatarUrl, chatsApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
@@ -254,42 +254,49 @@ const CircleBubble = memo(function CircleBubble({
   onDelete: (messageId: number) => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
   /**
-   * Видео загружаем авторизованным запросом как Blob и играем через object URL:
-   * если файл не отдаётся сервером или не декодируется, показываем понятную
-   * ошибку со ссылкой «Скачать», а не «мертвый» кружок.
+   * Видео отдаётся потоком с поддержкой Range: браузер подгружает только
+   * метаданные и нужный фрагмент. Раньше кружок целиком скачивался в Blob при
+   * монтировании — несколько кружков в ленте могли тянуть сотни мегабайт и
+   * блокировали загрузку чата.
    */
-  const [state, setState] = useState<{ url: string | null; error: string | null; muted: boolean }>({
-    url: null,
-    error: null,
+  const url = chatsApi.fileUrl(message.id);
+  const [state, setState] = useState<{ failed: boolean; muted: boolean }>({
+    failed: false,
     muted: true,
   });
 
+  // Не дёргаем сеть для кружков, которые ещё далеко за пределами экрана:
+  // источник подключается только при подходе к видимой области.
+  const [nearViewport, setNearViewport] = useState(false);
   useEffect(() => {
-    let cancelled = false;
-    setState({ url: null, error: null, muted: true });
-    chatsApi.fileBlob(message.id)
-      .then((res) => {
-        if (!cancelled) setState({ url: URL.createObjectURL(res.data), error: null, muted: true });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        const e = err as { response?: { data?: { message?: string }; status?: number } };
-        const detail = e.response?.data?.message ?? (e.response ? `сервер вернул ${e.response.status}` : 'нет соединения');
-        setState({ url: null, error: `Кружок не удалось открыть: ${detail}`, muted: true });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [message.id]);
-
-  // Отзываем object URL, когда чашка уходит с экрана.
-  useEffect(() => () => {
-    if (state.url) URL.revokeObjectURL(state.url);
-  }, [state.url]);
+    if (nearViewport) return;
+    const el = containerRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setNearViewport(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [nearViewport]);
 
   const toggle = () => {
+    if (!nearViewport) {
+      setNearViewport(true);
+      return;
+    }
     const el = ref.current;
     if (!el) return;
     if (el.paused) {
@@ -309,7 +316,7 @@ const CircleBubble = memo(function CircleBubble({
   const idleSize = 'w-40 h-40 sm:w-48 sm:h-48';
   const playingSize = 'w-52 h-52 sm:w-64 sm:h-64';
 
-  if (state.error) {
+  if (state.failed) {
     return (
       <div className={`${idleSize} rounded-full bg-dark-card border border-dark-border flex flex-col items-center justify-center gap-2 px-3 text-center relative`}>
         <div className="absolute top-1.5 right-1.5">
@@ -320,7 +327,7 @@ const CircleBubble = memo(function CircleBubble({
             items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
           />
         </div>
-        <p className="text-[11px] text-red-400 leading-tight">{state.error}</p>
+        <p className="text-[11px] text-red-400 leading-tight">Кружок не удалось открыть</p>
         <button
           type="button"
           onClick={() => onDownload(message.id)}
@@ -333,25 +340,22 @@ const CircleBubble = memo(function CircleBubble({
   }
 
   return (
-    <div className={playing ? 'relative z-10' : 'relative'}>
-      {state.url ? (
-        <video
-          ref={ref}
-          src={state.url}
-          preload="metadata"
-          playsInline
-          muted={state.muted}
-          onClick={toggle}
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onEnded={() => setPlaying(false)}
-          className={`${playing ? playingSize : idleSize} rounded-full object-cover cursor-pointer bg-black/50 transition-[width,height] duration-200 ease-out`}
-          aria-label="Видеосообщение-кружок"
-        />
-      ) : (
-        <div className={`${idleSize} rounded-full bg-black/50 animate-pulse`} />
-      )}
-      {!playing && !state.error && (
+    <div ref={containerRef} className={playing ? 'relative z-10' : 'relative'}>
+      <video
+        ref={ref}
+        src={nearViewport ? url : undefined}
+        preload="metadata"
+        playsInline
+        muted={state.muted}
+        onClick={toggle}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onError={() => setState((s) => ({ ...s, failed: true }))}
+        className={`${playing ? playingSize : idleSize} rounded-full object-cover cursor-pointer bg-black/50 transition-[width,height] duration-200 ease-out`}
+        aria-label="Видеосообщение-кружок"
+      />
+      {!playing && (
         <button
           type="button"
           onClick={toggle}
@@ -482,6 +486,8 @@ const MessageBubble = memo(function MessageBubble({
             <img
               src={chatsApi.fileUrl(message.id)}
               alt={message.fileName ?? 'Изображение'}
+              loading="lazy"
+              decoding="async"
               className="max-w-xs max-h-64 rounded-xl cursor-zoom-in object-contain"
               onClick={() => onImageClick(chatsApi.fileUrl(message.id))}
             />
@@ -1332,7 +1338,7 @@ export function ChatConversation({
           </div>
         ) : adminView ? (
           <div className="flex items-center gap-3 min-w-0">
-            <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+            <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
               <p className="text-xs text-dark-textMuted truncate hidden sm:block">
@@ -1344,7 +1350,7 @@ export function ChatConversation({
           </div>
         ) : (
           <Link to={`/users/${chat.otherUser.id}`} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
-            <Avatar src={chat.otherUser.avatarDataUrl || undefined} name={chat.otherUser.displayName} size="md" />
+            <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
               <p className="text-xs text-dark-textMuted truncate">{partnerStatusText ?? 'Перейти в профиль'}</p>
@@ -1589,7 +1595,7 @@ export function ChatConversation({
                       <SavedIcon className="w-4 h-4" />
                     </span>
                   ) : (
-                    <Avatar src={c.otherUser.avatarDataUrl || undefined} name={c.otherUser.displayName} size="sm" />
+                    <Avatar src={c.otherUser.hasAvatar ? avatarUrl.user(c.otherUser.id) : undefined} name={c.otherUser.displayName} size="sm" />
                   )}
                   <span className="min-w-0 text-sm text-dark-text truncate">
                     {c.kind === 'Saved' ? 'Избранное' : c.otherUser.displayName}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { chatsApi } from '../../services/api';
+import { avatarUrl, chatsApi } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { CHAT_TEXT_LIMIT, MAX_MESSAGE_PARTS } from '../../utils/text';
@@ -106,7 +106,7 @@ export function SharePage() {
                 <SavedIcon className="w-5 h-5" />
               </span>
             ) : (
-              <Avatar src={c.otherUser.avatarDataUrl || undefined} name={c.otherUser.displayName} size="md" />
+              <Avatar src={c.otherUser.hasAvatar ? avatarUrl.user(c.otherUser.id) : undefined} name={c.otherUser.displayName} size="md" />
             )}
             <span className="min-w-0">
               <span className="block text-sm font-medium text-dark-text truncate">

@@ -2,11 +2,15 @@ using CollegePortal.Domain.Enums;
 
 namespace CollegePortal.Application.DTOs;
 
-/// <summary>Minimal user card used across the chat UI.</summary>
+/// <summary>
+/// Minimal user card used across the chat UI. Avatars are not inlined: the
+/// client loads them from /api/avatars/users/{id}, so the 5-second chat-list
+/// poll stays a few kilobytes instead of re-sending megabytes of base64.
+/// </summary>
 public record ChatUserDto(
     Guid Id,
     string DisplayName,
-    string? AvatarDataUrl,
+    bool HasAvatar,
     string? StudyGroupName);
 
 public record ChatDto(
