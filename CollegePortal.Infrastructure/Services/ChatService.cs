@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Net.Mime;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
@@ -43,6 +44,29 @@ public class ChatService : IChatService
     private const int MaxSearchResults = 10;
 
     private static readonly TimeSpan UploadTtl = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// Message projection used by the feed. It must be applied *after* filtering,
+    /// ordering and paging: EF Core cannot translate a query that sorts or filters
+    /// by a DTO constructor's members.
+    /// </summary>
+    private static readonly Expression<Func<ChatMessage, ChatMessageDto>> MessageDtoProjection =
+        m => new ChatMessageDto(
+            m.Id,
+            m.ChatId,
+            m.SenderId,
+            m.Sender.DisplayName,
+            null,
+            m.Kind,
+            m.Text,
+            m.FileName,
+            m.SizeBytes,
+            m.ContentType,
+            m.DurationMs,
+            m.CreatedAt,
+            m.ReadAt,
+            m.DeletedAt,
+            m.EditedAt);
 
     private readonly CollegePortalDbContext _dbContext;
     private readonly INotificationService _notifications;
@@ -212,29 +236,13 @@ public class ChatService : IChatService
 
         var take = Math.Clamp(limit ?? (latest ?? DefaultMessagesLimit), 1, MaxMessagesLimit);
 
-        // Project straight to the DTO: materializing entities with
-        // Include(Sender.StudentProfile) dragged the avatar data URL (up to a
-        // few MB of base64) into every message, and the chat UI does not use
-        // it — the avatar already comes with the chat header/list.
+        // Filter/order/page on the entity first and project to the DTO last:
+        // EF cannot translate OrderBy/Where over a projected DTO constructor.
+        // The projection also avoids Include(Sender.StudentProfile), which used
+        // to drag the base64 avatar (up to a few MB) into every message.
         var query = _dbContext.ChatMessages
             .AsNoTracking()
-            .Where(m => m.ChatId == chatId)
-            .Select(m => new ChatMessageDto(
-                m.Id,
-                m.ChatId,
-                m.SenderId,
-                m.Sender.DisplayName,
-                null,
-                m.Kind,
-                m.Text,
-                m.FileName,
-                m.SizeBytes,
-                m.ContentType,
-                m.DurationMs,
-                m.CreatedAt,
-                m.ReadAt,
-                m.DeletedAt,
-                m.EditedAt));
+            .Where(m => m.ChatId == chatId);
 
         // Cross-partition range: messages newer than the client's newest copy.
         if (afterSeq.HasValue)
@@ -243,25 +251,18 @@ public class ChatService : IChatService
                 .Where(m => m.Id > afterSeq.Value)
                 .OrderBy(m => m.Id)
                 .Take(take)
+                .Select(MessageDtoProjection)
                 .ToArrayAsync(ct);
         }
 
-        ChatMessageDto[] messages;
         if (beforeSeq.HasValue)
-        {
-            messages = await query
-                .Where(m => m.Id < beforeSeq.Value)
-                .OrderByDescending(m => m.Id)
-                .Take(take)
-                .ToArrayAsync(ct);
-        }
-        else
-        {
-            messages = await query
-                .OrderByDescending(m => m.Id)
-                .Take(take)
-                .ToArrayAsync(ct);
-        }
+            query = query.Where(m => m.Id < beforeSeq.Value);
+
+        var messages = await query
+            .OrderByDescending(m => m.Id)
+            .Take(take)
+            .Select(MessageDtoProjection)
+            .ToArrayAsync(ct);
 
         Array.Reverse(messages);
         return messages;

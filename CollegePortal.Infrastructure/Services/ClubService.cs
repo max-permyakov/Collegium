@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq.Expressions;
 using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Services;
 using CollegePortal.Domain.Entities;
@@ -17,6 +18,22 @@ public class ClubService : IClubService
     private const int MaxMessageLength = 1000;
     private const int DefaultMessagesLimit = 100;
     private const int MaxMessagesLimit = 500;
+
+    /// <summary>
+    /// Message projection used by the club feed. It must be applied after
+    /// filtering, ordering and paging: EF Core cannot translate a query that
+    /// sorts or filters by a DTO constructor's members.
+    /// </summary>
+    private static readonly Expression<Func<ClubMessage, ClubMessageDto>> MessageDtoProjection =
+        m => new ClubMessageDto(
+            m.Id,
+            m.ClubId,
+            m.UserId,
+            m.User.DisplayName,
+            null,
+            m.Text,
+            m.CreatedAt,
+            m.UpdatedAt);
 
     private readonly CollegePortalDbContext _dbContext;
     private readonly INotificationService _notifications;
@@ -335,34 +352,30 @@ public class ClubService : IClubService
 
     public async Task<ClubMessageDto[]?> GetMessagesAsync(Guid clubId, Guid userId, bool isAdmin, string? after = null, string? before = null, int? latest = null, int? limit = null, CancellationToken ct = default)
     {
-        var club = await _dbContext.Clubs
+        // Access is checked with projections: loading the Club entity pulled its
+        // base64 avatar, and Include(Members) pulled every member's avatar too.
+        var clubExists = await _dbContext.Clubs
             .AsNoTracking()
-            .Include(c => c.Members)
-            .FirstOrDefaultAsync(c => c.Id == clubId, ct);
-        if (club == null)
+            .AnyAsync(c => c.Id == clubId, ct);
+        if (!clubExists)
             return null;
 
-        var isMember = club.Members.Any(m => m.UserId == userId);
+        var isMember = await _dbContext.ClubMembers
+            .AsNoTracking()
+            .AnyAsync(m => m.ClubId == clubId && m.UserId == userId, ct);
         if (!isAdmin && !isMember)
             return null;
 
         var afterUtc = ParseUtc(after);
         var beforeUtc = ParseUtc(before);
 
-        // Project only what the feed renders. Including StudentProfile pulled
-        // the base64 avatar (up to 3 MB) into every row and every 5-second poll.
+        // Filter/order/page on the entity first and project to the DTO last:
+        // EF cannot translate OrderBy/Where over a projected DTO constructor.
+        // The projection also avoids Include(User.StudentProfile), which used to
+        // pull the base64 avatar (up to 3 MB) into every row and every poll.
         var query = _dbContext.ClubMessages
             .AsNoTracking()
-            .Where(m => m.ClubId == clubId)
-            .Select(m => new ClubMessageDto(
-                m.Id,
-                m.ClubId,
-                m.UserId,
-                m.User.DisplayName,
-                null,
-                m.Text,
-                m.CreatedAt,
-                m.UpdatedAt));
+            .Where(m => m.ClubId == clubId);
 
         if (afterUtc != null)
             query = query.Where(m => m.CreatedAt > afterUtc);
@@ -376,6 +389,7 @@ public class ClubService : IClubService
                 .OrderByDescending(m => m.CreatedAt)
                 .ThenByDescending(m => m.Id)
                 .Take(Math.Clamp(takeLatest, 1, MaxMessagesLimit))
+                .Select(MessageDtoProjection)
                 .ToArrayAsync(ct);
             Array.Reverse(rows);
         }
@@ -388,6 +402,7 @@ public class ClubService : IClubService
                     .OrderByDescending(m => m.CreatedAt)
                     .ThenByDescending(m => m.Id)
                     .Take(take)
+                    .Select(MessageDtoProjection)
                     .ToArrayAsync(ct);
                 Array.Reverse(rows);
             }
@@ -397,6 +412,7 @@ public class ClubService : IClubService
                     .OrderBy(m => m.CreatedAt)
                     .ThenBy(m => m.Id)
                     .Take(take)
+                    .Select(MessageDtoProjection)
                     .ToArrayAsync(ct);
             }
         }
@@ -405,6 +421,7 @@ public class ClubService : IClubService
             rows = await query
                 .OrderBy(m => m.CreatedAt)
                 .ThenBy(m => m.Id)
+                .Select(MessageDtoProjection)
                 .ToArrayAsync(ct);
         }
 
