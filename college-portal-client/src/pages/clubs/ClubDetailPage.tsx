@@ -10,6 +10,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { KebabMenu } from '../../components/ui/KebabMenu';
 import { Modal } from '../../components/ui/Modal';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { useLongPressMenu } from '../../hooks/useLongPressMenu';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
@@ -61,6 +62,7 @@ const MessageRow = memo(function MessageRow({
   onAvatarClick,
 }: MessageRowProps) {
   const canManageMessage = canManage || message.userId === currentUserId;
+  const { menuRef, longPressHandlers } = useLongPressMenu();
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(message.text);
 
@@ -87,7 +89,7 @@ const MessageRow = memo(function MessageRow({
         size="sm"
         onImageClick={() => avatar && onAvatarClick(avatar)}
       />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0" {...(editing ? {} : longPressHandlers)}>
         <div className="flex flex-wrap items-center gap-x-2">
           <Link to={`/users/${message.userId}`} className="text-sm font-medium text-dark-text hover:text-primary-400">{shortName(message.userName)}</Link>
           <span className="text-xs text-dark-textMuted">
@@ -95,6 +97,8 @@ const MessageRow = memo(function MessageRow({
           </span>
           {canManageMessage && (
             <KebabMenu
+              ref={menuRef}
+              align="start"
               ariaLabel="Действия с сообщением"
               items={[
                 { label: 'Редактировать', onClick: startEdit },
@@ -504,7 +508,6 @@ export function ClubDetailPage() {
         )}
         <KebabMenu
           ariaLabel="Меню группы"
-          menuClassName="top-full mt-1"
           items={[
             { label: 'Информация', onClick: () => setInfoOpen(true) },
             ...(inviteLink ? [{ label: 'Скопировать ссылку-приглашение', onClick: () => void copyInvite() }] : []),

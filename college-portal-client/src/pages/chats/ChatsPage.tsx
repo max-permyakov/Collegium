@@ -455,7 +455,6 @@ export function ChatsPage() {
                   </Link>
                   <KebabMenu
                     ariaLabel="Действия с чатом"
-                    menuClassName="top-full mt-1"
                     items={[
                       { label: chat.isPinned ? 'Открепить' : 'Закрепить', onClick: () => handlePin(chat) },
                       { label: 'Удалить чат', danger: true, onClick: () => handleDeleteChat(chat) },

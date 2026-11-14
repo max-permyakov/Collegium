@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { KebabMenu, type KebabMenuItem } from '../../components/ui/KebabMenu';
 import { Lightbox } from '../../components/ui/Lightbox';
+import { useLongPressMenu } from '../../hooks/useLongPressMenu';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { formatDuration, formatFileSize } from '../../utils/file';
 import { CHAT_TEXT_LIMIT, MAX_MESSAGE_PARTS, splitMessageText } from '../../utils/text';
@@ -255,6 +256,7 @@ const CircleBubble = memo(function CircleBubble({
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { menuRef, longPressHandlers } = useLongPressMenu();
   const [playing, setPlaying] = useState(false);
   /**
    * Видео отдаётся потоком с поддержкой Range: браузер подгружает только
@@ -318,12 +320,15 @@ const CircleBubble = memo(function CircleBubble({
 
   if (state.failed) {
     return (
-      <div className={`${idleSize} rounded-full bg-dark-card border border-dark-border flex flex-col items-center justify-center gap-2 px-3 text-center relative`}>
+      <div
+        {...longPressHandlers}
+        className={`${idleSize} rounded-full bg-dark-card border border-dark-border flex flex-col items-center justify-center gap-2 px-3 text-center relative [-webkit-touch-callout:none]`}
+      >
         <div className="absolute top-1.5 right-1.5">
           <KebabMenu
+            ref={menuRef}
             ariaLabel="Действия с сообщением"
             triggerClassName="text-dark-textMuted hover:text-dark-text hover:bg-dark-border"
-            menuClassName="top-full mt-1"
             items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
           />
         </div>
@@ -340,7 +345,11 @@ const CircleBubble = memo(function CircleBubble({
   }
 
   return (
-    <div ref={containerRef} className={playing ? 'relative z-10' : 'relative'}>
+    <div
+      ref={containerRef}
+      {...longPressHandlers}
+      className={`${playing ? 'relative z-10' : 'relative'} [-webkit-touch-callout:none]`}
+    >
       <video
         ref={ref}
         src={nearViewport ? url : undefined}
@@ -375,9 +384,9 @@ const CircleBubble = memo(function CircleBubble({
       </div>
       <div className="absolute top-2 right-2">
         <KebabMenu
+          ref={menuRef}
           ariaLabel="Действия с сообщением"
           triggerClassName="text-white/90 hover:text-white hover:bg-white/20 bg-black/30"
-          menuClassName="top-full mt-1"
           items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
         />
       </div>
@@ -441,6 +450,8 @@ const MessageBubble = memo(function MessageBubble({
   onDownload,
   onStartEdit,
 }: MessageBubbleProps) {
+  const { menuRef, longPressHandlers } = useLongPressMenu();
+
   // Кружки живут вне «облачка»: это просто видео в круге с мета-плашкой.
   if (message.kind === 'VideoCircle') {
     return (
@@ -458,26 +469,21 @@ const MessageBubble = memo(function MessageBubble({
     );
   }
 
-  const kebabTrigger = own
+  // На изображении тёмные точки не видны — используем светлый вариант.
+  const overMedia = message.kind === 'File' && isImageContent(message);
+  const kebabTrigger = own || overMedia
     ? 'text-white/70 hover:text-white hover:bg-white/15'
     : 'text-dark-textMuted/70 hover:text-dark-text hover:bg-dark-border/60';
 
   return (
     <div className={`flex items-start ${own ? 'justify-end' : 'justify-start'}`}>
-      {!own && (
-        <KebabMenu
-          ariaLabel="Действия с сообщением"
-          triggerClassName={`opacity-30 hover:opacity-100 ${kebabTrigger}`}
-          menuClassName="bottom-full mb-1"
-          items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
-        />
-      )}
       <div
+        {...longPressHandlers}
         title={formatFullDate(message.createdAt)}
-        className={`relative max-w-[85%] sm:max-w-md rounded-2xl py-2 space-y-1 ${
+        className={`relative max-w-[85%] sm:max-w-md rounded-2xl py-2 pl-3 pr-9 space-y-1 [-webkit-touch-callout:none] ${
           own
-            ? 'pl-3 pr-9 bg-primary-500 text-white rounded-br-md'
-            : 'px-3 bg-dark-card border border-dark-border text-dark-text rounded-bl-md'
+            ? 'bg-primary-500 text-white rounded-br-md'
+            : 'bg-dark-card border border-dark-border text-dark-text rounded-bl-md'
         }`}
       >
         {message.kind === 'Voice' && <VoiceBubble message={message} mine={own} />}
@@ -510,16 +516,15 @@ const MessageBubble = memo(function MessageBubble({
           {own && showReceipts && <TickIcon read={Boolean(message.readAt)} />}
           <span>{formatTime(message.createdAt)}</span>
         </div>
-        {own && (
-          <div className="absolute top-1 right-1">
-            <KebabMenu
-              ariaLabel="Действия с сообщением"
-              triggerClassName="text-white/70 hover:text-white hover:bg-white/15"
-              menuClassName="bottom-full mb-1"
-              items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onStartEdit })}
-            />
-          </div>
-        )}
+        <div className="absolute top-1 right-1">
+          <KebabMenu
+            ref={menuRef}
+            align={own ? 'end' : 'start'}
+            ariaLabel="Действия с сообщением"
+            triggerClassName={kebabTrigger}
+            items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onStartEdit })}
+          />
+        </div>
       </div>
     </div>
   );
