@@ -245,6 +245,7 @@ const CircleBubble = memo(function CircleBubble({
   onForward,
   onShare,
   onDelete,
+  onCopy,
 }: {
   message: ChatMessageDto;
   own: boolean;
@@ -253,6 +254,7 @@ const CircleBubble = memo(function CircleBubble({
   onForward: (message: ChatMessageDto) => void;
   onShare: (message: ChatMessageDto) => void;
   onDelete: (messageId: number) => void;
+  onCopy: (message: ChatMessageDto) => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -329,7 +331,7 @@ const CircleBubble = memo(function CircleBubble({
             ref={menuRef}
             ariaLabel="Действия с сообщением"
             triggerClassName="text-dark-textMuted hover:text-dark-text hover:bg-dark-border"
-            items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
+            items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onCopy })}
           />
         </div>
         <p className="text-[11px] text-red-400 leading-tight">Кружок не удалось открыть</p>
@@ -387,7 +389,7 @@ const CircleBubble = memo(function CircleBubble({
           ref={menuRef}
           ariaLabel="Действия с сообщением"
           triggerClassName="text-white/90 hover:text-white hover:bg-white/20 bg-black/30"
-          items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload })}
+          items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onCopy })}
         />
       </div>
     </div>
@@ -399,6 +401,7 @@ interface MessageActionHandlers {
   onForward: (message: ChatMessageDto) => void;
   onShare: (message: ChatMessageDto) => void;
   onDownload: (messageId: number) => void;
+  onCopy: (message: ChatMessageDto) => void;
   onStartEdit?: (message: ChatMessageDto) => void;
 }
 
@@ -407,14 +410,21 @@ const buildMenuItems = (message: ChatMessageDto, own: boolean, h: MessageActionH
   const download = { label: 'Скачать', onClick: () => h.onDownload(message.id) };
   const forward = { label: 'Переслать', onClick: () => h.onForward(message) };
   const share = { label: 'Поделиться', onClick: () => h.onShare(message) };
+  // Копировать имеет смысл только для текста: у вложений и кружков текста нет.
+  const copy = message.kind === 'Text' && message.text
+    ? { label: 'Скопировать', onClick: () => h.onCopy(message) }
+    : null;
 
   if (!own) {
-    const items = [forward, share];
+    const items: KebabMenuItem[] = [];
+    if (copy) items.push(copy);
+    items.push(forward, share);
     if (message.kind !== 'Text') items.push(download);
     return items;
   }
 
   const items: KebabMenuItem[] = [];
+  if (copy) items.push(copy);
   if (message.kind === 'Text') items.push({ label: 'Изменить', onClick: () => h.onStartEdit?.(message) });
   items.push(forward, share);
   if (message.kind !== 'Text') items.push(download);
@@ -436,6 +446,7 @@ interface MessageBubbleProps {
   onForward: (message: ChatMessageDto) => void;
   onShare: (message: ChatMessageDto) => void;
   onDownload: (messageId: number) => void;
+  onCopy: (message: ChatMessageDto) => void;
   onStartEdit?: (message: ChatMessageDto) => void;
 }
 
@@ -448,6 +459,7 @@ const MessageBubble = memo(function MessageBubble({
   onForward,
   onShare,
   onDownload,
+  onCopy,
   onStartEdit,
 }: MessageBubbleProps) {
   const { menuRef, longPressHandlers } = useLongPressMenu();
@@ -464,6 +476,7 @@ const MessageBubble = memo(function MessageBubble({
           onForward={onForward}
           onShare={onShare}
           onDelete={onDelete}
+          onCopy={onCopy}
         />
       </div>
     );
@@ -522,7 +535,7 @@ const MessageBubble = memo(function MessageBubble({
             align={own ? 'end' : 'start'}
             ariaLabel="Действия с сообщением"
             triggerClassName={kebabTrigger}
-            items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onStartEdit })}
+            items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onCopy, onStartEdit })}
           />
         </div>
       </div>
@@ -843,6 +856,17 @@ export function ChatConversation({
       showFlash(isText ? 'Текст скопирован' : 'Ссылка скопирована');
     } catch {
       setError('Не удалось поделиться сообщением');
+    }
+  }, [showFlash]);
+
+  /** «Скопировать» в меню сообщения: только текст. */
+  const handleCopyMessage = useCallback(async (message: ChatMessageDto) => {
+    if (!message.text) return;
+    try {
+      await navigator.clipboard.writeText(message.text);
+      showFlash('Текст скопирован');
+    } catch {
+      setError('Не удалось скопировать текст');
     }
   }, [showFlash]);
 
@@ -1395,6 +1419,7 @@ export function ChatConversation({
             onForward={handleForwardMessage}
             onShare={handleShareMessage}
             onDownload={handleDownloadMessage}
+            onCopy={handleCopyMessage}
             onStartEdit={handleStartEdit}
           />
         ))}

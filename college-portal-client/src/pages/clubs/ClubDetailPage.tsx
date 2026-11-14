@@ -12,7 +12,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { useLongPressMenu } from '../../hooks/useLongPressMenu';
 import { formatMoscowDateTime } from '../../utils/datetime';
-import { notifySuccess } from '../../utils/notify';
+import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
 import { fileToAvatarDataUrl } from '../../utils/image';
 import type { ClubDetailDto, ClubMessageDto, UpdateClubDto } from '../../types';
@@ -81,6 +81,15 @@ const MessageRow = memo(function MessageRow({
     setEditing(false);
   };
 
+  const copyText = async () => {
+    try {
+      await navigator.clipboard.writeText(message.text);
+      notifySuccess('Текст скопирован');
+    } catch (err) {
+      notifyFailure(err, 'Не удалось скопировать текст');
+    }
+  };
+
   return (
     <div className="flex items-start gap-2 group">
       <Avatar
@@ -95,17 +104,20 @@ const MessageRow = memo(function MessageRow({
           <span className="text-xs text-dark-textMuted">
             {formatDateTime(message.createdAt)}{message.updatedAt && ' (изм.)'}
           </span>
-          {canManageMessage && (
-            <KebabMenu
-              ref={menuRef}
-              align="start"
-              ariaLabel="Действия с сообщением"
-              items={[
-                { label: 'Редактировать', onClick: startEdit },
-                { label: 'Удалить', danger: true, onClick: () => { if (confirm('Удалить сообщение?')) onDelete(message.id); } },
-              ]}
-            />
-          )}
+          <KebabMenu
+            ref={menuRef}
+            align="start"
+            ariaLabel="Действия с сообщением"
+            items={[
+              { label: 'Скопировать', onClick: () => void copyText() },
+              ...(canManageMessage
+                ? [
+                    { label: 'Редактировать', onClick: startEdit },
+                    { label: 'Удалить', danger: true, onClick: () => { if (confirm('Удалить сообщение?')) onDelete(message.id); } },
+                  ]
+                : []),
+            ]}
+          />
         </div>
         {editing ? (
           <div className="mt-1 space-y-2">
