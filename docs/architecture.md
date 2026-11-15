@@ -73,6 +73,7 @@
 - `Services/NotificationService` — fan-out по получателям, inbox, нормализация URL
 - `Services/PushNotificationService` — Web Push (VAPID), retry, удаление мёртвых подписок
 - `Notifications/NotificationQueue` — in-memory `Channel<Guid>` для фоновой отправки
+- `Notifications/NotificationUrlMatcher` — нормализация `Url` уведомления и открытого раздела (хвостовой `/`, `?tab=`, алиас клуба), решает, какие строки гасить при прямом заходе
 - `Notifications/PushDeliveryWorker` — hosted service: очередь, outbox-sweeper, retention
 - `ExternalApis/Notifications/PushServiceClientOptions` — конфигурация VAPID
 
@@ -80,7 +81,7 @@
 - `Program.cs` — точка входа, DI, rate limiting, CORS
 - `Controllers/AuthController` — вход, регистрация, OAuth callbacks
 - `Controllers/ProfileController` — профиль, смена группы, привязка дневника
-- `Controllers/NotificationsController` — inbox: список, unread-count, read/read-all, delete, admin test
+- `Controllers/NotificationsController` — inbox: список, unread-count, read/read-all, read-section (раздел открыт напрямую), delete, admin test
 - `Controllers/PushController` — публичный VAPID-ключ, subscribe/unsubscribe
 - `Controllers/ChatsController` — личные чаты, «Избранное», «Поддержка», вложения, read-receipts, presence-heartbeat открытого чата, статус собеседника («в сети/печатает/записывает») через `GET /{id}/presence`, индикатор активности `POST /{id}/status`, редактирование `PATCH messages/{id}`, пересылка `POST messages/{id}/forward`, закрепление `POST /{id}/pin` и удаление для себя `DELETE /{id}` (чат скрывается до нового сообщения от собеседника)
 - `Controllers/AdminSupportController` — инбокс поддержки (только роль Admin): список обращений; чтение и ответы идут через `/api/chats`, где админу открыт доступ к Support-тредам
@@ -102,6 +103,14 @@
    уведомление. Клик открывает только относительный SPA-путь.
 6. Клиент опрашивает `/api/notifications` и `/unread-count` раз в 60 секунд,
    дедуплицирует push/polling по id и ведёт счётчик в колокольчике.
+7. Навигация в раздел закрывает его уведомления без клика по колокольчику:
+   клиент сравнивает `Url` уведомлений с текущим путём (`utils/notificationSections`)
+   и вызывает `POST /api/notifications/read-section`. На сервере
+   `NotificationUrlMatcher` нормализует путь (хвостовой `/`, `tab`, алиас
+   `/clubs/{id}` ↔ `/chats/club/{id}`) и отмечает прочитанными непрочитанные
+   строки этого пользователя, указывающие на тот же раздел. Уведомление без
+   `tab` относится ко всей странице и гасится на любой её вкладке; уведомление
+   с `?tab=` — только на этой вкладке.
 
 ### Триггеры
 
@@ -187,7 +196,8 @@ Push отключён, если `PushServiceClient:PublicKey`/`PrivateKey` пу�
 - `utils/pageCache.ts` — небольшой in-memory кэш данных страниц (10 минут, очищается при входе/выходе): повторный заход на Главную, Расписание, Оценки, Успеваемость, Задания и Новости рисуется сразу, а свежие данные подгружаются в фоне
 - Axios для HTTP клиента
 - Адаптивный дизайн (mobile-first)
-- `context/NotificationsContext` — polling, сообщения service worker, toast (`sonner`), дедупликация
+- `context/NotificationsContext` — polling, сообщения service worker, toast (`sonner`), дедупликация, автозакрытие раздела при прямом заходе
+- `utils/notificationSections` — сопоставление `Url` уведомления с открытым путём (зеркало серверного `NotificationUrlMatcher`)
 - `components/notifications/NotificationBell` — счётчик и inbox
 - `services/push.ts` — состояние подписки, включение/отключение, перепривязка при входе
 - `utils/notify.ts` — тосты успеха/ошибок для мутаций (`sonner`), серверный текст ошибки имеет приоритет

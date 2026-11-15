@@ -53,6 +53,29 @@ public class NotificationsController : ControllerBase
             : NotFound(new { message = "Уведомление не найдено" });
     }
 
+    /// <summary>
+    /// Marks unread notifications pointing at one SPA location as read. Called
+    /// when the user opens a section directly, without following the inbox link.
+    /// Body: { "url": "/news" }.
+    /// </summary>
+    [HttpPost("read-section")]
+    public async Task<IActionResult> MarkSectionRead(
+        [FromBody] MarkSectionReadRequest request,
+        CancellationToken ct = default)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Url))
+            return BadRequest(new { message = "Укажите раздел" });
+
+        // The value is untrusted: it is only used to match stored rows, never
+        // stored or navigated to, so the service rejects malformed paths by
+        // marking nothing.
+        var updated = await _notifications.MarkSectionReadAsync(userId, request.Url, ct);
+        return Ok(new { updated });
+    }
+
     [HttpPost("read-all")]
     public async Task<IActionResult> MarkAllRead(CancellationToken ct = default)
     {
@@ -141,3 +164,5 @@ public class NotificationsController : ControllerBase
 }
 
 public record UpdateNotificationPreferenceRequest(string Type, bool Enabled);
+
+public record MarkSectionReadRequest(string Url);

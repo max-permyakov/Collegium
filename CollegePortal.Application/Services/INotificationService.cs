@@ -69,6 +69,13 @@ public interface INotificationService
 
     Task<bool> MarkReadAsync(Guid userId, Guid notificationId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Marks every unread notification that points at the given SPA location as
+    /// read. The client calls this when the user opens a section on their own,
+    /// instead of following the link from the notification list.
+    /// </summary>
+    Task<int> MarkSectionReadAsync(Guid userId, string url, CancellationToken ct = default);
+
     Task<int> MarkAllReadAsync(Guid userId, CancellationToken ct = default);
 
     Task<bool> DeleteAsync(Guid userId, Guid notificationId, CancellationToken ct = default);

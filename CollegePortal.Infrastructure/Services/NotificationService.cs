@@ -311,6 +311,49 @@ public class NotificationService : INotificationService
         return true;
     }
 
+    public async Task<int> MarkSectionReadAsync(
+        Guid userId,
+        string url,
+        CancellationToken ct = default)
+    {
+        // An unparseable location can never describe a section of this app, so
+        // there is nothing to compare and no row to retire.
+        if (NotificationUrlMatcher.Parse(url) is not { } section)
+            return 0;
+
+        // Exact matching (trailing slashes, tabs, club aliases) runs in memory,
+        // but the candidate paths narrow the read in SQL so the scan does not
+        // grow with the whole unread inbox. Lower-casing keeps the pre-filter
+        // aligned with the case-insensitive comparison below and translates on
+        // both Npgsql (lower()) and the in-memory test provider.
+        var candidates = NotificationUrlMatcher.CandidatePaths(section)
+            .Select(path => path.ToLowerInvariant())
+            .ToArray();
+        var query = _dbContext.Notifications
+            .Where(n => n.UserId == userId && !n.IsRead && n.Url != null);
+
+        query = candidates.Length == 2
+            ? query.Where(n =>
+                n.Url!.ToLower().StartsWith(candidates[0]) ||
+                n.Url!.ToLower().StartsWith(candidates[1]))
+            : query.Where(n => n.Url!.ToLower().StartsWith(candidates[0]));
+
+        var unread = await query.ToListAsync(ct);
+
+        var matching = unread
+            .Where(n => NotificationUrlMatcher.MatchesSection(n.Url, url))
+            .ToArray();
+
+        if (matching.Length == 0)
+            return 0;
+
+        foreach (var notification in matching)
+            notification.IsRead = true;
+
+        await _dbContext.SaveChangesAsync(ct);
+        return matching.Length;
+    }
+
     public async Task<int> MarkAllReadAsync(Guid userId, CancellationToken ct = default)
     {
         var unread = await _dbContext.Notifications

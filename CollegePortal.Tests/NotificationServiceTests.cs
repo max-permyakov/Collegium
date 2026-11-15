@@ -211,6 +211,97 @@ public class NotificationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task MarkSectionReadAsync_RetiresOnlyMatchingUnreadRowsOfTheUser()
+    {
+        var owner = NewUser();
+        var stranger = NewUser();
+        _db.Users.AddRange(owner, stranger);
+
+        var news = NewNotification(owner.Id, "Новая новость", DateTime.UtcNow);
+        news.Url = "/news";
+
+        var newsAgain = NewNotification(owner.Id, "Ещё новость", DateTime.UtcNow);
+        newsAgain.Url = "/news/";
+
+        var assignments = NewNotification(owner.Id, "Новое задание", DateTime.UtcNow);
+        assignments.Url = "/assignments";
+
+        var referrals = NewNotification(owner.Id, "Реферал", DateTime.UtcNow);
+        referrals.Url = "/profile?tab=referrals";
+
+        var profile = NewNotification(owner.Id, "Профиль", DateTime.UtcNow);
+        profile.Url = "/profile";
+
+        var alreadyRead = NewNotification(owner.Id, "Старая новость", DateTime.UtcNow);
+        alreadyRead.Url = "/news";
+        alreadyRead.IsRead = true;
+
+        var foreign = NewNotification(stranger.Id, "Чужая новость", DateTime.UtcNow);
+        foreign.Url = "/news";
+
+        _db.Notifications.AddRange(
+            news, newsAgain, assignments, referrals, profile, alreadyRead, foreign);
+        await _db.SaveChangesAsync();
+
+        // Opening /news directly retires both news rows, nothing else.
+        (await _service.MarkSectionReadAsync(owner.Id, "/news")).Should().Be(2);
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == news.Id)).IsRead.Should().BeTrue();
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == newsAgain.Id)).IsRead.Should().BeTrue();
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == assignments.Id)).IsRead.Should().BeFalse();
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == referrals.Id)).IsRead.Should().BeFalse();
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == profile.Id)).IsRead.Should().BeFalse();
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == foreign.Id)).IsRead.Should().BeFalse();
+
+        // /profile?tab=referrals opens the referral tab: it retires the
+        // tab-scoped row and the page-wide one, since the profile page itself
+        // is on screen.
+        (await _service.MarkSectionReadAsync(owner.Id, "/chats/club/x")).Should().Be(0);
+        (await _service.MarkSectionReadAsync(owner.Id, "/profile?tab=referrals")).Should().Be(2);
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == referrals.Id)).IsRead.Should().BeTrue();
+        (await _db.Notifications.AsNoTracking().SingleAsync(n => n.Id == profile.Id)).IsRead.Should().BeTrue();
+
+        // Nothing left to update.
+        (await _service.MarkSectionReadAsync(owner.Id, "/news")).Should().Be(0);
+        (await _service.MarkSectionReadAsync(owner.Id, "/profile")).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("https://evil.example/news")]
+    [InlineData("//evil.example/news")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("   ")]
+    [InlineData("news")]
+    public async Task MarkSectionReadAsync_IgnoresUnsafeAndRelativeUrls(string url)
+    {
+        var owner = NewUser();
+        _db.Users.Add(owner);
+        var notification = NewNotification(owner.Id, "Новость", DateTime.UtcNow);
+        notification.Url = "/news";
+        _db.Notifications.Add(notification);
+        await _db.SaveChangesAsync();
+
+        (await _service.MarkSectionReadAsync(owner.Id, url)).Should().Be(0);
+        (await _db.Notifications.AsNoTracking().SingleAsync()).IsRead.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task MarkSectionReadAsync_MatchesClubAliasBothWays()
+    {
+        var owner = NewUser();
+        _db.Users.Add(owner);
+        var clubId = Guid.NewGuid();
+
+        var legacy = NewNotification(owner.Id, "Кружок", DateTime.UtcNow);
+        legacy.Url = $"/clubs/{clubId}";
+
+        _db.Notifications.Add(legacy);
+        await _db.SaveChangesAsync();
+
+        (await _service.MarkSectionReadAsync(owner.Id, $"/chats/club/{clubId}")).Should().Be(1);
+        (await _db.Notifications.AsNoTracking().SingleAsync()).IsRead.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task MarkAllReadAsync_UpdatesOnlyUnreadRowsOfTheUser()
     {
         var owner = NewUser();
@@ -329,7 +420,7 @@ public class NotificationServiceTests : IDisposable
 
         var defaults = await _service.GetPreferencesAsync(subscriber.Id);
         defaults.Select(item => item.Type)
-            .Should().BeEquivalentTo(new[] { "News", "Assignment", "ClubMessage", "Comment", "ChatMessage" });
+            .Should().BeEquivalentTo(new[] { "News", "Assignment", "ClubMessage", "Comment", "ChatMessage", "Referral" });
         defaults.Should().OnlyContain(item => item.Enabled);
 
         // Disabling News stops News notifications...

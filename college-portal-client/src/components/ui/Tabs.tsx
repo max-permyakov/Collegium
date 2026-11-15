@@ -10,21 +10,25 @@ const TabsContext = createContext<TabsContextType | null>(null);
 
 interface TabsProps {
   children: ReactNode;
-  defaultValue: string;
+  defaultValue?: string;
+  /** Controlled value; when set, the active tab comes from outside. */
+  value?: string;
   onValueChange?: (value: string) => void;
   className?: string;
 }
 
-export function Tabs({ children, defaultValue, onValueChange, className = '' }: TabsProps) {
-  const [value, setValue] = useState(defaultValue);
+export function Tabs({ children, defaultValue = '', value, onValueChange, className = '' }: TabsProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const isControlled = value !== undefined;
+  const currentValue = isControlled ? value : internalValue;
 
   const handleValueChange = (newValue: string) => {
-    setValue(newValue);
+    if (!isControlled) setInternalValue(newValue);
     onValueChange?.(newValue);
   };
 
   return (
-    <TabsContext.Provider value={{ value, onValueChange: handleValueChange }}>
+    <TabsContext.Provider value={{ value: currentValue, onValueChange: handleValueChange }}>
       <div className={className}>{children}</div>
     </TabsContext.Provider>
   );

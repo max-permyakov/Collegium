@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { notificationsApi } from '../services/api';
 import { useAuth } from './AuthContext';
+import { isSameSection, parseSection } from '../utils/notificationSections';
 import type { AppNotification, AppNotificationType, PushMessagePayload } from '../types';
 
 const POLL_INTERVAL_MS = 60_000;
@@ -117,6 +118,47 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Opening a section directly retires its notifications without visiting the
+  // bell list, so the badge reflects what the user has actually seen. Rows on
+  // screen (the cached first page) grey out immediately; the server call also
+  // covers older unread rows that the page did not load.
+  const markSectionReadMutation = useMutation({
+    mutationFn: (url: string) => notificationsApi.markSectionRead(url),
+    onMutate: async (url) => {
+      await queryClient.cancelQueries({ queryKey: notificationKeys.all });
+      const previousList = queryClient.getQueryData<AppNotification[]>(notificationKeys.list);
+      const previousCount = queryClient.getQueryData<number>(notificationKeys.unreadCount);
+      const matched = previousList?.filter(
+        (item) => !item.isRead && isSameSection(item.url, url),
+      ).length ?? 0;
+
+      if (matched > 0) {
+        queryClient.setQueryData<AppNotification[]>(notificationKeys.list, (current) =>
+          current?.map((item) =>
+            !item.isRead && isSameSection(item.url, url) ? { ...item, isRead: true } : item,
+          ),
+        );
+        queryClient.setQueryData<number>(notificationKeys.unreadCount, (current) =>
+          current === undefined ? current : Math.max(0, current - matched),
+        );
+      }
+
+      return { previousList, previousCount };
+    },
+    onError: (_error, _url, context) => {
+      if (context?.previousList) {
+        queryClient.setQueryData(notificationKeys.list, context.previousList);
+      }
+      if (context?.previousCount !== undefined) {
+        queryClient.setQueryData(notificationKeys.unreadCount, context.previousCount);
+      }
+    },
+    onSettled: () => {
+      // Refetch бейдж и список: сервер отметил и те строки, которых не было в кэше.
+      void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+    },
+  });
+
   const markAllReadMutation = useMutation({
     mutationFn: () => notificationsApi.markAllRead(),
     onMutate: async () => {
@@ -217,10 +259,67 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const seenIds = useRef<Set<string>>(new Set());
   const initialized = useRef(false);
 
+  // A direct visit to a section retires its unread notifications, so following
+  // the inbox link is optional. This runs once per entered section: a
+  // notification that arrives while the page is already open stays unread and
+  // still badges the bell, because the user may not have seen the new item.
+  const handledSectionRef = useRef<string | null>(null);
+  const markSectionRead = markSectionReadMutation.mutate;
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      handledSectionRef.current = null;
+      return;
+    }
+    // Wait for the first inbox page: it tells whether a request is needed at
+    // all, and it arrives right after login when the URL is already set.
+    if (!listQuery.data) return;
+
+    const openedUrl = `${location.pathname}${location.search}`;
+    const openedSection = parseSection(openedUrl);
+    // No notification points at the dashboard root (or outside the app), so
+    // there is nothing to retire and the next entry must re-check from scratch.
+    if (!openedSection || openedSection.path === '/') {
+      handledSectionRef.current = null;
+      return;
+    }
+
+    // The club route redirects /clubs/{id} → /chats/club/{id}; both spellings
+    // are one section, so the normalized key avoids a second call.
+    const sectionKey = `${openedSection.path.toLowerCase()}|${openedSection.tab ?? ''}`;
+    if (handledSectionRef.current === sectionKey) return;
+
+    const cachedUnread = listQuery.data.filter((item) => !item.isRead);
+    const matched = cachedUnread.some((item) => isSameSection(item.url, openedUrl));
+    // The badge counts rows the loaded page may not contain (the inbox is
+    // paginated, the badge is not), so older unread rows may still belong here.
+    const mayHaveOlderMatch = unreadCount > cachedUnread.length;
+    if (!matched && !mayHaveOlderMatch) {
+      handledSectionRef.current = sectionKey;
+      return;
+    }
+
+    handledSectionRef.current = sectionKey;
+    markSectionRead(openedUrl, {
+      onError: () => {
+        // Раздел уже открыт; повторная попытка — при следующем заходе.
+        handledSectionRef.current = null;
+      },
+    });
+  }, [
+    isAuthenticated,
+    listQuery.data,
+    unreadCount,
+    location.pathname,
+    location.search,
+    markSectionRead,
+  ]);
+
   // Reset dedupe state when the signed-in account changes.
   useEffect(() => {
     seenIds.current = new Set();
     initialized.current = false;
+    handledSectionRef.current = null;
   }, [user?.id]);
 
   const showToast = useCallback(

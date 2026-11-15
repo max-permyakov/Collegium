@@ -293,6 +293,7 @@ export const notificationsApi = {
     api.get<AppNotification[]>('/notifications', { params }),
   getUnreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
   markRead: (id: string) => api.post(`/notifications/${encodeURIComponent(id)}/read`),
+  markSectionRead: (url: string) => api.post<{ updated: number }>('/notifications/read-section', { url }),
   markAllRead: () => api.post<{ updated: number }>('/notifications/read-all'),
   remove: (id: string) => api.delete(`/notifications/${encodeURIComponent(id)}`),
   sendTest: () => api.post<{ sent: boolean }>('/notifications/test'),

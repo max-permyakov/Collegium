@@ -247,8 +247,9 @@ export function ProfilePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const initialTab =
-    !isAdminView && new URLSearchParams(location.search).get('tab') === 'referrals'
+  const activeTab = isAdminView
+    ? 'profile'
+    : new URLSearchParams(location.search).get('tab') === 'referrals'
       ? 'referrals'
       : 'profile';
 
@@ -262,6 +263,17 @@ export function ProfilePage() {
   const goBack = () => {
     if (location.key !== 'default') navigate(-1);
     else navigate('/');
+  };
+
+  // Вкладка живёт в URL, чтобы ссылка на неё (и уведомление с ?tab=referrals)
+  // вела в тот же раздел, что и ручной клик по табу.
+  const handleTabChange = (value: string) => {
+    if (isAdminView) return;
+    const params = new URLSearchParams(location.search);
+    if (value === 'profile') params.delete('tab');
+    else params.set('tab', value);
+    const search = params.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: true });
   };
 
   const { data: profile, isLoading, error } = useQuery<ProfileDto | null>({
@@ -410,7 +422,7 @@ export function ProfilePage() {
   const hasFrame = hasAvatarFrame(profile.rewardCodes);
 
   return (
-    <Tabs key={initialTab} defaultValue={initialTab} className="space-y-4">
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
       {!isAdminView && (
         <TabsList>
           <TabsTrigger value="profile">Профиль</TabsTrigger>
