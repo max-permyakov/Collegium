@@ -659,8 +659,7 @@ public class ReferralService : IReferralService
                 false,
                 $"Сумма должна быть от 1 до {MaxAdminGrant} KepkaCoin");
 
-        if (adminUserId == userId)
-            return new AdminGrantCoinsResultDto(false, "Нельзя начислить коины самому себе");
+       
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user is null)
