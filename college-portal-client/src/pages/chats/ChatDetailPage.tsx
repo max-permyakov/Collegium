@@ -18,7 +18,7 @@ import {
   type RecordingKind,
   type RecordingSession,
 } from './recording';
-import type { ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto } from '../../types/chats';
+import type { ChatDto, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatPresenceDto } from '../../types/chats';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { CHATS } from '../../components/ambient/loadPhrases';
 import { Nickname } from '../../components/profile/Nickname';
@@ -44,6 +44,23 @@ const getError = (err: unknown) => {
 
 const isCanceled = (err: unknown) =>
   (err as { code?: string })?.code === 'ERR_CANCELED' || (err as { name?: string })?.name === 'CanceledError';
+
+/**
+ * Порядок в ленте: настоящие сообщения по возрастанию id, а оптимистичные
+ * черновики (отрицательный id, ещё не подтверждённые сервером) — всегда в конце.
+ */
+const byDisplayOrder = (a: ChatMessageDto, b: ChatMessageDto) => {
+  if (a.id < 0 !== b.id < 0) return a.id < 0 ? 1 : -1;
+  return a.id - b.id;
+};
+
+/** Последний подтверждённый сервером id: опорная точка для afterSeq-опроса. */
+const lastRealId = (list: ChatMessageDto[]): number | null => {
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (list[i].id > 0) return list[i].id;
+  }
+  return null;
+};
 
 /** Проверка, что записанный файл вообще декодируется: битая запись никогда не отправляется. */
 const ensurePlayable = (blob: Blob, kind: 'audio' | 'video') =>
@@ -485,6 +502,8 @@ const MessageBubble = memo(function MessageBubble({
 
   // На изображении тёмные точки не видны — используем светлый вариант.
   const overMedia = message.kind === 'File' && isImageContent(message);
+  // Отрицательный id — оптимистичный черновик, сервер его ещё не подтвердил.
+  const isPending = message.id < 0;
   const kebabTrigger = own || overMedia
     ? 'text-white/70 hover:text-white hover:bg-white/15'
     : 'text-dark-textMuted/70 hover:text-dark-text hover:bg-dark-border/60';
@@ -527,18 +546,22 @@ const MessageBubble = memo(function MessageBubble({
         )}
         <div className={`flex items-center justify-end gap-1 text-[11px] ${own ? 'text-white/70' : 'text-dark-textMuted'}`}>
           {message.editedAt && <span title={formatFullDate(message.editedAt)}>изменено</span>}
-          {own && showReceipts && <TickIcon read={Boolean(message.readAt)} />}
-          <span>{formatTime(message.createdAt)}</span>
+          {own && showReceipts && !isPending && <TickIcon read={Boolean(message.readAt)} />}
+          <span>{isPending ? 'Отправка…' : formatTime(message.createdAt)}</span>
         </div>
-        <div className="absolute top-1 right-1">
-          <KebabMenu
-            ref={menuRef}
-            align={own ? 'end' : 'start'}
-            ariaLabel="Действия с сообщением"
-            triggerClassName={kebabTrigger}
-            items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onCopy, onStartEdit })}
-          />
-        </div>
+        {/* У ещё не подтверждённого черновика нет серверного id — меню действий
+            всё равно не сработает, поэтому не показываем его вовсе. */}
+        {!isPending && (
+          <div className="absolute top-1 right-1">
+            <KebabMenu
+              ref={menuRef}
+              align={own ? 'end' : 'start'}
+              ariaLabel="Действия с сообщением"
+              triggerClassName={kebabTrigger}
+              items={buildMenuItems(message, own, { onDelete, onForward, onShare, onDownload, onCopy, onStartEdit })}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -548,6 +571,11 @@ interface PendingSend {
   key: string;
   label: string;
   percent: number | null;
+  /**
+   * Текстовое сообщение уже показано в ленте как черновик, поэтому отдельная
+   * плашка «Отправка...» для него не нужна — только запись в очереди.
+   */
+  hidden?: boolean;
 }
 
 interface UploadPayload {
@@ -686,7 +714,10 @@ export function ChatConversation({
     queryKey: ['chat-messages', chatId],
     queryFn: async () => {
       const cached = queryClient.getQueryData<ChatMessageDto[]>(['chat-messages', chatId]) ?? [];
-      const newestId = cached.length > 0 ? cached[cached.length - 1].id : null;
+      // Оптимистичные черновики живут с отрицательными id и в ленте идут
+      // последними — на сервере их нет, поэтому опорой для afterSeq служит
+      // последний настоящий id.
+      const newestId = lastRealId(cached);
       const needsFullSync =
         cached.length === 0 || Date.now() - lastFullSyncRef.current > FULL_SYNC_MS;
 
@@ -711,11 +742,12 @@ export function ChatConversation({
         const maxId = fetched.length > 0 ? fetched[fetched.length - 1].id : null;
         const map = new Map<number, ChatMessageDto>();
         for (const m of cached) {
-          const insideWindow = minId !== null && maxId !== null && m.id >= minId && m.id <= maxId;
+          const insideWindow =
+            m.id > 0 && minId !== null && maxId !== null && m.id >= minId && m.id <= maxId;
           if (!insideWindow || fetchedIds.has(m.id)) map.set(m.id, m);
         }
         for (const m of fetched) map.set(m.id, m);
-        return [...map.values()].sort((a, b) => a.id - b.id);
+        return [...map.values()].sort(byDisplayOrder);
       }
 
       if (newestId === null) return cached;
@@ -725,7 +757,7 @@ export function ChatConversation({
 
       const map = new Map<number, ChatMessageDto>(cached.map((m) => [m.id, m]));
       for (const m of res.data) map.set(m.id, m);
-      return [...map.values()].sort((a, b) => a.id - b.id);
+      return [...map.values()].sort(byDisplayOrder);
     },
     enabled: Boolean(chatId),
     refetchInterval: POLL_MS,
@@ -926,7 +958,62 @@ export function ChatConversation({
   const forwardTargets = (forwardChats ?? [])
     .filter((c) => c.id !== chatId && (c.kind === 'Direct' || c.kind === 'Saved'));
 
-  // ---------- Очередь отправки ----------
+  // ---------- Хелперы для оптимистичной отправки ----------
+
+  /** Вставляет сообщение-черновик в список (отрицательный id, отображается сразу). */
+  const insertPendingMessage = useCallback(
+    (tempId: number, text: string, kind: ChatMessageKind, fileName?: string) => {
+      queryClient.setQueryData<ChatMessageDto[]>(['chat-messages', chatId], (old) => {
+        const msg: ChatMessageDto = {
+          id: tempId,
+          chatId: chatId!,
+          senderId: user?.id ?? '',
+          senderName: user?.displayName ?? '',
+          kind,
+          text,
+          fileName,
+          createdAt: new Date().toISOString(),
+        };
+        if (!old) return [msg];
+        if (old.some((m) => m.id === msg.id)) return old;
+        return [...old, msg];
+      });
+    },
+    [chatId, queryClient, user],
+  );
+
+  /** Заменяет черновик (по tempId) ответом сервера. */
+  const replacePending = useCallback(
+    (tempId: number, real: ChatMessageDto) => {
+      queryClient.setQueryData<ChatMessageDto[]>(['chat-messages', chatId], (old) => {
+        if (!old) return [real];
+        // Опрос мог успеть принести это же сообщение раньше ответа на отправку:
+        // тогда черновик просто выбрасываем, иначе в ленте будет дубль.
+        const next = old.filter((m) => m.id !== tempId && m.id !== real.id);
+        next.push(real);
+        return next.sort(byDisplayOrder);
+      });
+    },
+    [chatId, queryClient],
+  );
+
+  /** Удаляет черновик из ленты (отмена или ошибка отправки). */
+  const removePending = useCallback(
+    (tempId: number) => {
+      queryClient.setQueryData<ChatMessageDto[]>(['chat-messages', chatId], (old) => {
+        if (!old) return old;
+        return old.filter((m) => m.id !== tempId);
+      });
+    },
+    [chatId, queryClient],
+  );
+
+  /** Возвращает неотправленный текст в поле ввода, чтобы его можно было повторить. */
+  const restoreDraft = useCallback((text: string) => {
+    if (!text) return;
+    setMessageText((current) => (current.trim().length > 0 ? current : text));
+  }, []);
+
   function runQueue() {
     if (runningRef.current) return;
     const next = queueRef.current.shift();
@@ -941,9 +1028,21 @@ export function ChatConversation({
   const enqueueTask = useCallback((payload: TaskPayload, label: string) => {
     if (!chatId) return;
     const key = `p${++keyCounter.current}`;
+    const tempId = -keyCounter.current;
+
+    // Текстовое сообщение показываем сразу, файл — только после загрузки.
+    const isTextMessage = !payload.upload;
+    if (isTextMessage) {
+      insertPendingMessage(tempId, payload.text ?? '', 'Text');
+      // Своё сообщение должно быть видно, даже если лента была прокручена вверх.
+      isAtBottomRef.current = true;
+    }
 
     queueRef.current.push(async () => {
-      setPendingSends((ps) => [...ps, { key, label, percent: payload.upload ? 0 : null }]);
+      setPendingSends((ps) => [
+        ...ps,
+        { key, label, percent: payload.upload ? 0 : null, hidden: isTextMessage },
+      ]);
       const controller = new AbortController();
       abortMap.current.set(key, controller);
       try {
@@ -965,13 +1064,29 @@ export function ChatConversation({
           uploadId,
           durationMs: payload.durationMs,
         });
-        appendMessage(sent.data);
+        if (isTextMessage) {
+          // Заменяем черновик ответом сервера.
+          replacePending(tempId, sent.data);
+        } else {
+          // Файл — вставляем в ленту после успешной отправки.
+          appendMessage(sent.data);
+        }
         invalidateLists();
+        // Сообщение ушло — снимаем баннер прошлой неудачной попытки.
+        setError('');
         isAtBottomRef.current = true;
         setPendingSends((ps) => ps.filter((p) => p.key !== key));
       } catch (err) {
         setPendingSends((ps) => ps.filter((p) => p.key !== key));
-        if (!isCanceled(err)) setError(getError(err));
+        if (isTextMessage) {
+          // Черновик больше не висит в ленте: сообщение не отправлено, поэтому
+          // текст возвращается в поле ввода, чтобы его можно было повторить.
+          removePending(tempId);
+          if (!isCanceled(err)) restoreDraft(payload.text ?? '');
+        }
+        if (!isCanceled(err)) {
+          setError(getError(err));
+        }
       } finally {
         abortMap.current.delete(key);
       }
@@ -979,7 +1094,7 @@ export function ChatConversation({
 
     runQueue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, appendMessage, invalidateLists]);
+  }, [chatId, insertPendingMessage, replacePending, removePending, restoreDraft, invalidateLists]);
 
   useEffect(() => () => {
     abortMap.current.forEach((controller) => controller.abort());
@@ -1428,7 +1543,7 @@ export function ChatConversation({
             onStartEdit={handleStartEdit}
           />
         ))}
-        {pendingSends.map((p) => (
+        {pendingSends.filter((p) => !p.hidden).map((p) => (
           <div key={p.key} className="flex justify-end">
             <div className="max-w-[85%] sm:max-w-md rounded-2xl px-3 py-2 bg-primary-500 text-white rounded-br-md opacity-80">
               <p className="text-sm truncate">{p.label}</p>

@@ -299,11 +299,13 @@ public class ChatService : IChatService
             return new ChatMessageResult(null, "Сообщение пустое");
         }
 
-        var senderName = await _dbContext.Users
+        var sender = await _dbContext.Users
             .AsNoTracking()
             .Where(u => u.Id == userId)
-            .Select(u => u.DisplayName)
-            .FirstOrDefaultAsync(ct) ?? "Пользователь";
+            .Select(u => new { u.DisplayName, u.NicknameColor })
+            .FirstOrDefaultAsync(ct);
+
+        var senderName = sender?.DisplayName ?? "Пользователь";
 
         var isMedia = upload is { Kind: ChatMessageKind.Voice or ChatMessageKind.VideoCircle };
         var message = new ChatMessage
@@ -381,7 +383,7 @@ public class ChatService : IChatService
             }
         }
 
-        return new ChatMessageResult(ToDtoWithSender(message, senderName, null));
+        return new ChatMessageResult(ToDtoWithSender(message, senderName, null, sender?.NicknameColor));
     }
 
     public async Task<bool> MarkReadAsync(Guid chatId, Guid userId, bool isAdmin = false, CancellationToken ct = default)
@@ -510,11 +512,13 @@ public class ChatService : IChatService
 
         var isMedia = message.Kind is ChatMessageKind.Voice or ChatMessageKind.VideoCircle;
         var text = message.Text is null ? null : TextSanitizer.CleanChat(message.Text, MaxTextLength);
-        var forwarderName = await _dbContext.Users
+        var forwarder = await _dbContext.Users
             .AsNoTracking()
             .Where(u => u.Id == userId)
-            .Select(u => u.DisplayName)
-            .FirstOrDefaultAsync(ct) ?? "Пользователь";
+            .Select(u => new { u.DisplayName, u.NicknameColor })
+            .FirstOrDefaultAsync(ct);
+
+        var forwarderName = forwarder?.DisplayName ?? "Пользователь";
 
         var copy = new ChatMessage
         {
@@ -576,7 +580,7 @@ public class ChatService : IChatService
             }
         }
 
-        return new ChatMessageResult(ToDtoWithSender(copy, forwarderName, null));
+        return new ChatMessageResult(ToDtoWithSender(copy, forwarderName, null, forwarder?.NicknameColor));
     }
 
     public async Task<bool> SetActivityAsync(Guid chatId, Guid userId, string? activity, CancellationToken ct = default)
@@ -1127,9 +1131,18 @@ public class ChatService : IChatService
     }
 
     private static ChatMessageDto ToDto(ChatMessage m) =>
-        ToDtoWithSender(m, m.Sender.DisplayName, null);
+        ToDtoWithSender(m, m.Sender.DisplayName, null, m.Sender.NicknameColor);
 
-    private static ChatMessageDto ToDtoWithSender(ChatMessage m, string senderName, string? senderAvatar) =>
+    /// <summary>
+    /// Builds the DTO for a message that was just created in memory. The Sender
+    /// navigation is not loaded there, so the sender's display data must be
+    /// passed in explicitly instead of being read from the entity.
+    /// </summary>
+    private static ChatMessageDto ToDtoWithSender(
+        ChatMessage m,
+        string senderName,
+        string? senderAvatar,
+        string? senderNicknameColor = null) =>
         new(
             m.Id,
             m.ChatId,
@@ -1146,5 +1159,5 @@ public class ChatService : IChatService
             m.ReadAt,
             m.DeletedAt,
             m.EditedAt,
-            m.Sender.NicknameColor);
+            senderNicknameColor);
 }
