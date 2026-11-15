@@ -36,7 +36,7 @@ export function RewardPreview({ code, icon, frameColor }: RewardPreviewProps) {
         className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-dark-card ring-1 ring-dark-border"
         aria-hidden="true"
       >
-        <span className="nick-rgb nick-gradient text-lg font-bold">Aa</span>
+        <span className="nick-rgb text-lg font-bold">Aa</span>
       </div>
     );
   }

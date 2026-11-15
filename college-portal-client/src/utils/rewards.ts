@@ -3,7 +3,7 @@ type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger' | '
 export interface NicknameColorOption {
   code: string;
   title: string;
-  /** Анимированный градиент вместо плоского цвета (класс `nick-gradient`). */
+  /** Анимированный градиент вместо плоского цвета. */
   animated?: boolean;
 }
 
@@ -91,12 +91,14 @@ export const REWARD_AVATAR_FRAME = 'avatar-frame';
 export const REWARD_NICKNAME_COLOR = 'nickname-color';
 export const REWARD_GOLD_BADGE = 'gold-badge';
 
-/** CSS-классы цвета никнейма (объявлены в `index.css`). */
+/** CSS-класс цвета никнейма (объявлен в `index.css` как `.nick-{code}`). */
 export function nicknameClass(code?: string | null): string {
   if (!code) return '';
   const option = NICKNAME_COLOR_OPTIONS.find((item) => item.code === code);
   if (!option) return '';
-  return option.animated ? `nick-${option.code} nick-gradient` : `nick-${option.code}`;
+  // Анимированные цвета рисуются тем же классом: общий селектор в CSS
+  // добавляет градиент и анимацию, отдельных классов не требуется.
+  return `nick-${option.code}`;
 }
 
 /** CSS-класс цвета рамки. Неизвестный код → золото по умолчанию. */

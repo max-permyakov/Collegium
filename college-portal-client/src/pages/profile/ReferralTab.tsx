@@ -446,7 +446,7 @@ export function ReferralTab() {
                       className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-60 ${
                         selected ? 'scale-110 border-white' : 'border-dark-border'
                       }`}
-                      style={{ backgroundImage: option.swatch }}
+                      style={{ background: option.swatch }}
                     >
                       <span className="sr-only">{option.title}</span>
                     </button>
