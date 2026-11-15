@@ -18,7 +18,8 @@ public record GameLeaderboardEntryDto(
     int Score,
     int Rank,
     bool IsCurrentUser,
-    DateTime AchievedAt
+    DateTime AchievedAt,
+    string? NicknameColor = null
 );
 
 public record GameLeaderboardDto(

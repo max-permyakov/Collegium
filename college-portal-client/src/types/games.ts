@@ -7,6 +7,7 @@ export interface GameLeaderboardEntry {
   rank: number;
   isCurrentUser: boolean;
   achievedAt: string;
+  nicknameColor?: string | null;
 }
 
 export interface GameLeaderboard {

@@ -15,6 +15,7 @@ import { shortName } from '../../utils/names';
 import type { ChatKind, ChatListItemDto, ChatUserDto } from '../../types/chats';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { CHATS } from '../../components/ambient/loadPhrases';
+import { Nickname } from '../../components/profile/Nickname';
 import type { ClubListDto, CreateClubDto } from '../../types';
 
 const LIST_POLL_MS = 5000;
@@ -347,7 +348,9 @@ export function ChatsPage() {
                     >
                       <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-dark-text truncate">{chat.otherUser.displayName}</p>
+                        <p className="text-sm truncate">
+                          <Nickname color={chat.otherUser.nicknameColor}>{chat.otherUser.displayName}</Nickname>
+                        </p>
                         {chat.otherUser.studyGroupName && (
                           <p className="text-xs text-dark-textMuted truncate">{chat.otherUser.studyGroupName}</p>
                         )}
@@ -374,7 +377,9 @@ export function ChatsPage() {
                     >
                       <Avatar src={u.hasAvatar ? avatarUrl.user(u.id) : undefined} name={u.displayName} size="md" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-dark-text truncate">{u.displayName}</p>
+                        <p className="text-sm truncate">
+                          <Nickname color={u.nicknameColor}>{u.displayName}</Nickname>
+                        </p>
                         {u.studyGroupName && (
                           <p className="text-xs text-dark-textMuted truncate">{u.studyGroupName}</p>
                         )}
@@ -430,8 +435,8 @@ export function ChatsPage() {
                     <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
-                        <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-dark-text' : 'font-medium text-dark-text'}`}>
-                          {chat.otherUser.displayName}
+                        <p className={`text-sm truncate ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>
+                          <Nickname color={chat.otherUser.nicknameColor}>{chat.otherUser.displayName}</Nickname>
                         </p>
                         {last && <span className="text-xs text-dark-textMuted shrink-0">{itemTime(last.createdAt)}</span>}
                       </div>

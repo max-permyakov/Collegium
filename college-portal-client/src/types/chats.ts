@@ -12,6 +12,7 @@ export interface ChatUserDto {
   /** Avatars are streamed from /api/avatars/users/{id}, never inlined. */
   hasAvatar: boolean;
   studyGroupName?: string | null;
+  nicknameColor?: string | null;
 }
 
 export interface ChatMessageDto {
@@ -29,6 +30,7 @@ export interface ChatMessageDto {
   createdAt: string;
   readAt?: string | null;
   editedAt?: string | null;
+  senderNicknameColor?: string | null;
 }
 
 export interface ChatDto {

@@ -90,6 +90,19 @@ public class ReferralsController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPut("me/cosmetics")]
+    public async Task<IActionResult> SetCosmetics(
+        [FromBody] SetCosmeticsRequestDto request,
+        CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var result = await _referralService.SetCosmeticsAsync(userId.Value, request, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpGet("rewards/{code}/download")]
     public async Task<IActionResult> DownloadReward(string code, CancellationToken ct)
     {

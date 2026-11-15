@@ -33,6 +33,15 @@ public class ApplicationUser : IdentityUser<Guid>
     /// <summary>Selected nickname color token from the reward palette.</summary>
     public string? NicknameColor { get; set; }
 
+    /// <summary>Selected avatar frame color; null means the default gold frame.</summary>
+    public string? AvatarFrameColor { get; set; }
+
+    /// <summary>Whether the purchased avatar frame is shown at all.</summary>
+    public bool ShowAvatarFrame { get; set; } = true;
+
+    /// <summary>Whether reward badges (ambassador, gold) are shown next to the name.</summary>
+    public bool ShowBadges { get; set; } = true;
+
     public StudentProfile? StudentProfile { get; set; }
     public ICollection<UserAuthProvider> AuthProviders { get; set; } = new List<UserAuthProvider>();
 }

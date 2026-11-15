@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { shortName } from '../../utils/names';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { Nickname } from '../profile/Nickname';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { chatsApi } from '../../services/api';
@@ -237,7 +238,9 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <Avatar src={user.studentProfile?.avatarDataUrl || undefined} name={user.displayName} size="md" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-dark-text truncate">{shortName(user.displayName)}</p>
+                  <p className="text-sm font-medium truncate">
+                    <Nickname color={user.nicknameColor}>{shortName(user.displayName)}</Nickname>
+                  </p>
                   <p className="text-xs text-dark-textMuted capitalize">{user.role}</p>
                 </div>
               </div>
@@ -323,7 +326,9 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <Avatar src={user.studentProfile?.avatarDataUrl || undefined} name={user.displayName} size="md" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-dark-text truncate">{shortName(user.displayName)}</p>
+                  <p className="text-sm font-medium truncate">
+                    <Nickname color={user.nicknameColor}>{shortName(user.displayName)}</Nickname>
+                  </p>
                   <p className="text-xs text-dark-textMuted capitalize">{user.role}</p>
                 </div>
               </div>

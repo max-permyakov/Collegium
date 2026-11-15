@@ -12,6 +12,7 @@ import { GradeCalendar, type CalendarDayEntry } from '../../components/grades/Gr
 import { pageCache } from '../../utils/pageCache';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { GRADES } from '../../components/ambient/loadPhrases';
+import { Nickname } from '../../components/profile/Nickname';
 import {
   buildAverageSeries,
   buildDayIndex,
@@ -348,7 +349,9 @@ export function GradesPage() {
                         >
                           {index + 1}
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-dark-text">{entry.displayName}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          <Nickname color={entry.nicknameColor}>{entry.displayName}</Nickname>
+                        </span>
                         {entry.isCurrentUser && <Badge variant="primary">Это вы</Badge>}
                         <span className="text-sm font-semibold text-dark-textMuted shrink-0">
                           {entry.averageMark != null ? entry.averageMark.toFixed(2) : '—'}

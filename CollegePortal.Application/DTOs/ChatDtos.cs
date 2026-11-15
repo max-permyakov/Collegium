@@ -11,7 +11,8 @@ public record ChatUserDto(
     Guid Id,
     string DisplayName,
     bool HasAvatar,
-    string? StudyGroupName);
+    string? StudyGroupName,
+    string? NicknameColor = null);
 
 public record ChatDto(
     Guid Id,
@@ -34,7 +35,8 @@ public record ChatMessageDto(
     DateTime CreatedAt,
     DateTime? ReadAt,
     DateTime? DeletedAt,
-    DateTime? EditedAt = null);
+    DateTime? EditedAt = null,
+    string? SenderNicknameColor = null);
 
 public record ChatListItemDto(
     Guid Id,

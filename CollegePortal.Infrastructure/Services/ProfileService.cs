@@ -99,7 +99,10 @@ public class ProfileService : IProfileService
             profile?.LastGroupChangedAt,
             user.KepkaCoins,
             user.NicknameColor,
-            rewardCodes
+            rewardCodes,
+            user.AvatarFrameColor,
+            user.ShowAvatarFrame,
+            user.ShowBadges
         );
     }
 
@@ -145,7 +148,10 @@ public class ProfileService : IProfileService
             profile?.AvatarDataUrl,
             clubs,
             user.NicknameColor,
-            rewardCodes
+            rewardCodes,
+            user.AvatarFrameColor,
+            user.ShowAvatarFrame,
+            user.ShowBadges
         );
     }
 

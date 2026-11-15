@@ -148,6 +148,10 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("AvatarFrameColor")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
@@ -235,6 +239,12 @@ namespace CollegePortal.Infrastructure.Migrations
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
+
+                    b.Property<bool>("ShowAvatarFrame")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("ShowBadges")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("TelegramUserName")
                         .HasMaxLength(100)

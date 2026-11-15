@@ -51,7 +51,8 @@ public class RatingService : IRatingService
                 sp.UserId,
                 sp.ExternalStudentId!.Value,
                 sp.AverageMark,
-                sp.User.DisplayName))
+                sp.User.DisplayName,
+                sp.User.NicknameColor))
             .ToListAsync(ct);
 
         var groupSize = await _dbContext.StudentProfiles
@@ -125,7 +126,8 @@ public class RatingService : IRatingService
                 p.UserId,
                 ResolveDisplayName(p),
                 (double)p.AverageMark!.Value,
-                p.UserId == currentUserId))
+                p.UserId == currentUserId,
+                p.NicknameColor))
             .OrderByDescending(e => e.AverageMark ?? 0)
             .ThenBy(e => e.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -153,7 +155,7 @@ public class RatingService : IRatingService
 
                 lock (results)
                 {
-                    results.Add(new RatingEntryDto(p.UserId, ResolveDisplayName(p), match.Mark, p.UserId == currentUserId));
+                    results.Add(new RatingEntryDto(p.UserId, ResolveDisplayName(p), match.Mark, p.UserId == currentUserId, p.NicknameColor));
                 }
             }
             catch (OperationCanceledException)
@@ -183,5 +185,5 @@ public class RatingService : IRatingService
     private static string ResolveDisplayName(Participant p) =>
         string.IsNullOrWhiteSpace(p.DisplayName) ? "Студент" : p.DisplayName;
 
-    private sealed record Participant(Guid UserId, int ExternalStudentId, decimal? AverageMark, string DisplayName);
+    private sealed record Participant(Guid UserId, int ExternalStudentId, decimal? AverageMark, string DisplayName, string? NicknameColor);
 }

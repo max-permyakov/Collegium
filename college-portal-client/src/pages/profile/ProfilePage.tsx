@@ -19,8 +19,9 @@ import { FunLoader } from '../../components/ambient/FunLoader';
 import { PROFILE } from '../../components/ambient/loadPhrases';
 import { ReferralTab } from './ReferralTab';
 import { ProfileSettingsModal } from '../../components/profile/ProfileSettingsModal';
-import { hasAvatarFrame, nicknameClass, profileBadges } from '../../utils/rewards';
-
+import { Nickname } from '../../components/profile/Nickname';
+import { FramedAvatar } from '../../components/profile/FramedAvatar';
+import { visibleBadges } from '../../utils/rewards';
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_BIO_LENGTH = 200;
 
@@ -419,8 +420,6 @@ export function ProfilePage() {
     profile.email && { label: 'Почта', value: profile.email },
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
-  const hasFrame = hasAvatarFrame(profile.rewardCodes);
-
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
       {!isAdminView && (
@@ -453,27 +452,24 @@ export function ProfilePage() {
         <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-6 items-start">
             <div className="flex flex-col items-center gap-3">
-              <div className={hasFrame ? 'avatar-frame' : ''}>
-                {hasFrame && <span className="avatar-frame__spin" aria-hidden="true" />}
-                <div
-                  className={`w-32 h-32 rounded-2xl bg-dark-bg border border-dark-border overflow-hidden flex items-center justify-center ${
-                    hasFrame ? 'avatar-frame__inner' : ''
-                  }`}
-                >
-                  {profile.avatarDataUrl ? (
-                    <img
-                      src={profile.avatarDataUrl}
-                      alt="avatar"
-                      className="w-full h-full object-cover cursor-zoom-in"
-                      onClick={() => setPreviewAvatar(profile.avatarDataUrl || null)}
-                      role="button"
-                    />
-                  ) : (
-                    <span className="text-3xl font-semibold text-dark-textMuted">{profile.displayName.slice(0,2).toUpperCase()}</span>
-                  )}
-                </div>
-                {hasFrame && <span className="avatar-frame__shine" aria-hidden="true" />}
-              </div>
+              <FramedAvatar
+                rewardCodes={profile.rewardCodes}
+                frameColor={profile.avatarFrameColor}
+                enabled={profile.showAvatarFrame}
+                className="w-32 h-32 rounded-2xl bg-dark-bg border border-dark-border overflow-hidden flex items-center justify-center"
+              >
+                {profile.avatarDataUrl ? (
+                  <img
+                    src={profile.avatarDataUrl}
+                    alt="avatar"
+                    className="w-full h-full object-cover cursor-zoom-in"
+                    onClick={() => setPreviewAvatar(profile.avatarDataUrl || null)}
+                    role="button"
+                  />
+                ) : (
+                  <span className="text-3xl font-semibold text-dark-textMuted">{profile.displayName.slice(0,2).toUpperCase()}</span>
+                )}
+              </FramedAvatar>
               {!isAdminView && (
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex flex-wrap justify-center gap-2">
@@ -508,10 +504,8 @@ export function ProfilePage() {
             <div className="flex-1 space-y-3 w-full">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2
-                    className={`text-xl font-semibold text-dark-text ${nicknameClass(profile.nicknameColor)}`}
-                  >
-                    {profile.displayName}
+                  <h2 className="text-xl font-semibold">
+                    <Nickname color={profile.nicknameColor}>{profile.displayName}</Nickname>
                   </h2>
                   <p className="text-dark-textMuted">{profile.login}</p>
                 </div>
@@ -549,7 +543,7 @@ export function ProfilePage() {
                 {!isAdminView && (
                   <Badge variant="warning">🪙 {profile.kepkaCoins ?? 0} KepkaCoin</Badge>
                 )}
-                {profileBadges(profile.rewardCodes).map((badge) => (
+                {visibleBadges(profile.rewardCodes, profile.showBadges).map((badge) => (
                   <Badge key={badge.code} variant={badge.variant} className={badge.className}>
                     {badge.label}
                   </Badge>

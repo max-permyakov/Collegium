@@ -75,7 +75,10 @@ public class ReferralService : IReferralService
             invites.Length,
             invites,
             rewardCodes,
-            user.NicknameColor);
+            user.NicknameColor,
+            user.AvatarFrameColor,
+            user.ShowAvatarFrame,
+            user.ShowBadges);
     }
 
     public async Task<ShopResponseDto?> GetShopAsync(Guid userId, CancellationToken ct = default)
@@ -329,6 +332,78 @@ public class ReferralService : IReferralService
         user.NicknameColor = option.Code;
         await _dbContext.SaveChangesAsync(ct);
         return new NicknameColorResultDto(true, null, option.Code);
+    }
+
+    public async Task<CosmeticsResultDto> SetCosmeticsAsync(
+        Guid userId,
+        SetCosmeticsRequestDto request,
+        CancellationToken ct = default)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null)
+            return new CosmeticsResultDto(false, "Пользователь не найден");
+
+        var changed = false;
+
+        if (request.AvatarFrameColor is not null)
+        {
+            var ownsFrame = await _dbContext.UserPurchases
+                .AsNoTracking()
+                .AnyAsync(
+                    p => p.UserId == userId && p.ItemCode == ReferralShopCatalog.AvatarFrame,
+                    ct);
+            if (!ownsFrame)
+                return new CosmeticsResultDto(false, "Сначала купите рамку в магазине");
+
+            var frame = ReferralShopCatalog.FindFrameColor(request.AvatarFrameColor);
+            if (frame is null)
+                return new CosmeticsResultDto(false, "Такого цвета рамки нет в палитре");
+
+            user.AvatarFrameColor = frame.Code;
+            changed = true;
+        }
+
+        if (request.ShowAvatarFrame is { } showFrame)
+        {
+            if (showFrame && user.AvatarFrameColor is null)
+            {
+                // Enabling the frame without an explicit color simply falls
+                // back to the default gold metal.
+                var ownsFrame = await _dbContext.UserPurchases
+                    .AsNoTracking()
+                    .AnyAsync(
+                        p => p.UserId == userId && p.ItemCode == ReferralShopCatalog.AvatarFrame,
+                        ct);
+                if (!ownsFrame)
+                    return new CosmeticsResultDto(false, "Сначала купите рамку в магазине");
+            }
+
+            user.ShowAvatarFrame = showFrame;
+            changed = true;
+        }
+
+        if (request.ShowBadges is { } showBadges)
+        {
+            user.ShowBadges = showBadges;
+            changed = true;
+        }
+
+        if (request.AvatarFrameColor is not null)
+        {
+            // Picking a color is an explicit intent to wear the frame.
+            user.ShowAvatarFrame = true;
+            changed = true;
+        }
+
+        if (changed)
+            await _dbContext.SaveChangesAsync(ct);
+
+        return new CosmeticsResultDto(
+            true,
+            null,
+            user.AvatarFrameColor,
+            user.ShowAvatarFrame,
+            user.ShowBadges);
     }
 
     public async Task<RewardFileResult?> GetRewardFileAsync(

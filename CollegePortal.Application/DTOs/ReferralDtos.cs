@@ -13,7 +13,10 @@ public record ReferralSummaryDto(
     int TotalInvited,
     ReferralInviteDto[] Invites,
     string[] RewardCodes,
-    string? NicknameColor
+    string? NicknameColor,
+    string? AvatarFrameColor = null,
+    bool ShowAvatarFrame = true,
+    bool ShowBadges = true
 );
 
 public record ShopItemDto(
@@ -61,6 +64,25 @@ public record NicknameColorResultDto(
     bool Success,
     string? Error,
     string? NicknameColor = null
+);
+
+/// <summary>
+/// Appearance settings for the rewards a user already owns. Every field is
+/// optional: only the values present in the request are changed, so the client
+/// can toggle one switch without resending the whole state.
+/// </summary>
+public record SetCosmeticsRequestDto(
+    string? AvatarFrameColor,
+    bool? ShowAvatarFrame,
+    bool? ShowBadges
+);
+
+public record CosmeticsResultDto(
+    bool Success,
+    string? Error,
+    string? AvatarFrameColor = null,
+    bool ShowAvatarFrame = true,
+    bool ShowBadges = true
 );
 
 public record RewardFileResult(

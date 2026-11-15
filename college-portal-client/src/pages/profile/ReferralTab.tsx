@@ -8,21 +8,54 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { formatMoscowDate } from '../../utils/datetime';
 import {
+  AVATAR_FRAME_COLORS,
   NICKNAME_COLOR_GROUPS,
   NICKNAME_COLOR_OPTIONS,
   REWARD_AVATAR_FRAME,
   REWARD_NICKNAME_COLOR,
   REWARD_REPORT_FORMATTER,
+  frameClass,
   hasReward,
   nicknameClass,
+  visibleBadges,
 } from '../../utils/rewards';
 import { RewardPreview } from '../../components/profile/RewardPreview';
 import { saveBlobResponse } from '../../utils/download';
-import type { ReferralSummaryDto, ShopResponseDto } from '../../types';
+import type { ReferralSummaryDto, SetCosmeticsRequest, ShopResponseDto } from '../../types';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { PROFILE } from '../../components/ambient/loadPhrases';
 
 const COIN_ICON = '🪙';
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+        checked ? 'border-emerald-400/60 bg-emerald-500/80' : 'border-dark-border bg-dark-border'
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+}
 
 function CopyIcon({ className }: { className?: string }) {
   return (
@@ -116,6 +149,23 @@ export function ReferralTab() {
     },
   });
 
+  const cosmeticsMutation = useMutation({
+    mutationFn: (payload: SetCosmeticsRequest) => referralsApi.setCosmetics(payload),
+    onSuccess: async (response) => {
+      if (!response.data.success) {
+        toast.error(response.data.error || 'Не удалось сохранить настройки');
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      await queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+      void refreshUser();
+    },
+    onError: (error) => {
+      const e = error as { response?: { data?: { error?: string } } };
+      toast.error(e.response?.data?.error || 'Не удалось сохранить настройки');
+    },
+  });
+
   if (summaryQuery.isLoading || shopQuery.isLoading) {
     return <FunLoader compact pool={PROFILE} label="Загрузка рефералов" />;
   }
@@ -131,6 +181,14 @@ export function ReferralTab() {
   }
 
   const ownsColorPalette = hasReward(summary.rewardCodes, REWARD_NICKNAME_COLOR);
+  const ownsFrame = hasReward(summary.rewardCodes, REWARD_AVATAR_FRAME);
+  const frameColor = summary.avatarFrameColor ?? 'gold';
+  const showFrame = summary.showAvatarFrame !== false;
+  const showBadges = summary.showBadges !== false;
+  const badges = visibleBadges(summary.rewardCodes, showBadges);
+  const ownsBadges = summary.rewardCodes.some(
+    (code) => code === 'ambassador-badge' || code === 'gold-badge',
+  );
 
   return (
     <div className="space-y-6">
@@ -334,6 +392,120 @@ export function ReferralTab() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Рамка аватара</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!ownsFrame ? (
+            <p className="text-sm text-dark-textMuted">
+              Купите «Золотую рамку аватара» в магазине — откроются 12 цветов металла,
+              включая RGB-переливание и северное сияние.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dark-border bg-dark-bg px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-dark-text">
+                    {showFrame ? 'Рамка включена' : 'Рамка отключена'}
+                  </p>
+                  <p className="text-xs text-dark-textMuted">
+                    Можно спрятать рамку, не теряя покупку — включите её снова в любой момент.
+                  </p>
+                </div>
+                <Toggle
+                  checked={showFrame}
+                  label="Показывать рамку аватара"
+                  onChange={(value) => cosmeticsMutation.mutate({ showAvatarFrame: value })}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 rounded-xl border border-dark-border bg-dark-bg px-4 py-3">
+                <div className={`avatar-frame ${frameClass(frameColor)} h-12 w-12 shrink-0`} aria-hidden="true">
+                  <span className="avatar-frame__spin" />
+                  <span className="avatar-frame__inner items-center justify-center bg-dark-card text-sm font-semibold">
+                    Aa
+                  </span>
+                  <span className="avatar-frame__shine" />
+                </div>
+                <p className="text-xs text-dark-textMuted">
+                  Предпросмотр цвета. Изменения сразу видны в профиле и на публичной странице.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {AVATAR_FRAME_COLORS.map((option) => {
+                  const selected = frameColor === option.code;
+                  return (
+                    <button
+                      key={option.code}
+                      type="button"
+                      aria-label={option.title}
+                      aria-pressed={selected}
+                      title={option.title}
+                      disabled={cosmeticsMutation.isPending}
+                      onClick={() => cosmeticsMutation.mutate({ avatarFrameColor: option.code })}
+                      className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-60 ${
+                        selected ? 'scale-110 border-white' : 'border-dark-border'
+                      }`}
+                      style={{ backgroundImage: option.swatch }}
+                    >
+                      <span className="sr-only">{option.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Значки</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!ownsBadges ? (
+            <p className="text-sm text-dark-textMuted">
+              Купите значок амбассадора или золотой значок в магазине — потом его можно будет
+              скрыть или показать здесь в любой момент.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dark-border bg-dark-bg px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-dark-text">
+                    {showBadges ? 'Значки видны' : 'Значки скрыты'}
+                  </p>
+                  <p className="text-xs text-dark-textMuted">
+                    Отключение не отменяет покупку — значки остаются в коллекции.
+                  </p>
+                </div>
+                <Toggle
+                  checked={showBadges}
+                  label="Показывать значки"
+                  onChange={(value) => cosmeticsMutation.mutate({ showBadges: value })}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {badges.length === 0 ? (
+                  <p className="text-xs text-dark-textMuted">
+                    Сейчас значки скрыты. Включите переключатель, чтобы они снова появились.
+                  </p>
+                ) : (
+                  badges.map((badge) => (
+                    <Badge key={badge.code} variant={badge.variant} className={badge.className}>
+                      {badge.label}
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Приглашённые друзья</CardTitle>
         </CardHeader>
         <CardContent>
@@ -370,9 +542,10 @@ export function ReferralTab() {
         </CardContent>
       </Card>
 
-      {hasReward(summary.rewardCodes, REWARD_AVATAR_FRAME) && (
+      {ownsFrame && showFrame && (
         <p className="text-center text-xs text-amber-300/80">
-          ✨ Золотая рамка уже сияет вокруг вашего аватара в профиле.
+          ✨ Рамка «{AVATAR_FRAME_COLORS.find((c) => c.code === frameColor)?.title ?? 'Золото'}»
+          уже сияет вокруг вашего аватара.
         </p>
       )}
     </div>

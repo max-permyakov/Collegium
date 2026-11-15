@@ -66,7 +66,8 @@ public class ChatService : IChatService
             m.CreatedAt,
             m.ReadAt,
             m.DeletedAt,
-            m.EditedAt);
+            m.EditedAt,
+            m.Sender.NicknameColor);
 
     private readonly CollegePortalDbContext _dbContext;
     private readonly INotificationService _notifications;
@@ -138,7 +139,8 @@ public class ChatService : IChatService
                 u.Id,
                 u.DisplayName,
                 u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
-                u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
+                u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null,
+                u.NicknameColor))
             .ToListAsync(ct);
 
         return new ChatSearchResultDto(chats, users.ToArray());
@@ -666,7 +668,8 @@ public class ChatService : IChatService
                 u.Id,
                 u.DisplayName,
                 u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
-                u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
+                u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null,
+                u.NicknameColor))
             .ToDictionaryAsync(u => u.Id, ct);
 
         var lastMessageIds = await _dbContext.ChatMessages.AsNoTracking()
@@ -684,6 +687,7 @@ public class ChatService : IChatService
                 m.ChatId,
                 m.SenderId,
                 m.Sender.DisplayName,
+                m.Sender.NicknameColor,
                 m.Kind,
                 m.Text,
                 m.FileName,
@@ -728,7 +732,8 @@ public class ChatService : IChatService
                     last.CreatedAt,
                     last.ReadAt,
                     last.DeletedAt,
-                    last.EditedAt);
+                    last.EditedAt,
+                    last.NicknameColor);
 
                 return new ChatListItemDto(
                     chat.Id,
@@ -929,7 +934,8 @@ public class ChatService : IChatService
                     u.Id,
                     u.DisplayName,
                     u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
-                    u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
+                    u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null,
+                    u.NicknameColor))
                 .FirstOrDefaultAsync(ct)
             ?? new ChatUserDto(otherId, "Пользователь", false, null);
 
@@ -951,7 +957,8 @@ public class ChatService : IChatService
                 u.Id,
                 u.DisplayName,
                 u.StudentProfile != null && u.StudentProfile.AvatarDataUrl != null,
-                u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null))
+                u.StudentProfile != null && u.StudentProfile.StudyGroup != null ? u.StudentProfile.StudyGroup.Name : null,
+                u.NicknameColor))
             .ToDictionaryAsync(u => u.Id, ct);
 
         var chatIds = chats.Select(c => c.Id).ToArray();
@@ -970,6 +977,7 @@ public class ChatService : IChatService
                 m.Id,
                 m.ChatId,
                 m.SenderId,
+                m.Sender.NicknameColor,
                 m.Kind,
                 m.Text,
                 m.FileName,
@@ -1018,7 +1026,8 @@ public class ChatService : IChatService
                 last.CreatedAt,
                 last.ReadAt,
                 last.DeletedAt,
-                last.EditedAt);
+                last.EditedAt,
+                last.NicknameColor);
 
             items.Add(new ChatListItemDto(
                 chat.Id,
@@ -1136,5 +1145,6 @@ public class ChatService : IChatService
             m.CreatedAt,
             m.ReadAt,
             m.DeletedAt,
-            m.EditedAt);
+            m.EditedAt,
+            m.Sender.NicknameColor);
 }

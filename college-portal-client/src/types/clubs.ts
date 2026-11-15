@@ -22,6 +22,7 @@ export interface ClubMemberDto {
   hasAvatar: boolean;
   isLeader: boolean;
   joinedAt: string;
+  nicknameColor?: string | null;
 }
 
 export interface ClubMessageDto {
@@ -33,6 +34,7 @@ export interface ClubMessageDto {
   text: string;
   createdAt: string;
   updatedAt?: string | null;
+  userNicknameColor?: string | null;
 }
 
 export interface ClubDetailDto {

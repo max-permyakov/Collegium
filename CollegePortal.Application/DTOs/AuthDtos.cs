@@ -38,7 +38,12 @@ public record UserDto(
     AuthMethod[] AuthProviders,
     bool HasDiaryLink,
     bool RequiresProfileSetup,
-    bool EmailConfirmed
+    bool EmailConfirmed,
+    string? NicknameColor = null,
+    string? AvatarFrameColor = null,
+    bool ShowAvatarFrame = true,
+    bool ShowBadges = true,
+    string[]? RewardCodes = null
 );
 
 public record StudentProfileDto(

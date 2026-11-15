@@ -11,6 +11,7 @@ import { KebabMenu } from '../ui/KebabMenu';
 import { formatMoscowDateTime } from '../../utils/datetime';
 import { notifySuccess } from '../../utils/notify';
 import { shortName } from '../../utils/names';
+import { Nickname } from '../profile/Nickname';
 import type { AnnouncementListItem } from '../../types';
 
 interface NewsViewerModalProps {
@@ -163,9 +164,9 @@ export function NewsViewerModal({ announcement, onClose }: NewsViewerModalProps)
                       <Link
                         to={`/users/${c.userId}`}
                         onClick={onClose}
-                        className="text-sm font-medium text-dark-text hover:text-primary-400 transition-colors truncate"
+                        className="text-sm font-medium hover:text-primary-400 transition-colors truncate"
                       >
-                        {shortName(c.userName)}
+                        <Nickname color={c.userNicknameColor}>{shortName(c.userName)}</Nickname>
                       </Link>
                       <span className="text-xs text-dark-textMuted">
                         {formatDateTime(c.createdAt)}{c.updatedAt && ' (изм.)'}

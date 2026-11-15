@@ -183,8 +183,9 @@ public class AuthService : IAuthService
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == user.Id, ct);
         var authProviders = await LoadAuthMethodsAsync(user.Id, studentProfile, ct);
+        var rewardCodes = await LoadRewardCodesAsync(user.Id, ct);
 
-        return ToUserDto(user, roles, studentProfile, authProviders);
+        return ToUserDto(user, roles, studentProfile, authProviders, rewardCodes);
     }
 
     public async Task<LoginResponseDto?> ClaimPrimaryAdminAsync(Guid userId, string secret, CancellationToken ct = default)
@@ -1349,7 +1350,8 @@ public class AuthService : IAuthService
         ApplicationUser user,
         IList<string> roles,
         StudentProfile? profile,
-        AuthMethod[] authProviders)
+        AuthMethod[] authProviders,
+        string[]? rewardCodes = null)
     {
         var hasDiaryLink = profile?.ExternalStudentId != null;
         var isStudent = !roles.Contains("Admin", StringComparer.OrdinalIgnoreCase);
@@ -1380,8 +1382,21 @@ public class AuthService : IAuthService
             authProviders,
             hasDiaryLink,
             isStudent && profile == null,
-            user.EmailConfirmed
-        );
+            user.EmailConfirmed,
+            user.NicknameColor,
+            user.AvatarFrameColor,
+            user.ShowAvatarFrame,
+            user.ShowBadges,
+            rewardCodes ?? []);
+    }
+
+    private async Task<string[]> LoadRewardCodesAsync(Guid userId, CancellationToken ct)
+    {
+        return await _dbContext.UserPurchases
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.ItemCode)
+            .ToArrayAsync(ct);
     }
 
     private async Task<AuthMethod[]> LoadAuthMethodsAsync(
@@ -1413,12 +1428,13 @@ public class AuthService : IAuthService
         var accessExpiresAt = DateTime.UtcNow.Add(AccessTokenLifetime);
         var refreshToken = await CreateRefreshTokenAsync(user.Id, ct);
         var authProviders = await LoadAuthMethodsAsync(user.Id, profile, ct);
+        var rewardCodes = await LoadRewardCodesAsync(user.Id, ct);
 
         return new LoginResponseDto(
             accessToken,
             refreshToken,
             accessExpiresAt,
-            ToUserDto(user, roles, profile, authProviders));
+            ToUserDto(user, roles, profile, authProviders, rewardCodes));
     }
 
     // Generates a cryptographically random opaque token, persists only its

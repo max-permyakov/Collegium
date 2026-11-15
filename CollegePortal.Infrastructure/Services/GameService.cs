@@ -40,7 +40,7 @@ public class GameService : IGameService
             .OrderByDescending(s => s.Score)
             .ThenBy(s => s.BestAt)
             .Take(LeaderboardSize)
-            .Select(s => new { s.UserId, s.User.DisplayName, s.Score, s.BestAt })
+            .Select(s => new { s.UserId, s.User.DisplayName, s.User.NicknameColor, s.Score, s.BestAt })
             .ToListAsync(ct);
 
         var leaderboardEntries = entries
@@ -50,7 +50,8 @@ public class GameService : IGameService
                 e.Score,
                 index + 1,
                 e.UserId == userId,
-                e.BestAt))
+                e.BestAt,
+                e.NicknameColor))
             .ToArray();
 
         int? currentUserRank = null;

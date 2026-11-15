@@ -46,7 +46,8 @@ public class NewsCommentService : INewsCommentService
                 c.User.StudentProfile != null ? c.User.StudentProfile.AvatarDataUrl : null,
                 c.Text,
                 c.CreatedAt,
-                c.UpdatedAt
+                c.UpdatedAt,
+                c.User.NicknameColor
             ))
             .ToArrayAsync(ct);
     }
@@ -119,7 +120,8 @@ public class NewsCommentService : INewsCommentService
             user?.StudentProfile?.AvatarDataUrl,
             comment.Text,
             comment.CreatedAt,
-            comment.UpdatedAt
+            comment.UpdatedAt,
+            user?.NicknameColor
         );
     }
 

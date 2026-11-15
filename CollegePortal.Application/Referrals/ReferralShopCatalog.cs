@@ -16,6 +16,13 @@ public record NicknameColorOption(
     string Hex
 );
 
+/// <summary>Avatar frame color unlocked by the "avatar-frame" shop item.</summary>
+public record AvatarFrameColorOption(
+    string Code,
+    string Title,
+    string Hex
+);
+
 /// <summary>
 /// Code-defined reward catalog. Prices and codes are stable API contracts;
 /// the database only stores which user owns which code.
@@ -92,6 +99,27 @@ public static class ReferralShopCatalog
         new("holo", "Голограмма", "#c084fc")
     ];
 
+    /// <summary>
+    /// Avatar frame colors. The first entry is the default metal (gold); the
+    /// other entries reuse the same metallic CSS treatment with a different
+    /// palette. Stored in <c>ApplicationUser.AvatarFrameColor</c>.
+    /// </summary>
+    public static readonly AvatarFrameColorOption[] AvatarFrameColors =
+    [
+        new("gold", "Золото", "#f7d774"),
+        new("silver", "Серебро", "#e2e8f0"),
+        new("bronze", "Бронза", "#e0a878"),
+        new("platinum", "Платина", "#e9f2ff"),
+        new("emerald", "Изумруд", "#5ef0b0"),
+        new("sapphire", "Сапфир", "#7ab8ff"),
+        new("amethyst", "Аметист", "#c9a3ff"),
+        new("rose", "Роза", "#ff9ec4"),
+        new("ruby", "Рубин", "#ff7a7a"),
+        new("toxic", "Неон", "#a6ff4d"),
+        new("rgb", "RGB-переливание", "#ff4d4d"),
+        new("aurora", "Северное сияние", "#5eead4")
+    ];
+
     public static ReferralShopItemDefinition? Find(string? code) =>
         Items.FirstOrDefault(item => string.Equals(item.Code, code, StringComparison.OrdinalIgnoreCase));
 
@@ -100,5 +128,12 @@ public static class ReferralShopCatalog
 
     public static NicknameColorOption? FindColor(string? code) =>
         NicknameColors.FirstOrDefault(color =>
+            string.Equals(color.Code, code, StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsKnownFrameColor(string? code) =>
+        AvatarFrameColors.Any(color => string.Equals(color.Code, code, StringComparison.OrdinalIgnoreCase));
+
+    public static AvatarFrameColorOption? FindFrameColor(string? code) =>
+        AvatarFrameColors.FirstOrDefault(color =>
             string.Equals(color.Code, code, StringComparison.OrdinalIgnoreCase));
 }

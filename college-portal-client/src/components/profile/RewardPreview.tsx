@@ -3,21 +3,24 @@ import {
   REWARD_AVATAR_FRAME,
   REWARD_GOLD_BADGE,
   REWARD_NICKNAME_COLOR,
+  frameClass,
 } from '../../utils/rewards';
 
 interface RewardPreviewProps {
   code: string;
   icon: string;
+  /** Цвет рамки для живого превью (по умолчанию золото). */
+  frameColor?: string;
 }
 
 /**
- * Живое превью награды в магазине: настоящая золотая рамка, переливающийся
- * никнейм и металлический значок вместо абстрактных эмодзи.
+ * Живое превью награды в магазине: настоящая металлическая рамка,
+ * переливающийся никнейм и металлический значок вместо абстрактных эмодзи.
  */
-export function RewardPreview({ code, icon }: RewardPreviewProps) {
+export function RewardPreview({ code, icon, frameColor }: RewardPreviewProps) {
   if (code === REWARD_AVATAR_FRAME) {
     return (
-      <div className="avatar-frame h-14 w-14 shrink-0" aria-hidden="true">
+      <div className={`avatar-frame ${frameClass(frameColor)} h-14 w-14 shrink-0`} aria-hidden="true">
         <span className="avatar-frame__spin" />
         <span className="avatar-frame__inner items-center justify-center bg-dark-card text-lg">
           🦫

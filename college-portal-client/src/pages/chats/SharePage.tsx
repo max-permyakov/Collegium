@@ -5,6 +5,7 @@ import { avatarUrl, chatsApi } from '../../services/api';
 import { Button } from '../../components/ui/Button';
 import { Avatar } from '../../components/ui/Avatar';
 import { CHAT_TEXT_LIMIT, MAX_MESSAGE_PARTS } from '../../utils/text';
+import { Nickname } from '../../components/profile/Nickname';
 import type { ChatListItemDto } from '../../types/chats';
 
 const SavedIcon = ({ className }: { className?: string }) => (
@@ -109,8 +110,12 @@ export function SharePage() {
               <Avatar src={c.otherUser.hasAvatar ? avatarUrl.user(c.otherUser.id) : undefined} name={c.otherUser.displayName} size="md" />
             )}
             <span className="min-w-0">
-              <span className="block text-sm font-medium text-dark-text truncate">
-                {c.kind === 'Saved' ? 'Избранное' : c.otherUser.displayName}
+              <span className="block text-sm font-medium truncate">
+                {c.kind === 'Saved' ? (
+                  <span className="text-dark-text">Избранное</span>
+                ) : (
+                  <Nickname color={c.otherUser.nicknameColor}>{c.otherUser.displayName}</Nickname>
+                )}
               </span>
               <span className="block text-xs text-dark-textMuted truncate">
                 {c.kind === 'Saved' ? 'Личные заметки' : 'Личный чат'}

@@ -13,6 +13,9 @@ export interface ReferralSummaryDto {
   invites: ReferralInviteDto[];
   rewardCodes: string[];
   nicknameColor?: string | null;
+  avatarFrameColor?: string | null;
+  showAvatarFrame?: boolean;
+  showBadges?: boolean;
 }
 
 export interface ShopItemDto {
@@ -52,4 +55,18 @@ export interface NicknameColorResultDto {
   success: boolean;
   error?: string | null;
   nicknameColor?: string | null;
+}
+
+export interface SetCosmeticsRequest {
+  avatarFrameColor?: string | null;
+  showAvatarFrame?: boolean | null;
+  showBadges?: boolean | null;
+}
+
+export interface CosmeticsResultDto {
+  success: boolean;
+  error?: string | null;
+  avatarFrameColor?: string | null;
+  showAvatarFrame: boolean;
+  showBadges: boolean;
 }

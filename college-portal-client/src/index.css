@@ -667,18 +667,171 @@
   }
 }
 
-/* Золотая рамка аватара: вращающийся металл, блик и искры. */
+/* Рамка аватара: вращающийся металл, блик и искры. Цвет задаётся
+ * переменными: `.avatar-frame.frame-{code}` меняет только палитру. */
 .avatar-frame {
+  --frame-a: #6b3f07;
+  --frame-b: #f7d774;
+  --frame-c: #fffbe6;
+  --frame-d: #d9a12b;
+  --frame-e: #8a5a0c;
+  --frame-ring: rgb(255 240 190 / 0.3);
+  --frame-glow: rgb(251 191 36 / 0.45);
+  --frame-glow-soft: rgb(245 158 11 / 0.28);
+  --frame-spark: #fffbe6;
+
   position: relative;
   display: inline-flex;
   padding: 5px;
   border-radius: 1.4rem;
   overflow: hidden;
   box-shadow:
-    0 0 0 1px rgb(255 240 190 / 0.3),
-    0 0 20px rgb(251 191 36 / 0.45),
-    0 0 46px rgb(245 158 11 / 0.28),
+    0 0 0 1px var(--frame-ring),
+    0 0 20px var(--frame-glow),
+    0 0 46px var(--frame-glow-soft),
     0 12px 26px rgb(0 0 0 / 0.5);
+}
+
+.frame-silver {
+  --frame-a: #5a6472;
+  --frame-b: #e2e8f0;
+  --frame-c: #ffffff;
+  --frame-d: #aeb9c9;
+  --frame-e: #6b7686;
+  --frame-ring: rgb(236 244 255 / 0.4);
+  --frame-glow: rgb(203 213 225 / 0.45);
+  --frame-glow-soft: rgb(148 163 184 / 0.3);
+  --frame-spark: #ffffff;
+}
+
+.frame-bronze {
+  --frame-a: #5c3213;
+  --frame-b: #d98b57;
+  --frame-c: #ffe3c7;
+  --frame-d: #b96b34;
+  --frame-e: #6f3d17;
+  --frame-ring: rgb(255 223 196 / 0.35);
+  --frame-glow: rgb(217 139 87 / 0.45);
+  --frame-glow-soft: rgb(184 105 51 / 0.28);
+  --frame-spark: #ffe9d4;
+}
+
+.frame-platinum {
+  --frame-a: #7c8aa0;
+  --frame-b: #dbeafe;
+  --frame-c: #ffffff;
+  --frame-d: #b8c9de;
+  --frame-e: #8593a8;
+  --frame-ring: rgb(232 243 255 / 0.45);
+  --frame-glow: rgb(191 219 254 / 0.5);
+  --frame-glow-soft: rgb(147 197 253 / 0.3);
+  --frame-spark: #ffffff;
+}
+
+.frame-emerald {
+  --frame-a: #064e3b;
+  --frame-b: #34d399;
+  --frame-c: #d1fae5;
+  --frame-d: #10b981;
+  --frame-e: #065f46;
+  --frame-ring: rgb(209 250 229 / 0.35);
+  --frame-glow: rgb(52 211 153 / 0.45);
+  --frame-glow-soft: rgb(16 185 129 / 0.28);
+  --frame-spark: #d1fae5;
+}
+
+.frame-sapphire {
+  --frame-a: #0b2f6b;
+  --frame-b: #60a5fa;
+  --frame-c: #dbeafe;
+  --frame-d: #3b82f6;
+  --frame-e: #1e3a8a;
+  --frame-ring: rgb(219 234 254 / 0.35);
+  --frame-glow: rgb(96 165 250 / 0.45);
+  --frame-glow-soft: rgb(59 130 246 / 0.28);
+  --frame-spark: #dbeafe;
+}
+
+.frame-amethyst {
+  --frame-a: #3b1a63;
+  --frame-b: #c084fc;
+  --frame-c: #f3e8ff;
+  --frame-d: #a855f7;
+  --frame-e: #4c1d95;
+  --frame-ring: rgb(243 232 255 / 0.35);
+  --frame-glow: rgb(192 132 252 / 0.45);
+  --frame-glow-soft: rgb(168 85 247 / 0.28);
+  --frame-spark: #f3e8ff;
+}
+
+.frame-rose {
+  --frame-a: #6b1230;
+  --frame-b: #fb7185;
+  --frame-c: #ffe4e6;
+  --frame-d: #f43f5e;
+  --frame-e: #7f1d3a;
+  --frame-ring: rgb(255 228 230 / 0.35);
+  --frame-glow: rgb(251 113 133 / 0.45);
+  --frame-glow-soft: rgb(244 63 94 / 0.28);
+  --frame-spark: #ffe4e6;
+}
+
+.frame-ruby {
+  --frame-a: #6b0f0f;
+  --frame-b: #f87171;
+  --frame-c: #fee2e2;
+  --frame-d: #dc2626;
+  --frame-e: #7f1d1d;
+  --frame-ring: rgb(254 226 226 / 0.35);
+  --frame-glow: rgb(248 113 113 / 0.45);
+  --frame-glow-soft: rgb(220 38 38 / 0.28);
+  --frame-spark: #fee2e2;
+}
+
+.frame-toxic {
+  --frame-a: #1a3b06;
+  --frame-b: #a3e635;
+  --frame-c: #f0ffd6;
+  --frame-d: #84cc16;
+  --frame-e: #234d08;
+  --frame-ring: rgb(236 255 209 / 0.4);
+  --frame-glow: rgb(163 230 53 / 0.5);
+  --frame-glow-soft: rgb(101 163 13 / 0.3);
+  --frame-spark: #f0ffd6;
+}
+
+/* RGB-рамка: та же металлическая геометрия, но тон вращается по кругу. */
+.frame-rgb {
+  --frame-b: #ff4d4d;
+  --frame-c: #fff3f3;
+  --frame-d: #4dabf7;
+  --frame-e: #7c3aed;
+  --frame-ring: rgb(255 255 255 / 0.4);
+  --frame-glow: rgb(167 139 250 / 0.5);
+  --frame-glow-soft: rgb(56 189 248 / 0.3);
+  --frame-spark: #ffffff;
+}
+
+.frame-rgb .avatar-frame__spin {
+  animation:
+    avatar-gold-spin 7s linear infinite,
+    avatar-hue 6s linear infinite;
+}
+
+.frame-aurora {
+  --frame-a: #0e4f4a;
+  --frame-b: #5eead4;
+  --frame-c: #d1fae5;
+  --frame-d: #38bdf8;
+  --frame-e: #6d28d9;
+  --frame-ring: rgb(209 250 229 / 0.35);
+  --frame-glow: rgb(94 234 212 / 0.45);
+  --frame-glow-soft: rgb(56 189 248 / 0.3);
+  --frame-spark: #e0f2fe;
+}
+
+.frame-aurora .avatar-frame__spin {
+  animation-duration: 11s;
 }
 
 .avatar-frame__spin {
@@ -687,15 +840,15 @@
   border-radius: 50%;
   background: conic-gradient(
     from 0deg,
-    #6b3f07,
-    #f7d774,
-    #fffbe6,
-    #d9a12b,
-    #8a5a0c,
-    #ffe9a8,
-    #c68a15,
-    #f7dfa0,
-    #6b3f07
+    var(--frame-a),
+    var(--frame-b),
+    var(--frame-c),
+    var(--frame-d),
+    var(--frame-e),
+    var(--frame-b),
+    var(--frame-c),
+    var(--frame-d),
+    var(--frame-a)
   );
   animation: avatar-gold-spin 7s linear infinite;
 }
@@ -708,7 +861,7 @@
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
 }
 
-/* Блик, проходящий по золоту, — поверх аватара, как на настоящем металле. */
+/* Блик, проходящий по металлу, — поверх аватара, как на настоящей отделке. */
 .avatar-frame__shine {
   position: absolute;
   inset: 0;
@@ -736,15 +889,21 @@
   z-index: 3;
   pointer-events: none;
   background-image:
-    radial-gradient(2.5px 2.5px at 16% 14%, #fffbe6, transparent 60%),
-    radial-gradient(2px 2px at 84% 26%, #ffffff, transparent 60%),
-    radial-gradient(2.5px 2.5px at 74% 86%, #ffe9a8, transparent 60%);
+    radial-gradient(2.5px 2.5px at 16% 14%, var(--frame-spark), transparent 60%),
+    radial-gradient(2px 2px at 84% 26%, var(--frame-spark), transparent 60%),
+    radial-gradient(2.5px 2.5px at 74% 86%, var(--frame-spark), transparent 60%);
   animation: avatar-sparkle 3.4s ease-in-out infinite;
 }
 
 @keyframes avatar-gold-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes avatar-hue {
+  to {
+    filter: hue-rotate(360deg);
   }
 }
 

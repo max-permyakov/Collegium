@@ -53,6 +53,7 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.Property(e => e.TelegramUserName).HasMaxLength(100);
             entity.Property(e => e.ReferralCode).HasMaxLength(16);
             entity.Property(e => e.NicknameColor).HasMaxLength(20);
+            entity.Property(e => e.AvatarFrameColor).HasMaxLength(20);
             entity.Property(e => e.RegistrationSource).HasConversion<int>();
             entity.Property(e => e.LastAuthMethod).HasConversion<int?>();
             // PostgreSQL allows multiple NULLs in a unique index, so users

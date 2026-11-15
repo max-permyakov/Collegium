@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { gamesApi } from '../../../services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/Card';
 import { escapeModeById, escapeModes } from './gameModes';
+import { Nickname } from '../../../components/profile/Nickname';
 import type { GameLeaderboard, GameModeId } from '../../../types';
 
 const GAME_ID = 'escape';
@@ -700,7 +701,9 @@ const EscapeGamePage = () => {
                   <span className="w-8 text-center font-semibold text-dark-textMuted">
                     {medalFor(e.rank) ?? e.rank}
                   </span>
-                  <span className="flex-1 truncate">{e.displayName}</span>
+                  <span className="flex-1 truncate">
+                    <Nickname color={e.nicknameColor}>{e.displayName}</Nickname>
+                  </span>
                   <span className="font-mono font-semibold">{formatScore(e.score)}</span>
                 </li>
               ))}

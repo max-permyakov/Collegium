@@ -171,6 +171,9 @@ export interface ProfileDto {
   kepkaCoins: number;
   nicknameColor?: string | null;
   rewardCodes: string[];
+  avatarFrameColor?: string | null;
+  showAvatarFrame?: boolean;
+  showBadges?: boolean;
   studentProfile?: {
     id: string;
     studyGroupId: string;

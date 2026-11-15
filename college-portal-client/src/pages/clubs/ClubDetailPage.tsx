@@ -18,6 +18,7 @@ import { fileToAvatarDataUrl } from '../../utils/image';
 import type { ClubDetailDto, ClubMessageDto, UpdateClubDto } from '../../types';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { CHATS } from '../../components/ambient/loadPhrases';
+import { Nickname } from '../../components/profile/Nickname';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_CLUB_NAME_LENGTH = 20;
@@ -100,7 +101,9 @@ const MessageRow = memo(function MessageRow({
       />
       <div className="flex-1 min-w-0" {...(editing ? {} : longPressHandlers)}>
         <div className="flex flex-wrap items-center gap-x-2">
-          <Link to={`/users/${message.userId}`} className="text-sm font-medium text-dark-text hover:text-primary-400">{shortName(message.userName)}</Link>
+          <Link to={`/users/${message.userId}`} className="text-sm font-medium hover:text-primary-400">
+            <Nickname color={message.userNicknameColor}>{shortName(message.userName)}</Nickname>
+          </Link>
           <span className="text-xs text-dark-textMuted">
             {formatDateTime(message.createdAt)}{message.updatedAt && ' (изм.)'}
           </span>
@@ -698,7 +701,9 @@ export function ClubDetailPage() {
                       onImageClick={() => m.hasAvatar && setPreviewImage(avatarUrl.user(m.userId))}
                     />
                     <div className="flex-1 min-w-0">
-                      <Link to={`/users/${m.userId}`} className="block text-sm text-dark-text truncate hover:text-primary-400">{shortName(m.displayName)}</Link>
+                      <Link to={`/users/${m.userId}`} className="block text-sm truncate hover:text-primary-400">
+                        <Nickname color={m.nicknameColor}>{shortName(m.displayName)}</Nickname>
+                      </Link>
                       {m.isLeader && <span className="text-xs text-primary-400">Глава</span>}
                     </div>
                     {club.canManage && m.userId !== club.ownerId && (

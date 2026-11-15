@@ -26,7 +26,10 @@ public record ProfileDto(
     DateTime? LastGroupChangedAt,
     int KepkaCoins,
     string? NicknameColor,
-    string[] RewardCodes
+    string[] RewardCodes,
+    string? AvatarFrameColor = null,
+    bool ShowAvatarFrame = true,
+    bool ShowBadges = true
 );
 
 public record ProfileUpdateResult(
@@ -56,7 +59,10 @@ public record PublicProfileDto(
     string? AvatarDataUrl,
     PublicClubDto[] Clubs,
     string? NicknameColor,
-    string[] RewardCodes
+    string[] RewardCodes,
+    string? AvatarFrameColor = null,
+    bool ShowAvatarFrame = true,
+    bool ShowBadges = true
 );
 
 public record PublicClubDto(

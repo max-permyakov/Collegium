@@ -33,7 +33,8 @@ public class ClubService : IClubService
             null,
             m.Text,
             m.CreatedAt,
-            m.UpdatedAt);
+            m.UpdatedAt,
+            m.User.NicknameColor);
 
     private readonly CollegePortalDbContext _dbContext;
     private readonly INotificationService _notifications;
@@ -138,7 +139,8 @@ public class ClubService : IClubService
                 m.User.DisplayName,
                 m.User.StudentProfile != null && m.User.StudentProfile.AvatarDataUrl != null,
                 m.IsLeader || m.UserId == club.OwnerId,
-                m.JoinedAt
+                m.JoinedAt,
+                m.User.NicknameColor
             ))
             .ToArrayAsync(ct);
 
@@ -468,11 +470,12 @@ public class ClubService : IClubService
         _dbContext.ClubMessages.Add(message);
         await _dbContext.SaveChangesAsync(ct);
 
-        var userName = await _dbContext.Users
+        var author = await _dbContext.Users
             .AsNoTracking()
             .Where(u => u.Id == userId)
-            .Select(u => u.DisplayName)
-            .FirstOrDefaultAsync(ct) ?? "";
+            .Select(u => new { u.DisplayName, u.NicknameColor })
+            .FirstOrDefaultAsync(ct);
+        var userName = author?.DisplayName ?? "";
 
         // Notify club members asynchronously; a notification failure must not
         // fail the message that has already been saved.
@@ -515,7 +518,8 @@ public class ClubService : IClubService
             null,
             message.Text,
             message.CreatedAt,
-            message.UpdatedAt
+            message.UpdatedAt,
+            author?.NicknameColor
         );
     }
 
@@ -545,11 +549,12 @@ public class ClubService : IClubService
         message.UpdatedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync(ct);
 
-        var userName = await _dbContext.Users
+        var author = await _dbContext.Users
             .AsNoTracking()
             .Where(u => u.Id == message.UserId)
-            .Select(u => u.DisplayName)
-            .FirstOrDefaultAsync(ct) ?? "";
+            .Select(u => new { u.DisplayName, u.NicknameColor })
+            .FirstOrDefaultAsync(ct);
+        var userName = author?.DisplayName ?? "";
 
         return new ClubMessageDto(
             message.Id,
@@ -559,7 +564,8 @@ public class ClubService : IClubService
             null,
             message.Text,
             message.CreatedAt,
-            message.UpdatedAt
+            message.UpdatedAt,
+            author?.NicknameColor
         );
     }
 

@@ -61,7 +61,8 @@ public record NewsCommentDto(
     string? UserAvatar,
     string Text,
     DateTime CreatedAt,
-    DateTime? UpdatedAt
+    DateTime? UpdatedAt,
+    string? UserNicknameColor = null
 );
 
 public record CreateNewsCommentDto(string Text);

@@ -21,6 +21,7 @@ import {
 import type { ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto } from '../../types/chats';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { CHATS } from '../../components/ambient/loadPhrases';
+import { Nickname } from '../../components/profile/Nickname';
 
 const PAGE_SIZE = 30;
 const POLL_MS = 2500;
@@ -1369,7 +1370,9 @@ export function ChatConversation({
           <div className="flex items-center gap-3 min-w-0">
             <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
+              <p className="text-sm font-semibold truncate">
+                <Nickname color={chat.otherUser.nicknameColor}>{chat.otherUser.displayName}</Nickname>
+              </p>
               <p className="text-xs text-dark-textMuted truncate hidden sm:block">
                 {chat.otherUser.studyGroupName
                   ? `${chat.otherUser.studyGroupName} · обращение в поддержку`
@@ -1381,7 +1384,9 @@ export function ChatConversation({
           <Link to={`/users/${chat.otherUser.id}`} className="flex items-center gap-3 min-w-0 hover:opacity-80 transition-opacity">
             <Avatar src={chat.otherUser.hasAvatar ? avatarUrl.user(chat.otherUser.id) : undefined} name={chat.otherUser.displayName} size="md" />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-dark-text truncate">{chat.otherUser.displayName}</p>
+              <p className="text-sm font-semibold truncate">
+                <Nickname color={chat.otherUser.nicknameColor}>{chat.otherUser.displayName}</Nickname>
+              </p>
               <p className="text-xs text-dark-textMuted truncate">{partnerStatusText ?? 'Перейти в профиль'}</p>
             </div>
           </Link>
@@ -1627,8 +1632,12 @@ export function ChatConversation({
                   ) : (
                     <Avatar src={c.otherUser.hasAvatar ? avatarUrl.user(c.otherUser.id) : undefined} name={c.otherUser.displayName} size="sm" />
                   )}
-                  <span className="min-w-0 text-sm text-dark-text truncate">
-                    {c.kind === 'Saved' ? 'Избранное' : c.otherUser.displayName}
+                  <span className="min-w-0 text-sm truncate">
+                    {c.kind === 'Saved' ? (
+                      <span className="text-dark-text">Избранное</span>
+                    ) : (
+                      <Nickname color={c.otherUser.nicknameColor}>{c.otherUser.displayName}</Nickname>
+                    )}
                   </span>
                 </button>
               ))}

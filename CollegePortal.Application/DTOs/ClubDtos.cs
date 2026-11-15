@@ -21,7 +21,8 @@ public record ClubMemberDto(
     string DisplayName,
     bool HasAvatar,
     bool IsLeader,
-    DateTime JoinedAt
+    DateTime JoinedAt,
+    string? NicknameColor = null
 );
 
 public record ClubMessageDto(
@@ -32,7 +33,8 @@ public record ClubMessageDto(
     string? UserAvatar,
     string Text,
     DateTime CreatedAt,
-    DateTime? UpdatedAt
+    DateTime? UpdatedAt,
+    string? UserNicknameColor = null
 );
 
 public record ClubDetailDto(

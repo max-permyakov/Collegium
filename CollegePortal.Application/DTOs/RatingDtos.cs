@@ -4,7 +4,8 @@ public record RatingEntryDto(
     Guid UserId,
     string DisplayName,
     double? AverageMark,
-    bool IsCurrentUser
+    bool IsCurrentUser,
+    string? NicknameColor = null
 );
 
 public record GroupRatingDto(

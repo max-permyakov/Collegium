@@ -25,6 +25,15 @@ public interface IReferralService
         CancellationToken ct = default);
 
     /// <summary>
+    /// Updates the visual settings of owned rewards: frame color, frame on/off
+    /// and badges on/off. Null fields are left untouched.
+    /// </summary>
+    Task<CosmeticsResultDto> SetCosmeticsAsync(
+        Guid userId,
+        SetCosmeticsRequestDto request,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Returns the configured protected file for an owned downloadable reward,
     /// or null when the item does not exist or is not owned.
     /// </summary>

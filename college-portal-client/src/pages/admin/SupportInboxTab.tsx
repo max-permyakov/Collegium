@@ -9,6 +9,7 @@ import { ChatConversation } from '../chats/ChatDetailPage';
 import type { ChatListItemDto } from '../../types/chats';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { ADMIN } from '../../components/ambient/loadPhrases';
+import { Nickname } from '../../components/profile/Nickname';
 
 const INBOX_POLL_MS = 5000;
 
@@ -114,8 +115,8 @@ export function SupportInboxTab() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className={`text-sm truncate ${unread > 0 ? 'font-semibold text-dark-text' : 'font-medium text-dark-text'}`}>
-                      {chat.otherUser.displayName}
+                    <p className={`text-sm truncate ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>
+                      <Nickname color={chat.otherUser.nicknameColor}>{chat.otherUser.displayName}</Nickname>
                     </p>
                     {last && <span className="text-xs text-dark-textMuted shrink-0">{itemTime(last.createdAt)}</span>}
                   </div>

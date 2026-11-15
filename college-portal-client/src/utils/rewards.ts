@@ -46,15 +46,44 @@ export const NICKNAME_COLOR_OPTIONS: NicknameColorOption[] = [
 export const NICKNAME_COLOR_GROUPS: { title: string; hint: string; options: NicknameColorOption[] }[] = [
   {
     title: 'Спокойные цвета',
-    hint: 'ровный цвет',
+    hint: 'Ровный цвет без анимации',
     options: FLAT_NICKNAME_COLORS,
   },
   {
     title: 'Переливание',
-    hint: 'Для настоящих ценителей',
+    hint: 'Живой градиент, который двигается по буквам',
     options: ANIMATED_NICKNAME_COLORS,
   },
 ];
+
+export interface AvatarFrameColorOption {
+  code: string;
+  title: string;
+  /** Цвет для миниатюры-образца. */
+  swatch: string;
+}
+
+/**
+ * Цвета рамки. Коды должны совпадать с `ReferralShopCatalog.AvatarFrameColors`
+ * на сервере; CSS-класс — `frame-{code}` в `index.css`.
+ */
+export const AVATAR_FRAME_COLORS: AvatarFrameColorOption[] = [
+  { code: 'gold', title: 'Золото', swatch: '#f7d774' },
+  { code: 'silver', title: 'Серебро', swatch: '#e2e8f0' },
+  { code: 'bronze', title: 'Бронза', swatch: '#d98b57' },
+  { code: 'platinum', title: 'Платина', swatch: '#dbeafe' },
+  { code: 'emerald', title: 'Изумруд', swatch: '#34d399' },
+  { code: 'sapphire', title: 'Сапфир', swatch: '#60a5fa' },
+  { code: 'amethyst', title: 'Аметист', swatch: '#c084fc' },
+  { code: 'rose', title: 'Роза', swatch: '#fb7185' },
+  { code: 'ruby', title: 'Рубин', swatch: '#f87171' },
+  { code: 'toxic', title: 'Неон', swatch: '#a3e635' },
+  { code: 'rgb', title: 'RGB-переливание', swatch: 'conic-gradient(from 0deg, #ff4d4d, #ffd166, #69db7c, #4dabf7, #b197fc, #ff4d4d)' },
+  { code: 'aurora', title: 'Северное сияние', swatch: 'linear-gradient(135deg, #5eead4, #38bdf8, #a78bfa)' },
+];
+
+/** Совместимость: базовый код цветной рамки (без префикса класса). */
+export const DEFAULT_FRAME_COLOR = 'gold';
 
 export const REWARD_REPORT_FORMATTER = 'report-formatter';
 export const REWARD_AMBASSADOR_BADGE = 'ambassador-badge';
@@ -68,6 +97,28 @@ export function nicknameClass(code?: string | null): string {
   const option = NICKNAME_COLOR_OPTIONS.find((item) => item.code === code);
   if (!option) return '';
   return option.animated ? `nick-${option.code} nick-gradient` : `nick-${option.code}`;
+}
+
+/** CSS-класс цвета рамки. Неизвестный код → золото по умолчанию. */
+export function frameClass(code?: string | null): string {
+  const known = AVATAR_FRAME_COLORS.some((item) => item.code === code);
+  return `frame-${known ? code : DEFAULT_FRAME_COLOR}`;
+}
+
+/**
+ * Итоговые классы рамки: `avatar-frame` + цвет, либо пустая строка, если
+ * рамка не куплена или отключена в настройках.
+ */
+export function avatarFrameClass(
+  codes: string[] | null | undefined,
+  options?: {
+    color?: string | null;
+    enabled?: boolean | null;
+  },
+): string {
+  if (!hasReward(codes, REWARD_AVATAR_FRAME)) return '';
+  if (options?.enabled === false) return '';
+  return `avatar-frame ${frameClass(options?.color)}`;
 }
 
 export function hasReward(codes: string[] | null | undefined, code: string): boolean {
@@ -101,4 +152,13 @@ export function profileBadges(codes: string[] | null | undefined): ProfileBadge[
     });
   }
   return badges;
+}
+
+/** Значки с учётом персональной настройки «показывать значки». */
+export function visibleBadges(
+  codes: string[] | null | undefined,
+  showBadges?: boolean | null,
+): ProfileBadge[] {
+  if (showBadges === false) return [];
+  return profileBadges(codes);
 }

@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AchievementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, DiaryCredentialsDto, ReferralSummaryDto, ShopResponseDto, PurchaseResultDto, ClaimReferralResultDto, ReferralCodeValidationDto, NicknameColorResultDto, AdminReferralDashboardDto, AdminGrantCoinsResultDto } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AchievementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, DiaryCredentialsDto, ReferralSummaryDto, ShopResponseDto, PurchaseResultDto, ClaimReferralResultDto, ReferralCodeValidationDto, NicknameColorResultDto, SetCosmeticsRequest, CosmeticsResultDto, AdminReferralDashboardDto, AdminGrantCoinsResultDto } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -220,6 +220,8 @@ export const referralsApi = {
     api.get<ReferralCodeValidationDto>(`/referrals/validate/${encodeURIComponent(code)}`),
   setNicknameColor: (color: string | null) =>
     api.put<NicknameColorResultDto>('/referrals/me/nickname-color', { color }),
+  setCosmetics: (data: SetCosmeticsRequest) =>
+    api.put<CosmeticsResultDto>('/referrals/me/cosmetics', data),
   downloadReward: (code: string) =>
     api.get<Blob>(`/referrals/rewards/${encodeURIComponent(code)}/download`, {
       responseType: 'blob',

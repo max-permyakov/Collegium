@@ -1,3 +1,4 @@
+using CollegePortal.Application.DTOs;
 using CollegePortal.Application.Referrals;
 using CollegePortal.Domain.Entities;
 using CollegePortal.Domain.Enums;
@@ -397,6 +398,104 @@ public class ReferralServiceTests : IDisposable
         dashboard.RecentInvites[0].InviteeName.Should().Be(invitee.DisplayName);
         dashboard.RecentPurchases.Should().HaveCount(2);
         dashboard.RecentTransactions.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task SetCosmeticsAsync_RequiresTheFramePurchaseAndStoresTheColor()
+    {
+        var user = NewUser("stylist");
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        var denied = await _service.SetCosmeticsAsync(
+            user.Id,
+            new SetCosmeticsRequestDto("emerald", null, null));
+        denied.Success.Should().BeFalse();
+        denied.Error.Should().Contain("рамку");
+
+        _db.UserPurchases.Add(new UserPurchase
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            ItemCode = ReferralShopCatalog.AvatarFrame,
+            PricePaid = 3
+        });
+        await _db.SaveChangesAsync();
+
+        var allowed = await _service.SetCosmeticsAsync(
+            user.Id,
+            new SetCosmeticsRequestDto("EMERALD", null, null));
+        allowed.Success.Should().BeTrue();
+        allowed.AvatarFrameColor.Should().Be("emerald");
+        allowed.ShowAvatarFrame.Should().BeTrue();
+
+        var stored = await _db.Users.AsNoTracking().SingleAsync(u => u.Id == user.Id);
+        stored.AvatarFrameColor.Should().Be("emerald");
+        stored.ShowAvatarFrame.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SetCosmeticsAsync_TogglesVisibilityWithoutLosingThePurchase()
+    {
+        var user = NewUser("stylist");
+        _db.Users.Add(user);
+        _db.UserPurchases.AddRange(
+            new UserPurchase
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                ItemCode = ReferralShopCatalog.AvatarFrame,
+                PricePaid = 3
+            },
+            new UserPurchase
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                ItemCode = ReferralShopCatalog.GoldBadge,
+                PricePaid = 5
+            });
+        await _db.SaveChangesAsync();
+
+        var hidden = await _service.SetCosmeticsAsync(
+            user.Id,
+            new SetCosmeticsRequestDto(null, false, false));
+
+        hidden.Success.Should().BeTrue();
+        hidden.ShowAvatarFrame.Should().BeFalse();
+        hidden.ShowBadges.Should().BeFalse();
+        hidden.AvatarFrameColor.Should().BeNull();
+
+        var restored = await _service.SetCosmeticsAsync(
+            user.Id,
+            new SetCosmeticsRequestDto(null, true, true));
+
+        restored.Success.Should().BeTrue();
+        restored.ShowAvatarFrame.Should().BeTrue();
+        restored.ShowBadges.Should().BeTrue();
+
+        (await _db.UserPurchases.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task SetCosmeticsAsync_RejectsUnknownFrameColors()
+    {
+        var user = NewUser("stylist");
+        _db.Users.Add(user);
+        _db.UserPurchases.Add(new UserPurchase
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            ItemCode = ReferralShopCatalog.AvatarFrame,
+            PricePaid = 3
+        });
+        await _db.SaveChangesAsync();
+
+        var result = await _service.SetCosmeticsAsync(
+            user.Id,
+            new SetCosmeticsRequestDto("ultraviolet", null, null));
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("палитре");
     }
 
     private static ApplicationUser NewUser(string name)
