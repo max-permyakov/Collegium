@@ -38,7 +38,7 @@ public class PushController : ControllerBase
         {
             enabled = _options.IsConfigured,
             // The public key is not a secret; the private key never leaves the server.
-            publicKey = _options.IsConfigured ? _options.PublicKey : null
+            publicKey = _options.IsConfigured ? _options.EffectivePublicKey : null
         });
 
     public sealed class SubscribeRequest

@@ -11,6 +11,7 @@ import { Lightbox } from '../../components/ui/Lightbox';
 import type { PublicProfileDto } from '../../types';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { PROFILE } from '../../components/ambient/loadPhrases';
+import { hasAvatarFrame, nicknameClass, profileBadges } from '../../utils/rewards';
 
 const headmanLabel = (role: string): string | null =>
   role === 'Headman' ? 'Староста' : role === 'Deputy' ? 'Зам. старосты' : null;
@@ -55,6 +56,7 @@ export function PublicProfilePage({ userId }: { userId: string }) {
   }
 
   const headman = headmanLabel(profile.headmanRole);
+  const hasFrame = hasAvatarFrame(profile.rewardCodes);
 
   return (
     <div className="space-y-6">
@@ -74,18 +76,31 @@ export function PublicProfilePage({ userId }: { userId: string }) {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-6 items-start">
-            <Avatar
-              src={profile.avatarDataUrl || undefined}
-              name={profile.displayName}
-              size="xl"
-              className="rounded-2xl w-32 h-32"
-              onImageClick={() => profile.avatarDataUrl && setPreviewAvatar(profile.avatarDataUrl)}
-            />
+            <div className={hasFrame ? 'avatar-frame' : ''}>
+              {hasFrame && <span className="avatar-frame__spin" aria-hidden="true" />}
+              <Avatar
+                src={profile.avatarDataUrl || undefined}
+                name={profile.displayName}
+                size="xl"
+                className={`rounded-2xl w-32 h-32 ${hasFrame ? 'avatar-frame__inner' : ''}`}
+                onImageClick={() => profile.avatarDataUrl && setPreviewAvatar(profile.avatarDataUrl)}
+              />
+              {hasFrame && <span className="avatar-frame__shine" aria-hidden="true" />}
+            </div>
             <div className="flex-1 space-y-3">
-              <h2 className="text-xl font-semibold text-dark-text">{profile.displayName}</h2>
+              <h2
+                className={`text-xl font-semibold text-dark-text ${nicknameClass(profile.nicknameColor)}`}
+              >
+                {profile.displayName}
+              </h2>
               <div className="flex flex-wrap gap-2">
                 {headman && <Badge variant="info">{headman}</Badge>}
                 {profile.studyGroupName && <Badge variant="primary">Группа: {profile.studyGroupName}</Badge>}
+                {profileBadges(profile.rewardCodes).map((badge) => (
+                  <Badge key={badge.code} variant={badge.variant} className={badge.className}>
+                    {badge.label}
+                  </Badge>
+                ))}
               </div>
               {user && user.id !== profile.id && (
                 <div>

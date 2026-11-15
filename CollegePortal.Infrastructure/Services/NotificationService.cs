@@ -27,7 +27,8 @@ public class NotificationService : INotificationService
         NotificationType.Assignment,
         NotificationType.ClubMessage,
         NotificationType.Comment,
-        NotificationType.ChatMessage
+        NotificationType.ChatMessage,
+        NotificationType.Referral
     ];
 
     private readonly CollegePortalDbContext _dbContext;

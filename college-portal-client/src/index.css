@@ -563,3 +563,252 @@
     transform: translateX(130%);
   }
 }
+
+/* ===== Награды за KepkaCoin ===== */
+
+/* Палитра никнейма: 16 плоских цветов. */
+.nick-violet { color: #a78bfa; }
+.nick-indigo { color: #818cf8; }
+.nick-blue { color: #60a5fa; }
+.nick-sky { color: #38bdf8; }
+.nick-cyan { color: #22d3ee; }
+.nick-teal { color: #2dd4bf; }
+.nick-emerald { color: #34d399; }
+.nick-lime { color: #a3e635; }
+.nick-amber { color: #fbbf24; }
+.nick-orange { color: #fb923c; }
+.nick-rose { color: #fb7185; }
+.nick-pink { color: #f472b6; }
+.nick-fuchsia { color: #e879f9; }
+.nick-red { color: #f87171; }
+.nick-pearl { color: #f8fafc; }
+.nick-slate { color: #cbd5e1; }
+
+/*
+ * Четыре переливающихся варианта. Градиент повторяется и сдвигается ровно на
+ * свою ширину, поэтому петля анимации бесшовная: первый и последний цвет
+ * каждого градиента совпадают.
+ */
+.nick-rgb,
+.nick-gold,
+.nick-aurora,
+.nick-holo {
+  background-size: 200% 100%;
+  background-repeat: repeat;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: nickname-flow 6s linear infinite;
+}
+
+.nick-rgb {
+  background-image: linear-gradient(
+    90deg,
+    #ff4d4d,
+    #ffa94d,
+    #ffe066,
+    #69db7c,
+    #4dabf7,
+    #b197fc,
+    #ff7ac6,
+    #ff4d4d
+  );
+  animation-duration: 5s;
+}
+
+.nick-gold {
+  background-image: linear-gradient(
+    90deg,
+    #7a4a06,
+    #f7d774,
+    #fffbe6,
+    #d9a12b,
+    #8a5a0c,
+    #ffe9a8,
+    #c68a15,
+    #7a4a06
+  );
+  animation-duration: 4.5s;
+}
+
+.nick-aurora {
+  background-image: linear-gradient(
+    90deg,
+    #5eead4,
+    #34d399,
+    #38bdf8,
+    #818cf8,
+    #a78bfa,
+    #5eead4
+  );
+  animation-duration: 9s;
+}
+
+.nick-holo {
+  background-image: linear-gradient(
+    90deg,
+    #ff7ac6,
+    #7af0ff,
+    #b49bff,
+    #ffd17a,
+    #ff7ac6
+  );
+  animation-duration: 6s;
+}
+
+@keyframes nickname-flow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+/* Золотая рамка аватара: вращающийся металл, блик и искры. */
+.avatar-frame {
+  position: relative;
+  display: inline-flex;
+  padding: 5px;
+  border-radius: 1.4rem;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgb(255 240 190 / 0.3),
+    0 0 20px rgb(251 191 36 / 0.45),
+    0 0 46px rgb(245 158 11 / 0.28),
+    0 12px 26px rgb(0 0 0 / 0.5);
+}
+
+.avatar-frame__spin {
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #6b3f07,
+    #f7d774,
+    #fffbe6,
+    #d9a12b,
+    #8a5a0c,
+    #ffe9a8,
+    #c68a15,
+    #f7dfa0,
+    #6b3f07
+  );
+  animation: avatar-gold-spin 7s linear infinite;
+}
+
+.avatar-frame__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  border-radius: calc(1.4rem - 5px);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+}
+
+/* Блик, проходящий по золоту, — поверх аватара, как на настоящем металле. */
+.avatar-frame__shine {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background-image: linear-gradient(
+    115deg,
+    transparent 34%,
+    rgb(255 255 255 / 0.45) 47%,
+    rgb(255 255 255 / 0.9) 50%,
+    rgb(255 255 255 / 0.45) 53%,
+    transparent 66%
+  );
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  animation: avatar-gold-sheen 5.5s ease-in-out infinite;
+}
+
+/* Мелкие искры по углам рамки. */
+.avatar-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image:
+    radial-gradient(2.5px 2.5px at 16% 14%, #fffbe6, transparent 60%),
+    radial-gradient(2px 2px at 84% 26%, #ffffff, transparent 60%),
+    radial-gradient(2.5px 2.5px at 74% 86%, #ffe9a8, transparent 60%);
+  animation: avatar-sparkle 3.4s ease-in-out infinite;
+}
+
+@keyframes avatar-gold-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes avatar-gold-sheen {
+  0% {
+    background-position: -120% 50%;
+  }
+  55%,
+  100% {
+    background-position: 220% 50%;
+  }
+}
+
+@keyframes avatar-sparkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  40% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.55;
+  }
+}
+
+/* Золотой значок: металлический градиент с медленным блеском. */
+.badge-gold {
+  background-image: linear-gradient(
+    120deg,
+    #7a4a06,
+    #f7d774 28%,
+    #fffbe6 50%,
+    #e0a92a 72%,
+    #7a4a06
+  );
+  background-size: 200% 100%;
+  border: 1px solid rgb(255 240 190 / 0.55);
+  color: #2b1a02;
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.35);
+  box-shadow:
+    0 0 12px rgb(251 191 36 / 0.35),
+    inset 0 0 6px rgb(255 255 255 / 0.35);
+  animation: badge-gold-sheen 7s linear infinite;
+}
+
+@keyframes badge-gold-sheen {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nick-rgb,
+  .nick-gold,
+  .nick-aurora,
+  .nick-holo,
+  .avatar-frame__spin,
+  .avatar-frame__shine,
+  .avatar-frame::after,
+  .badge-gold {
+    animation: none;
+  }
+}

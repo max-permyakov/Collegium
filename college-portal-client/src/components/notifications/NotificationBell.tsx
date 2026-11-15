@@ -87,6 +87,14 @@ const TYPE_STYLES: Record<AppNotificationType, { icon: ReactNode; className: str
   ClubMessage: { icon: <ClubIcon className="w-4 h-4" />, className: 'bg-emerald-500/15 text-emerald-400' },
   Comment: { icon: <CommentIcon className="w-4 h-4" />, className: 'bg-violet-500/15 text-violet-400' },
   ChatMessage: { icon: <ChatMessageIcon className="w-4 h-4" />, className: 'bg-rose-500/15 text-rose-400' },
+  Referral: {
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12v9H4v-9m16 0l-8-4-8 4m16 0H4m8-4v13M8 8a2 2 0 110-4c1.5 0 4 4 4 4M16 8a2 2 0 100-4c-1.5 0-4 4-4 4" />
+      </svg>
+    ),
+    className: 'bg-amber-500/15 text-amber-400',
+  },
   System: { icon: <SystemIcon className="w-4 h-4" />, className: 'bg-primary-500/15 text-primary-400' },
 };
 

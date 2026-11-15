@@ -60,7 +60,9 @@ public class Program
                 policy.WithOrigins(allowedOrigins)
                       .AllowAnyMethod()
                       .AllowAnyHeader()
-                      .AllowCredentials());
+                      .AllowCredentials()
+                      // Lets the client reuse the server-provided download name.
+                      .WithExposedHeaders("Content-Disposition"));
         });
 
         // Rate limiting for authentication endpoints (per client IP).

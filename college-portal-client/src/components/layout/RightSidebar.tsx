@@ -179,11 +179,14 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
         className={`fixed right-0 top-0 h-full z-40 hidden lg:flex flex-col bg-dark-card border-l border-dark-border transition-[width] duration-300 ${collapsed ? 'w-16' : 'w-64'}`}
         aria-label="Навигация"
       >
-        <div className={`flex border-b border-dark-border flex-shrink-0 ${collapsed ? 'flex-col items-center justify-center gap-1 py-2' : 'items-center justify-between h-16 px-4'}`}>
+        
+        <div  className={`flex border-b border-dark-border flex-shrink-0 ${collapsed ? 'flex-col items-center justify-center gap-1 py-2' : 'items-center justify-between h-16 px-4'}`}>
+          <a href='/'>
           <div className={`flex items-center gap-3 ${collapsed ? 'hidden' : ''}`}>
             <img src={logo} alt="KKEP.ka" className="w-10 h-10 rounded-xl  object-contain flex-shrink-0" />
             <span className="text-lg font-semibold text-dark-text">KKEP.ka</span>
           </div>
+          </a>
           {collapsed && (
             <img src={logo} alt="KKEP.ka" className="w-9 h-9 rounded-xl  object-contain flex-shrink-0" />
           )}
@@ -224,9 +227,10 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
             ))}
           </ul>
         </nav>
-
+        
         <div className={`p-4 border-t border-dark-border ${collapsed ? 'flex flex-col items-center gap-3' : 'space-y-3'}`}>
-          {user && (
+          
+          <a href='/profile'>{user && (
             collapsed ? (
               <Avatar src={user.studentProfile?.avatarDataUrl || undefined} name={user.displayName} size="md" />
             ) : (
@@ -239,6 +243,7 @@ export function RightSidebar({ collapsed, onToggle }: RightSidebarProps) {
               </div>
             )
           )}
+          </a>
           <Button
             variant="ghost"
             className={`text-red-400 hover:bg-red-500/10 ${collapsed ? 'w-10 h-10 p-0 justify-center' : 'w-full justify-start gap-3'}`}

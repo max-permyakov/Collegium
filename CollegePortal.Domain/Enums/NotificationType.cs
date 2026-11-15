@@ -7,5 +7,6 @@ public enum NotificationType
     Assignment = 2,
     ClubMessage = 3,
     Comment = 4,
-    ChatMessage = 5
+    ChatMessage = 5,
+    Referral = 6
 }

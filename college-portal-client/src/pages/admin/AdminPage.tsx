@@ -12,6 +12,7 @@ import { NewsImageField } from '../../components/news/NewsImageField';
 import { shortName } from '../../utils/names';
 import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { StatisticsTab } from './StatisticsTab';
+import { ReferralsTab } from './ReferralsTab';
 import { UsersTab } from './UsersTab';
 import { AuditTab } from './AuditTab';
 import { ClubsTab } from './ClubsTab';
@@ -278,7 +279,7 @@ export function AdminPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-dark-text">Панель администратора</h1>
-          <p className="text-dark-textMuted">Пользователи, поддержка, статистика, аудит, новости и задания</p>
+          <p className="text-dark-textMuted">Пользователи, поддержка, статистика, рефералы, аудит, новости и задания</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canManageNews && (
@@ -320,6 +321,7 @@ export function AdminPage() {
               </TabsTrigger>
             )}
             {canManageUsers && <TabsTrigger value="statistics">📊 Статистика</TabsTrigger>}
+            {canManageUsers && <TabsTrigger value="referrals">🪙 Рефералы</TabsTrigger>}
             {canManageUsers && <TabsTrigger value="users">👥 Пользователи</TabsTrigger>}
             {canViewAudit && <TabsTrigger value="audit">🕓 Аудит</TabsTrigger>}
             {canManageNews && <TabsTrigger value="news">📰 Новости</TabsTrigger>}
@@ -338,6 +340,12 @@ export function AdminPage() {
         {canManageUsers && (
           <TabsContent value="statistics">
             <StatisticsTab />
+          </TabsContent>
+        )}
+
+        {canManageUsers && (
+          <TabsContent value="referrals">
+            <ReferralsTab />
           </TabsContent>
         )}
 

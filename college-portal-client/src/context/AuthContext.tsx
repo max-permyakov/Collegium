@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { authApi, permissionsApi } from '../services/api';
+import { toast } from 'sonner';
+import { authApi, permissionsApi, referralsApi } from '../services/api';
 import { removePushBinding, syncPushBinding, maybePromptPush } from '../services/push';
 import type { User, LoginRequest, Permission } from '../types';
 import { ALL_PERMISSIONS } from '../types';
 import { pageCache } from '../utils/pageCache';
+import { clearReferralCode, readReferralCode } from '../utils/referralCode';
 
 interface AuthContextType {
   user: User | null;
@@ -106,6 +108,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     void syncPushBinding();
   }, [userId]);
+
+  // A referral code captured on /r/:code is claimed once a session exists,
+  // i.e. right after login or registration. The server only accepts codes for
+  // fresh accounts, so an existing user simply gets a logical error.
+  useEffect(() => {
+    if (!userId) return;
+    const stored = readReferralCode();
+    if (!stored) return;
+
+    let cancelled = false;
+    void referralsApi
+      .claim(stored)
+      .then(({ data }) => {
+        if (cancelled) return;
+        clearReferralCode();
+        if (data.success) {
+          toast.success('Вам подарена программа для оформления отчётов');
+          void refreshUser();
+          void queryClient.invalidateQueries({ queryKey: ['referrals'] });
+          void queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
+        }
+      })
+      .catch(() => {
+        // Network failure: keep the code so the next session can retry.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, refreshUser, queryClient]);
 
   const applySignedIn = useCallback((signedIn: User) => {
     queryClient.clear();

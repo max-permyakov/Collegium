@@ -51,9 +51,11 @@ services:
       PushServiceClient__Subject: ${PUSH_VAPID_SUBJECT:-mailto:admin@example.com}
       DataProtection__KeysPath: /keys
       Chat__FilesRoot: /data/chat-files
+      Referrals__RewardsRoot: /data/rewards
       Database__AutoMigrate: "true"
     volumes:
       - chatfiles:/data/chat-files
+      - rewardfiles:/data/rewards
       - dpkeys:/keys
     depends_on:
       - db
@@ -115,6 +117,7 @@ services:
 volumes:
   pgdata:
   chatfiles:
+  rewardfiles:
   dpkeys:
   caddy_data:
   caddy_config:

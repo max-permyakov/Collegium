@@ -38,6 +38,9 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<ChatUpload> ChatUploads => Set<ChatUpload>();
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+    public DbSet<Referral> Referrals => Set<Referral>();
+    public DbSet<UserPurchase> UserPurchases => Set<UserPurchase>();
+    public DbSet<CoinTransaction> CoinTransactions => Set<CoinTransaction>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -48,8 +51,18 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             entity.Property(e => e.DisplayName).HasMaxLength(200);
             entity.Property(e => e.Role).HasMaxLength(50);
             entity.Property(e => e.TelegramUserName).HasMaxLength(100);
+            entity.Property(e => e.ReferralCode).HasMaxLength(16);
+            entity.Property(e => e.NicknameColor).HasMaxLength(20);
             entity.Property(e => e.RegistrationSource).HasConversion<int>();
             entity.Property(e => e.LastAuthMethod).HasConversion<int?>();
+            // PostgreSQL allows multiple NULLs in a unique index, so users
+            // without a generated code do not collide.
+            entity.HasIndex(e => e.ReferralCode).IsUnique();
+            entity.HasIndex(e => e.ReferredByUserId);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(e => e.ReferredByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<StudentProfile>(entity =>
@@ -402,6 +415,44 @@ public class CollegePortalDbContext : IdentityDbContext<ApplicationUser, Identit
             // One unlock per achievement per user.
             entity.HasIndex(e => new { e.UserId, e.Code }).IsUnique();
             entity.Property(e => e.Code).HasMaxLength(64);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<Referral>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            // A new account can be attributed to exactly one inviter.
+            entity.HasIndex(e => e.InviteeUserId).IsUnique();
+            entity.HasIndex(e => new { e.InviterUserId, e.CreatedAt });
+            entity.HasOne(e => e.Inviter)
+                .WithMany()
+                .HasForeignKey(e => e.InviterUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Invitee)
+                .WithMany()
+                .HasForeignKey(e => e.InviteeUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<UserPurchase>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ItemCode).HasMaxLength(64);
+            entity.HasIndex(e => new { e.UserId, e.ItemCode }).IsUnique();
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CoinTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Reason).HasMaxLength(200);
+            entity.HasIndex(e => new { e.UserId, e.CreatedAt });
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)

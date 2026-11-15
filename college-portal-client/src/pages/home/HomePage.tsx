@@ -135,7 +135,9 @@ export function HomePage() {
           </h1>
           <p className="text-dark-textMuted">Вот ваша сводка на сегодня</p>
         </div>
+        <a href='/profile'>
         <Avatar src={user?.studentProfile?.avatarDataUrl || undefined} name={user?.displayName || ''} size="lg" />
+        </a>
       </div>
 
       {/* Настроение дня: реакция на количество пар и отметок за сегодня */}

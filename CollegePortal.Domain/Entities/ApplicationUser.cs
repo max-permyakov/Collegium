@@ -19,6 +19,20 @@ public class ApplicationUser : IdentityUser<Guid>
     /// <summary>Contact handle the user opted to share on their profile (Telegram @username).</summary>
     public string? TelegramUserName { get; set; }
 
+    /// <summary>Short public referral code; generated on first use.</summary>
+    public string? ReferralCode { get; set; }
+
+    /// <summary>Inviter this account was attributed to, if any.</summary>
+    public Guid? ReferredByUserId { get; set; }
+
+    public DateTime? ReferredAt { get; set; }
+
+    /// <summary>Internal loyalty currency earned for invited users.</summary>
+    public int KepkaCoins { get; set; }
+
+    /// <summary>Selected nickname color token from the reward palette.</summary>
+    public string? NicknameColor { get; set; }
+
     public StudentProfile? StudentProfile { get; set; }
     public ICollection<UserAuthProvider> AuthProviders { get; set; } = new List<UserAuthProvider>();
 }

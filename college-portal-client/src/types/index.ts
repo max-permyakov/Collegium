@@ -294,6 +294,8 @@ export interface PublicProfileDto {
   bio?: string | null;
   avatarDataUrl?: string | null;
   clubs: PublicClubDto[];
+  nicknameColor?: string | null;
+  rewardCodes: string[];
 }
 
 import type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, StatisticsContentDto, StatisticsDailyPoint, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod, DiaryCredentialsDto } from './admin';
@@ -302,6 +304,8 @@ import type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, Co
 import type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto } from './map';
 import type { GameModeId, GameLeaderboard, GameLeaderboardEntry, GameScoreSubmission } from './games';
 import type { ChatDto, ChatKind, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto, ChatPresenceDto } from './chats';
+import type { ReferralInviteDto, ReferralSummaryDto, ShopItemDto, ShopResponseDto, PurchaseResultDto, ClaimReferralResultDto, ReferralCodeValidationDto, NicknameColorResultDto } from './referrals';
+import type { AdminReferralDashboardDto, AdminReferralDailyPointDto, AdminTopInviterDto, AdminShopStatDto, AdminRecentInviteDto, AdminRecentPurchaseDto, AdminCoinTransactionDto, AdminGrantCoinsResultDto } from './referral-admin';
 
 export type { AdminUserDto, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, StatisticsGroupDto, StatisticsLoginsDto, StatisticsTopStudentDto, StatisticsContentDto, StatisticsDailyPoint, HeadmanRole, Permission, AdminPermissionsDto, AuthMethod, DiaryCredentialsDto };
 export { ALL_PERMISSIONS, PERMISSION_LABELS } from './admin';
@@ -310,8 +314,10 @@ export type { CollegeCatalog, CollegeLessonItem, CollegeScheduleSearchResult, Co
 export type { BuildingDto, TeacherRefDto, DisciplineDto, AuditoriumDto, AuditoriumRefDto, CollegeMapDto, MapSearchResultDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto };
 export type { GameModeId, GameLeaderboard, GameLeaderboardEntry, GameScoreSubmission };
 export type { ChatDto, ChatKind, ChatListItemDto, ChatMessageDto, ChatMessageKind, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, ChatUserDto, ChatPresenceDto };
+export type { ReferralInviteDto, ReferralSummaryDto, ShopItemDto, ShopResponseDto, PurchaseResultDto, ClaimReferralResultDto, ReferralCodeValidationDto, NicknameColorResultDto };
+export type { AdminReferralDashboardDto, AdminReferralDailyPointDto, AdminTopInviterDto, AdminShopStatDto, AdminRecentInviteDto, AdminRecentPurchaseDto, AdminCoinTransactionDto, AdminGrantCoinsResultDto };
 
-export type AppNotificationType = 'System' | 'News' | 'Assignment' | 'ClubMessage' | 'Comment' | 'ChatMessage';
+export type AppNotificationType = 'System' | 'News' | 'Assignment' | 'ClubMessage' | 'Comment' | 'ChatMessage' | 'Referral';
 
 /** A single row of the server-side notification inbox. */
 export interface AppNotification {

@@ -168,6 +168,9 @@ export interface ProfileDto {
   isViewerAdmin: boolean;
   hasDiaryLink?: boolean;
   lastGroupChangedAt?: string | null;
+  kepkaCoins: number;
+  nicknameColor?: string | null;
+  rewardCodes: string[];
   studentProfile?: {
     id: string;
     studyGroupId: string;

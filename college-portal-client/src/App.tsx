@@ -26,6 +26,7 @@ const loadNewsPage = () => import('./pages/news/NewsPage').then(m => ({ default:
 const loadAdminPage = () => import('./pages/admin/AdminPage').then(m => ({ default: m.AdminPage }));
 const loadProfilePage = () => import('./pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage }));
 const loadPublicProfilePage = () => import('./pages/profile/PublicProfilePage').then(m => ({ default: m.PublicProfilePage }));
+const loadReferralLandingPage = () => import('./pages/referrals/ReferralLandingPage').then(m => ({ default: m.ReferralLandingPage }));
 const loadClubsPage = () => import('./pages/clubs/ClubsPage').then(m => ({ default: m.ClubsPage }));
 const loadClubDetailPage = () => import('./pages/clubs/ClubDetailPage').then(m => ({ default: m.ClubDetailPage }));
 const loadChatsPage = () => import('./pages/chats/ChatsPage').then(m => ({ default: m.ChatsPage }));
@@ -48,6 +49,7 @@ const NewsPage = lazy(loadNewsPage);
 const AdminPage = lazy(loadAdminPage);
 const ProfilePage = lazy(loadProfilePage);
 const PublicProfilePage = lazy(loadPublicProfilePage);
+const ReferralLandingPage = lazy(loadReferralLandingPage);
 const ClubsPage = lazy(loadClubsPage);
 const ClubDetailPage = lazy(loadClubDetailPage);
 const ChatsPage = lazy(loadChatsPage);
@@ -230,6 +232,9 @@ function AppRoutes() {
           <WelcomePage />
         </PublicRoute>
       } />
+
+      {/* Публичная реферальная ссылка: код сохраняется и применяется после входа. */}
+      <Route path="/r/:code" element={<ReferralLandingPage />} />
 
       <Route path="/complete-profile" element={
         <ProtectedRoute>

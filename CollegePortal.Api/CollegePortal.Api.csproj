@@ -21,4 +21,10 @@
     <ProjectReference Include="..\CollegePortal.Infrastructure\CollegePortal.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Local reward files (protected downloads). In Docker the folder is a
+         persistent volume mounted at /data/rewards instead. -->
+    <Content Include="Storage\rewards\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -6,13 +6,25 @@ public class PushServiceClientOptions
     public string PublicKey { get; set; } = string.Empty;
     public string PrivateKey { get; set; } = string.Empty;
 
+    // A very common copy/paste mistake is entering the 87-character public key
+    // and the 43-character private key into the wrong variables. The lengths
+    // make the roles unambiguous, so accept either order instead of silently
+    // disabling push.
+    private bool KeysAreSwapped =>
+        IsValidVapidKey(PublicKey, expectedBytes: 32) &&
+        IsValidVapidKey(PrivateKey, expectedBytes: 65);
+
+    public string EffectivePublicKey => KeysAreSwapped ? PrivateKey : PublicKey;
+
+    public string EffectivePrivateKey => KeysAreSwapped ? PublicKey : PrivateKey;
+
     // Push is only attempted when both VAPID keys are configured AND well
     // formed. A malformed key is worse than no key: the browser would fail
     // inside PushManager.subscribe with InvalidAccessError without any hint,
     // so an unparsable pair keeps push disabled instead.
     public bool IsConfigured =>
-        IsValidVapidKey(PublicKey, expectedBytes: 65) &&
-        IsValidVapidKey(PrivateKey, expectedBytes: 32);
+        IsValidVapidKey(EffectivePublicKey, expectedBytes: 65) &&
+        IsValidVapidKey(EffectivePrivateKey, expectedBytes: 32);
 
     /// <summary>
     /// web-push VAPID keys are unpadded base64url: the public key is a 65-byte

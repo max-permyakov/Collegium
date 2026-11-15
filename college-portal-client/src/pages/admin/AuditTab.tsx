@@ -15,6 +15,7 @@ const actionLabels: Record<string, string> = {
   Block: 'Блокировка',
   Unblock: 'Разблокировка',
   RecomputeGrades: 'Пересчёт оценок',
+  GrantKepkaCoins: 'Начисление KepkaCoin',
   'diary-nonstudent-login': '⚠ Вход без студенческой роли',
 };
 

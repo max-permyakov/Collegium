@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { Modal } from '../../components/ui/Modal';
 import { PermissionsModal } from '../../components/admin/PermissionsModal';
@@ -16,6 +17,9 @@ import { notifyFailure, notifySuccess } from '../../utils/notify';
 import { fileToAvatarDataUrl } from '../../utils/image';
 import { FunLoader } from '../../components/ambient/FunLoader';
 import { PROFILE } from '../../components/ambient/loadPhrases';
+import { ReferralTab } from './ReferralTab';
+import { ProfileSettingsModal } from '../../components/profile/ProfileSettingsModal';
+import { hasAvatarFrame, nicknameClass, profileBadges } from '../../utils/rewards';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
 const MAX_BIO_LENGTH = 200;
@@ -23,6 +27,18 @@ const MAX_BIO_LENGTH = 200;
 const PencilIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m3 0h3a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1h3m2 0V4a1 1 0 011-1h0a1 1 0 011 1v1zm3.5 3.5L9 14v2h2l6.5-6.5a1.41 1.41 0 00-2-2z" />
+  </svg>
+);
+
+const GearIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+    />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
 
@@ -228,8 +244,13 @@ export function ProfilePage() {
   const [groupError, setGroupError] = useState('');
   const [groupSuccess, setGroupSuccess] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const initialTab =
+    !isAdminView && new URLSearchParams(location.search).get('tab') === 'referrals'
+      ? 'referrals'
+      : 'profile';
 
   const { data: groups = [] } = useQuery<string[]>({
     queryKey: ['auth', 'groups'],
@@ -386,8 +407,21 @@ export function ProfilePage() {
     profile.email && { label: 'Почта', value: profile.email },
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 
+  const hasFrame = hasAvatarFrame(profile.rewardCodes);
+
   return (
-    <div className="space-y-6">
+    <Tabs key={initialTab} defaultValue={initialTab} className="space-y-4">
+      {!isAdminView && (
+        <TabsList>
+          <TabsTrigger value="profile">Профиль</TabsTrigger>
+          <TabsTrigger value="referrals">Рефералы</TabsTrigger>
+        </TabsList>
+      )}
+      <TabsContent value="referrals" className="space-y-6">
+        <ReferralTab />
+      </TabsContent>
+      <TabsContent value="profile">
+        <div className="space-y-6">
       {isAdminView && (
         <div className="flex items-center gap-2">
           <button
@@ -407,18 +441,26 @@ export function ProfilePage() {
         <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-6 items-start">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-32 h-32 rounded-2xl bg-dark-bg border border-dark-border overflow-hidden flex items-center justify-center">
-                {profile.avatarDataUrl ? (
-                  <img
-                    src={profile.avatarDataUrl}
-                    alt="avatar"
-                    className="w-full h-full object-cover cursor-zoom-in"
-                    onClick={() => setPreviewAvatar(profile.avatarDataUrl || null)}
-                    role="button"
-                  />
-                ) : (
-                  <span className="text-3xl font-semibold text-dark-textMuted">{profile.displayName.slice(0,2).toUpperCase()}</span>
-                )}
+              <div className={hasFrame ? 'avatar-frame' : ''}>
+                {hasFrame && <span className="avatar-frame__spin" aria-hidden="true" />}
+                <div
+                  className={`w-32 h-32 rounded-2xl bg-dark-bg border border-dark-border overflow-hidden flex items-center justify-center ${
+                    hasFrame ? 'avatar-frame__inner' : ''
+                  }`}
+                >
+                  {profile.avatarDataUrl ? (
+                    <img
+                      src={profile.avatarDataUrl}
+                      alt="avatar"
+                      className="w-full h-full object-cover cursor-zoom-in"
+                      onClick={() => setPreviewAvatar(profile.avatarDataUrl || null)}
+                      role="button"
+                    />
+                  ) : (
+                    <span className="text-3xl font-semibold text-dark-textMuted">{profile.displayName.slice(0,2).toUpperCase()}</span>
+                  )}
+                </div>
+                {hasFrame && <span className="avatar-frame__shine" aria-hidden="true" />}
               </div>
               {!isAdminView && (
                 <div className="flex flex-col items-center gap-2">
@@ -454,20 +496,36 @@ export function ProfilePage() {
             <div className="flex-1 space-y-3 w-full">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold text-dark-text">{profile.displayName}</h2>
+                  <h2
+                    className={`text-xl font-semibold text-dark-text ${nicknameClass(profile.nicknameColor)}`}
+                  >
+                    {profile.displayName}
+                  </h2>
                   <p className="text-dark-textMuted">{profile.login}</p>
                 </div>
-                {/* Pencil edit: name, contacts and bio in one place */}
                 {!isAdminView && (
-                  <button
-                    type="button"
-                    onClick={() => setEditOpen(true)}
-                    className="w-9 h-9 shrink-0 rounded-full border border-dark-border bg-dark-card flex items-center justify-center text-dark-textMuted hover:text-primary-400 hover:border-primary-500/40 transition-colors"
-                    title="Редактировать профиль"
-                    aria-label="Редактировать профиль"
-                  >
-                    <PencilIcon className="w-4 h-4" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {/* Settings: app install and push notifications. */}
+                    <button
+                      type="button"
+                      onClick={() => setSettingsOpen(true)}
+                      className="w-9 h-9 rounded-full border border-dark-border bg-dark-card flex items-center justify-center text-dark-textMuted hover:text-primary-400 hover:border-primary-500/40 transition-colors"
+                      title="Настройки"
+                      aria-label="Настройки"
+                    >
+                      <GearIcon className="w-4 h-4" />
+                    </button>
+                    {/* Pencil edit: name, contacts and bio in one place */}
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(true)}
+                      className="w-9 h-9 rounded-full border border-dark-border bg-dark-card flex items-center justify-center text-dark-textMuted hover:text-primary-400 hover:border-primary-500/40 transition-colors"
+                      title="Редактировать профиль"
+                      aria-label="Редактировать профиль"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -476,6 +534,14 @@ export function ProfilePage() {
                   <Badge variant="info">{profile.headmanRole === 'Headman' ? 'Староста' : 'Зам. старосты'}</Badge>
                 )}
                 {profile.isProtected && isViewerAdmin && <Badge variant="warning">Защищённый</Badge>}
+                {!isAdminView && (
+                  <Badge variant="warning">🪙 {profile.kepkaCoins ?? 0} KepkaCoin</Badge>
+                )}
+                {profileBadges(profile.rewardCodes).map((badge) => (
+                  <Badge key={badge.code} variant={badge.variant} className={badge.className}>
+                    {badge.label}
+                  </Badge>
+                ))}
               </div>
               <div className="grid gap-2 sm:grid-cols-2 text-sm text-dark-textMuted">
                 {profile.studyGroupName && (
@@ -690,7 +756,13 @@ export function ProfilePage() {
         onSaved={notifySuccess}
       />
 
+      {!isAdminView && settingsOpen && (
+        <ProfileSettingsModal onClose={() => setSettingsOpen(false)} />
+      )}
+
       <Lightbox src={previewAvatar} alt="Фото профиля" onClose={() => setPreviewAvatar(null)} />
-    </div>
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 }

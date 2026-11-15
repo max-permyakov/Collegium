@@ -23,7 +23,10 @@ public record ProfileDto(
     DateTime CreatedAt,
     bool IsViewerAdmin,
     bool HasDiaryLink,
-    DateTime? LastGroupChangedAt
+    DateTime? LastGroupChangedAt,
+    int KepkaCoins,
+    string? NicknameColor,
+    string[] RewardCodes
 );
 
 public record ProfileUpdateResult(
@@ -51,7 +54,9 @@ public record PublicProfileDto(
     string HeadmanRole,
     string? Bio,
     string? AvatarDataUrl,
-    PublicClubDto[] Clubs
+    PublicClubDto[] Clubs,
+    string? NicknameColor,
+    string[] RewardCodes
 );
 
 public record PublicClubDto(

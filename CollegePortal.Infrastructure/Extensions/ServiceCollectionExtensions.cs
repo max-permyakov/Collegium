@@ -156,8 +156,8 @@ public static class ServiceCollectionExtensions
             if (options.IsConfigured)
             {
                 client.DefaultAuthentication = new VapidAuthentication(
-                    options.PublicKey,
-                    options.PrivateKey)
+                    options.EffectivePublicKey,
+                    options.EffectivePrivateKey)
                 {
                     Subject = options.Subject
                 };
@@ -236,6 +236,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRatingService, RatingService>();
         services.AddScoped<IGameService, GameService>();
         services.AddScoped<IAchievementService, AchievementService>();
+        services.AddScoped<IReferralService, ReferralService>();
 
         services.AddHostedService<KkepikScheduleSyncService>();
 

@@ -67,6 +67,12 @@ public class ProfileService : IProfileService
             .Include(sp => sp.StudyGroup)
             .FirstOrDefaultAsync(sp => sp.UserId == targetUserId, ct);
 
+        var rewardCodes = await _dbContext.UserPurchases
+            .AsNoTracking()
+            .Where(p => p.UserId == targetUserId)
+            .Select(p => p.ItemCode)
+            .ToArrayAsync(ct);
+
         return new ProfileDto(
             user.Id,
             user.UserName ?? "",
@@ -90,7 +96,10 @@ public class ProfileService : IProfileService
             user.CreatedAt,
             requesterRoles.Contains("Admin"),
             profile?.ExternalStudentId != null,
-            profile?.LastGroupChangedAt
+            profile?.LastGroupChangedAt,
+            user.KepkaCoins,
+            user.NicknameColor,
+            rewardCodes
         );
     }
 
@@ -121,6 +130,12 @@ public class ProfileService : IProfileService
             .Select(c => new PublicClubDto(c.Id, c.Name, c.AvatarDataUrl, c.IsPrivate))
             .ToArrayAsync(ct);
 
+        var rewardCodes = await _dbContext.UserPurchases
+            .AsNoTracking()
+            .Where(p => p.UserId == targetUserId)
+            .Select(p => p.ItemCode)
+            .ToArrayAsync(ct);
+
         return new PublicProfileDto(
             user.Id,
             user.DisplayName,
@@ -128,7 +143,9 @@ public class ProfileService : IProfileService
             profile?.HeadmanRole.ToString() ?? "None",
             profile?.Bio,
             profile?.AvatarDataUrl,
-            clubs
+            clubs,
+            user.NicknameColor,
+            rewardCodes
         );
     }
 

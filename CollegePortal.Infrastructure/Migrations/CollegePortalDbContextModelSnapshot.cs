@@ -173,6 +173,9 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<bool>("IsProtected")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("KepkaCoins")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("LastActivityAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -191,6 +194,10 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("NicknameColor")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -207,6 +214,16 @@ namespace CollegePortal.Infrastructure.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("ReferralCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("ReferredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReferredByUserId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("RegistrationSource")
                         .HasColumnType("integer");
@@ -238,6 +255,11 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
+
+                    b.HasIndex("ReferralCode")
+                        .IsUnique();
+
+                    b.HasIndex("ReferredByUserId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -630,6 +652,36 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("ClubMessages");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.CoinTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Amount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("CounterpartyUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("CoinTransactions");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.CollegeTeacher", b =>
                 {
                     b.Property<Guid>("Id")
@@ -969,6 +1021,34 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("PushSubscriptions");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Referral", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CoinsAwarded")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("InviteeUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InviterUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InviteeUserId")
+                        .IsUnique();
+
+                    b.HasIndex("InviterUserId", "CreatedAt");
+
+                    b.ToTable("Referrals");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1189,6 +1269,34 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.ToTable("UserPermissions");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.UserPurchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("PricePaid")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("PurchasedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ItemCode")
+                        .IsUnique();
+
+                    b.ToTable("UserPurchases");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1377,6 +1485,14 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Navigation("StudyGroup");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.ApplicationUser", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ReferredByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.Assignment", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "CreatedBy")
@@ -1513,6 +1629,17 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.CoinTransaction", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.GameScore", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
@@ -1576,6 +1703,25 @@ namespace CollegePortal.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("CollegePortal.Domain.Entities.Referral", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "Invitee")
+                        .WithMany()
+                        .HasForeignKey("InviteeUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "Inviter")
+                        .WithMany()
+                        .HasForeignKey("InviterUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invitee");
+
+                    b.Navigation("Inviter");
+                });
+
             modelBuilder.Entity("CollegePortal.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
@@ -1629,6 +1775,17 @@ namespace CollegePortal.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("CollegePortal.Domain.Entities.UserPermission", b =>
+                {
+                    b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CollegePortal.Domain.Entities.UserPurchase", b =>
                 {
                     b.HasOne("CollegePortal.Domain.Entities.ApplicationUser", "User")
                         .WithMany()

@@ -1,5 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AchievementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, DiaryCredentialsDto } from '../types';
+import type { LoginRequest, ScheduleDay, WeekScheduleResponse, KkepikScheduleResponse, GradesResponse, PerformanceResponse, AnnouncementListItem, Announcement, CreateAnnouncementDto, UpdateAnnouncementDto, NewsCommentDto, AchievementDto, AssignmentListItem, Assignment, CreateAssignmentDto, UpdateAssignmentDto, User, AdminUsersPageDto, StatisticsDto, AuditLogDto, ProfileDto, PublicProfileDto, ClubListDto, ClubDetailDto, ClubMessageDto, CreateClubDto, UpdateClubDto, CollegeCatalog, CollegeScheduleSearchResult, CollegeTeacher, CollegeMapDto, BuildingDto, DisciplineDto, MapSearchResultDto, AuditoriumDto, CreateBuildingDto, UpdateBuildingDto, CreateAuditoriumDto, UpdateAuditoriumDto, Permission, AdminPermissionsDto, GroupRating, RatingParticipation, GameLeaderboard, GameScoreSubmission, AppNotification, AppNotificationType, NotificationPreference, ChatDto, ChatListItemDto, ChatMessageDto, ChatPresenceDto, ChatSearchResultDto, ChatUploadDto, ChatUploadKind, DiaryCredentialsDto, ReferralSummaryDto, ShopResponseDto, PurchaseResultDto, ClaimReferralResultDto, ReferralCodeValidationDto, NicknameColorResultDto, AdminReferralDashboardDto, AdminGrantCoinsResultDto } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5221/api';
 
@@ -209,6 +209,26 @@ export const profileApi = {
   changeGroup: (groupName: string) => api.put('/profile/me/group', { groupName }),
 };
 
+export const referralsApi = {
+  getMe: () => api.get<ReferralSummaryDto>('/referrals/me'),
+  getShop: () => api.get<ShopResponseDto>('/referrals/shop'),
+  purchase: (code: string) =>
+    api.post<PurchaseResultDto>(`/referrals/shop/${encodeURIComponent(code)}/purchase`),
+  claim: (code: string) =>
+    api.post<ClaimReferralResultDto>('/referrals/claim', { code }),
+  validate: (code: string) =>
+    api.get<ReferralCodeValidationDto>(`/referrals/validate/${encodeURIComponent(code)}`),
+  setNicknameColor: (color: string | null) =>
+    api.put<NicknameColorResultDto>('/referrals/me/nickname-color', { color }),
+  downloadReward: (code: string) =>
+    api.get<Blob>(`/referrals/rewards/${encodeURIComponent(code)}/download`, {
+      responseType: 'blob',
+      // The program is a multi-megabyte file, so give it more than the
+      // default 30 s API budget.
+      timeout: 120000,
+    }),
+};
+
 export const adminApi = {
   getStatistics: () => api.get<StatisticsDto>('/admin/statistics'),
   getUsers: (params?: { page?: number; pageSize?: number; q?: string }) =>
@@ -227,6 +247,13 @@ export const adminApi = {
   deleteClub: (id: string) => api.delete(`/admin/clubs/${id}`),
   refreshCollegeCatalog: () => api.post('/admin/college-info/catalog/refresh'),
   refreshCollegeTeachers: () => api.post('/admin/college-info/teachers/refresh'),
+};
+
+export const adminReferralsApi = {
+  getDashboard: (days = 30) =>
+    api.get<AdminReferralDashboardDto>('/admin/referrals', { params: { days } }),
+  grantCoins: (payload: { userId: string; amount: number; reason?: string }) =>
+    api.post<AdminGrantCoinsResultDto>('/admin/referrals/grant', payload),
 };
 
 export const permissionsApi = {
